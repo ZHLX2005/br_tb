@@ -28,7 +28,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["favorites.html", "favorites_debug.html", "favorites_debug_fixed.html", "favorites_debug_script.js"],
+      "resources": ["favorites.html", "favorites.js"],
       "matches": ["<all_urls>"]
     }
   ],

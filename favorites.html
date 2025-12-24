@@ -5,56 +5,84 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>我的收藏</title>
   <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
       padding: 20px;
       max-width: 800px;
       margin: 0 auto;
       line-height: 1.6;
-      background: #f5f5f5;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
     }
     .container {
       background: white;
       padding: 30px;
-      border-radius: 10px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      animation: fadeIn 0.3s ease-in-out;
+    }
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
     h1 {
       color: #4CAF50;
-      border-bottom: 2px solid #4CAF50;
-      padding-bottom: 10px;
+      border-bottom: 3px solid #4CAF50;
+      padding-bottom: 15px;
       margin-bottom: 30px;
+      font-size: 28px;
+      display: flex;
+      align-items: center;
+    }
+    h1::before {
+      content: '⭐';
+      margin-right: 10px;
     }
     .favorite-item {
       margin-bottom: 20px;
       padding: 15px;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      background: #f9f9f9;
-      transition: transform 0.2s, box-shadow 0.2s;
+      border: 1px solid #e0e0e0;
+      border-radius: 10px;
+      background: #fafafa;
+      transition: all 0.3s ease;
     }
     .favorite-item:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      transform: translateY(-3px);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+      background: white;
     }
     .favorite-text {
       color: #333;
-      margin-bottom: 8px;
-      font-size: 14px;
-      background: #e8f5e8;
-      padding: 10px;
-      border-radius: 4px;
-      border-left: 3px solid #4CAF50;
+      margin-bottom: 12px;
+      font-size: 15px;
+      background: linear-gradient(135deg, #e8f5e8 0%, #f1f8f1 100%);
+      padding: 12px;
+      border-radius: 6px;
+      border-left: 4px solid #4CAF50;
       word-wrap: break-word;
+      font-weight: 500;
     }
     .favorite-url {
       color: #2196F3;
       margin-bottom: 8px;
-      font-size: 12px;
+      font-size: 13px;
       word-break: break-all;
       cursor: pointer;
+      transition: color 0.2s;
     }
     .favorite-url:hover {
+      color: #1976D2;
       text-decoration: underline;
     }
     .timestamp {
@@ -65,61 +93,79 @@
     .empty-message {
       text-align: center;
       color: #666;
-      padding: 40px;
-      font-style: italic;
+      padding: 60px 20px;
       font-size: 16px;
+    }
+    .empty-message::before {
+      content: '📚';
+      display: block;
+      font-size: 60px;
+      margin-bottom: 20px;
     }
     .clear-favorites {
       margin-top: 20px;
       padding: 12px 24px;
-      background: #ff4444;
+      background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
       color: white;
       border: none;
-      border-radius: 5px;
+      border-radius: 8px;
       cursor: pointer;
       font-size: 14px;
       font-weight: 500;
-      transition: background-color 0.2s;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
     }
     .clear-favorites:hover {
-      background: #cc0000;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(255, 107, 107, 0.4);
     }
     .header-actions {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 20px;
+      margin-bottom: 25px;
+      padding: 15px;
+      background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+      border-radius: 8px;
     }
     .count {
-      color: #666;
-      font-size: 14px;
+      color: #495057;
+      font-size: 15px;
+      font-weight: 500;
+    }
+    .count::before {
+      content: '📊 ';
     }
     .export-btn {
-      padding: 8px 16px;
-      background: #4CAF50;
+      padding: 10px 20px;
+      background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
       color: white;
       border: none;
-      border-radius: 4px;
+      border-radius: 8px;
       cursor: pointer;
-      font-size: 13px;
-      margin-right: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
     }
     .export-btn:hover {
-      background: #45a049;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
     }
     .delete-btn {
-      padding: 4px 8px;
-      background: #ff5252;
+      padding: 6px 14px;
+      background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
       color: white;
       border: none;
-      border-radius: 3px;
+      border-radius: 6px;
       cursor: pointer;
       font-size: 12px;
-      float: right;
-      transition: background-color 0.2s;
+      font-weight: 500;
+      transition: all 0.2s ease;
     }
     .delete-btn:hover {
-      background: #d32f2f;
+      background: linear-gradient(135deg, #ee5a6f 0%, #e63946 100%);
+      transform: scale(1.05);
     }
     @media (max-width: 600px) {
       body {
@@ -130,19 +176,24 @@
       }
       .header-actions {
         flex-direction: column;
-        gap: 10px;
+        gap: 15px;
       }
       .export-btn {
         width: 100%;
+      }
+      h1 {
+        font-size: 22px;
       }
     }
     .favorite-header {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
+      gap: 10px;
     }
     .favorite-content {
       flex: 1;
+      min-width: 0;
     }
   </style>
 </head>
@@ -152,139 +203,16 @@
 
     <div class="header-actions">
       <span class="count" id="favoritesCount">共 0 条收藏</span>
-      <div>
-        <button class="export-btn" onclick="exportFavorites()">导出收藏</button>
-      </div>
+      <button id="exportBtn" class="export-btn">📥 导出收藏</button>
     </div>
 
     <div id="favoritesList">
       <div class="empty-message">正在加载收藏列表...</div>
     </div>
 
-    <button class="clear-favorites" id="clearBtn" style="display: none;" onclick="clearFavorites()">清空收藏列表</button>
+    <button id="clearBtn" class="clear-favorites" style="display: none;">🗑️ 清空收藏列表</button>
   </div>
 
-  <script>
-    // 页面加载完成后获取收藏列表
-    document.addEventListener('DOMContentLoaded', () => {
-      loadFavorites();
-    });
-
-    // 加载收藏列表
-    function loadFavorites() {
-      chrome.storage.local.get(['favorites'], (result) => {
-        const favorites = result.favorites || [];
-        displayFavorites(favorites);
-      });
-    }
-
-    // 显示收藏列表
-    function displayFavorites(favorites) {
-      const favoritesList = document.getElementById('favoritesList');
-      const clearBtn = document.getElementById('clearBtn');
-      const count = document.getElementById('favoritesCount');
-
-      count.textContent = `共 ${favorites.length} 条收藏`;
-
-      if (favorites.length === 0) {
-        favoritesList.innerHTML = '<div class="empty-message">暂无收藏内容<br><br>提示：选中网页上的文字，然后按住Ctrl键即可收藏</div>';
-        clearBtn.style.display = 'none';
-      } else {
-        favoritesList.innerHTML = favorites.map((item, index) => `
-          <div class="favorite-item">
-            <div class="favorite-header">
-              <div class="favorite-content">
-                <div class="favorite-text">${escapeHtml(item.text)}</div>
-                <div class="favorite-url" onclick="openUrl('${escapeHtml(item.url)}')" title="点击访问来源页面">${getDomain(item.url)}</div>
-                <div class="timestamp">${new Date(item.timestamp).toLocaleString('zh-CN')}</div>
-              </div>
-              <button class="delete-btn" onclick="deleteFavorite(${index})">删除</button>
-            </div>
-          </div>
-        `).join('');
-        clearBtn.style.display = 'inline-block';
-      }
-    }
-
-    // 获取域名
-    function getDomain(url) {
-      try {
-        const urlObj = new URL(url);
-        return urlObj.hostname + urlObj.pathname;
-      } catch (e) {
-        return url;
-      }
-    }
-
-    // 打开URL
-    function openUrl(url) {
-      chrome.tabs.create({ url: url });
-    }
-
-    // HTML转义函数
-    function escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text;
-      return div.innerHTML;
-    }
-
-    // 删除单个收藏
-    function deleteFavorite(index) {
-      if (confirm('确定要删除这条收藏吗？')) {
-        chrome.storage.local.get(['favorites'], (result) => {
-          const favorites = result.favorites || [];
-          favorites.splice(index, 1);
-          chrome.storage.local.set({ favorites }, () => {
-            displayFavorites(favorites);
-          });
-        });
-      }
-    }
-
-    // 清空收藏列表
-    function clearFavorites() {
-      if (confirm('确定要清空所有收藏吗？此操作不可撤销。')) {
-        chrome.storage.local.remove(['favorites'], () => {
-          displayFavorites([]);
-          alert('收藏列表已清空');
-        });
-      }
-    }
-
-    // 导出收藏列表
-    function exportFavorites() {
-      chrome.storage.local.get(['favorites'], (result) => {
-        const favorites = result.favorites || [];
-
-        if (favorites.length === 0) {
-          alert('没有可导出的收藏');
-          return;
-        }
-
-        // 创建导出文本
-        const exportText = favorites.map(item => {
-          return `收藏内容: ${item.text}\n来源页面: ${item.url}\n收藏时间: ${new Date(item.timestamp).toLocaleString('zh-CN')}\n${'-'.repeat(50)}`;
-        }).join('\n\n');
-
-        // 创建Blob并下载
-        const blob = new Blob([exportText], { type: 'text/plain;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `我的收藏_${new Date().toISOString().split('T')[0]}.txt`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      });
-    }
-
-    // 监听存储变化（如果有其他标签页修改了收藏列表）
-    chrome.storage.onChanged.addListener((changes, namespace) => {
-      if (namespace === 'local' && changes.favorites) {
-        displayFavorites(changes.favorites.newValue || []);
-      }
-    });
-  </script>
+  <script src="favorites.js"></script>
 </body>
 </html>

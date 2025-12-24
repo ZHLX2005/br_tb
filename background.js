@@ -64,9 +64,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       }
     });
   } else if (request.action === 'openFavorites') {
-    // 打开收藏列表页面（使用修复版的调试版本）
+    // 打开收藏列表页面
     chrome.tabs.create({
-      url: chrome.runtime.getURL('favorites_debug_fixed.html')
+      url: chrome.runtime.getURL('favorites.html')
     });
   }
 
