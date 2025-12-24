@@ -6,6 +6,8 @@ let settings = {
   autoTranslate: false,
   showContextMenu: true
 };
+// 标记设置是否已加载完成
+let settingsLoaded = false;
 
 // 初始化翻译浮层
 function createTooltip() {
@@ -231,8 +233,8 @@ function showFavoriteNotification(text) {
 
 // 监听文本选择事件
 document.addEventListener('mouseup', (e) => {
-  // 检查是否启用了自动翻译
-  if (!settings.autoTranslate) {
+  // 检查设置是否已加载完成，以及是否启用了自动翻译
+  if (!settingsLoaded || !settings.autoTranslate) {
     return;
   }
 
@@ -335,6 +337,8 @@ function loadSettings() {
     if (result.settings) {
       settings = { ...settings, ...result.settings };
     }
+    // 标记设置已加载完成
+    settingsLoaded = true;
   });
 }
 
