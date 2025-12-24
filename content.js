@@ -1,6 +1,11 @@
 // 创建翻译浮层元素
 let translationTooltip = null;
 let lastSelection = '';
+// 设置状态
+let settings = {
+  autoTranslate: true,
+  showContextMenu: true
+};
 
 // 初始化翻译浮层
 function createTooltip() {
@@ -226,6 +231,11 @@ function showFavoriteNotification(text) {
 
 // 监听文本选择事件
 document.addEventListener('mouseup', (e) => {
+  // 检查是否启用了自动翻译
+  if (!settings.autoTranslate) {
+    return;
+  }
+
   // 延迟一小段时间确保选择完成
   setTimeout(() => {
     const selection = window.getSelection();
@@ -264,7 +274,11 @@ document.addEventListener('mouseup', (e) => {
 
 // 监听来自后台的消息
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === 'showTranslation') {
+  if (request.action === 'updateSettings') {
+    // 更新设置
+    settings = { ...settings, ...request.settings };
+    sendResponse({ success: true });
+  } else if (request.action === 'showTranslation') {
     // 获取当前选择的位置
     const selection = window.getSelection();
     if (selection.rangeCount > 0) {
@@ -312,4 +326,21 @@ document.addEventListener('keydown', (e) => {
 // 页面加载完成后的初始化
 document.addEventListener('DOMContentLoaded', () => {
   createTooltip();
+  loadSettings();
+});
+
+// 加载设置
+function loadSettings() {
+  chrome.storage.local.get(['settings'], (result) => {
+    if (result.settings) {
+      settings = { ...settings, ...result.settings };
+    }
+  });
+}
+
+// 监听storage变化（当popup修改设置时自动同步）
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName === 'local' && changes.settings) {
+    settings = { ...settings, ...changes.settings.newValue };
+  }
 });

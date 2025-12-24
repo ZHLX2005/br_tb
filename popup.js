@@ -127,12 +127,22 @@ function saveSettings() {
 
   chrome.storage.local.set({ settings });
 
-  // 通知内容脚本设置已更改
-  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    chrome.tabs.sendMessage(tabs[0].id, {
-      action: 'updateSettings',
-      settings
+  // 通知所有标签页设置已更改
+  chrome.tabs.query({}, (tabs) => {
+    tabs.forEach(tab => {
+      chrome.tabs.sendMessage(tab.id, {
+        action: 'updateSettings',
+        settings
+      }).catch(() => {
+        // 忽略无法发送消息的标签页（如chrome://页面）
+      });
     });
+  });
+
+  // 通知background脚本
+  chrome.runtime.sendMessage({
+    action: 'updateSettings',
+    settings
   });
 }
 

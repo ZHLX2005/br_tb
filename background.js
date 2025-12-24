@@ -1,15 +1,47 @@
+// 菜单ID
+const MENU_ID = 'translateSelection';
+
 // 创建右键菜单项
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
-    id: 'translateSelection',
+    id: MENU_ID,
     title: '翻译 "%s"',
     contexts: ['selection']
   });
 });
 
+// 根据设置更新菜单显示状态
+function updateContextMenuVisibility() {
+  chrome.storage.local.get(['settings'], (result) => {
+    const settings = result.settings || { showContextMenu: true };
+
+    if (settings.showContextMenu) {
+      // 显示菜单
+      chrome.contextMenus.create({
+        id: MENU_ID,
+        title: '翻译 "%s"',
+        contexts: ['selection']
+      }, () => {
+        // 忽略菜单已存在的错误
+        if (chrome.runtime.lastError) {
+          // 菜单可能已存在，这是正常情况
+        }
+      });
+    } else {
+      // 隐藏菜单
+      chrome.contextMenus.remove(MENU_ID, () => {
+        // 忽略菜单不存在的错误
+        if (chrome.runtime.lastError) {
+          // 菜单可能已被删除，这是正常情况
+        }
+      });
+    }
+  });
+}
+
 // 处理右键菜单点击事件
 chrome.contextMenus.onClicked.addListener((info, tab) => {
-  if (info.menuItemId === 'translateSelection') {
+  if (info.menuItemId === MENU_ID) {
     const selectedText = info.selectionText;
 
     // 模拟翻译（在原文后添加x）
@@ -26,7 +58,11 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 
 // 监听来自content script的消息
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === 'translate') {
+  if (request.action === 'updateSettings') {
+    // 更新右键菜单显示状态
+    updateContextMenuVisibility();
+    sendResponse({ success: true });
+  } else if (request.action === 'translate') {
     // 模拟翻译API调用
     const translatedText = request.text + 'x';
 
@@ -80,5 +116,12 @@ chrome.storage.local.get(['favorites'], (result) => {
     chrome.storage.local.set({
       favorites: []
     });
+  }
+});
+
+// 监听storage变化（当popup修改设置时自动更新右键菜单）
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName === 'local' && changes.settings) {
+    updateContextMenuVisibility();
   }
 });
