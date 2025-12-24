@@ -1,9 +1,9 @@
 // 创建翻译浮层元素
 let translationTooltip = null;
 let lastSelection = '';
-// 设置状态
+// 设置状态（默认关闭，等待从storage加载实际设置）
 let settings = {
-  autoTranslate: true,
+  autoTranslate: false,
   showContextMenu: true
 };
 
