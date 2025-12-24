@@ -26,8 +26,14 @@ function loadBookmarks() {
 // 收集所有文件夹
 function collectFolders(nodes, folders = [], path = '') {
   nodes.forEach(node => {
+    // 跳过没有标题的根节点
     if (!node.url) {
-      // 这是一个文件夹
+      // 如果是根节点（没有title），直接处理子节点
+      if (!node.title && node.children) {
+        collectFolders(node.children, folders, '');
+        return;
+      }
+
       const currentPath = path ? `${path} / ${node.title || '未命名'}` : (node.title || '未命名');
       folders.push({
         id: node.id,
