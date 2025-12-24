@@ -1,0 +1,214 @@
+/* 翻译浮层样式 */
+.translation-tooltip {
+  position: fixed;
+  z-index: 10000;
+  background: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 14px;
+  max-width: 350px;
+  min-width: 200px;
+  display: none;
+  line-height: 1.5;
+  animation: tooltipFadeIn 0.2s ease-in-out;
+}
+
+/* 淡入动画 */
+@keyframes tooltipFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 浮层头部 */
+.tooltip-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 15px;
+  background: #f5f5f5;
+  border-bottom: 1px solid #e0e0e0;
+  border-radius: 8px 8px 0 0;
+}
+
+.tooltip-title {
+  font-weight: 600;
+  color: #333;
+  font-size: 14px;
+}
+
+.tooltip-close {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: #666;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.tooltip-close:hover {
+  background-color: #e0e0e0;
+}
+
+/* 浮层内容 */
+.tooltip-content {
+  padding: 15px;
+}
+
+.original-text {
+  color: #333;
+  font-size: 14px;
+  margin-bottom: 8px;
+  word-wrap: break-word;
+}
+
+.arrow {
+  text-align: center;
+  color: #666;
+  font-size: 12px;
+  margin: 8px 0;
+}
+
+.translated-text {
+  color: #2c5aa0;
+  font-size: 14px;
+  font-weight: 500;
+  word-wrap: break-word;
+  padding: 10px;
+  background: #f8f9fa;
+  border-radius: 4px;
+  border-left: 3px solid #2c5aa0;
+}
+
+/* 浮层底部 */
+.tooltip-footer {
+  display: flex;
+  gap: 10px;
+  padding: 10px 15px;
+  background: #f9f9f9;
+  border-top: 1px solid #e0e0e0;
+  border-radius: 0 0 8px 8px;
+}
+
+.copy-btn,
+.history-btn {
+  padding: 6px 12px;
+  border: 1px solid #ddd;
+  background: #fff;
+  color: #666;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s;
+}
+
+.copy-btn:hover,
+.history-btn:hover {
+  background: #f0f0f0;
+  border-color: #999;
+  color: #333;
+}
+
+.copy-btn:active {
+  background: #e0e0e0;
+}
+
+/* 深色主题支持 */
+@media (prefers-color-scheme: dark) {
+  .translation-tooltip {
+    background: #2d2d2d;
+    border-color: #444;
+    color: #e0e0e0;
+  }
+
+  .tooltip-header {
+    background: #3a3a3a;
+    border-bottom-color: #444;
+  }
+
+  .tooltip-title {
+    color: #e0e0e0;
+  }
+
+  .tooltip-close {
+    color: #aaa;
+  }
+
+  .tooltip-close:hover {
+    background-color: #444;
+  }
+
+  .original-text {
+    color: #e0e0e0;
+  }
+
+  .arrow {
+    color: #aaa;
+  }
+
+  .translated-text {
+    color: #66b0ff;
+    background: #1e1e1e;
+    border-left-color: #66b0ff;
+  }
+
+  .tooltip-footer {
+    background: #3a3a3a;
+    border-top-color: #444;
+  }
+
+  .copy-btn,
+  .history-btn {
+    background: #2d2d2d;
+    border-color: #444;
+    color: #aaa;
+  }
+
+  .copy-btn:hover,
+  .history-btn:hover {
+    background: #444;
+    border-color: #666;
+    color: #e0e0e0;
+  }
+}
+
+/* 响应式设计 */
+@media (max-width: 480px) {
+  .translation-tooltip {
+    max-width: 90vw;
+    min-width: 280px;
+  }
+
+  .tooltip-content {
+    padding: 12px;
+  }
+
+  .original-text,
+  .translated-text {
+    font-size: 13px;
+  }
+}
+
+/* 防止选择文本时的默认样式干扰 */
+.translation-tooltip * {
+  user-select: none;
+}
+
+.original-text,
+.translated-text {
+  user-select: text;
+}

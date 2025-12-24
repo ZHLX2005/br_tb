@@ -1,0 +1,40 @@
+{
+  "manifest_version": 3,
+  "name": "划词翻译插件",
+  "version": "1.0",
+  "description": "一个简单的划词翻译浏览器插件demo",
+  "permissions": [
+    "contextMenus",
+    "storage",
+    "activeTab",
+    "tabs"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["content.css"]
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "划词翻译"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["favorites.html", "favorites_debug.html", "favorites_debug_fixed.html", "favorites_debug_script.js"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  }
+}

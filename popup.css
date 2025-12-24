@@ -1,0 +1,342 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  width: 360px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background: #ffffff;
+  color: #333;
+  line-height: 1.5;
+}
+
+.popup-container {
+  padding: 20px;
+}
+
+/* 头部样式 */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #2c5aa0;
+}
+
+.version {
+  font-size: 12px;
+  color: #666;
+  background: #f0f0f0;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+/* 主要内容区 */
+.main-content {
+  margin-bottom: 20px;
+}
+
+/* 翻译输入区 */
+.translate-section {
+  margin-bottom: 20px;
+}
+
+.text-input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  resize: vertical;
+  min-height: 80px;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+
+.text-input:focus {
+  outline: none;
+  border-color: #2c5aa0;
+  box-shadow: 0 0 0 2px rgba(44, 90, 160, 0.1);
+}
+
+.translate-btn {
+  margin-top: 10px;
+  width: 100%;
+  padding: 12px;
+  background: #2c5aa0;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.translate-btn:hover {
+  background: #1e3d73;
+}
+
+.translate-btn:active {
+  transform: translateY(1px);
+}
+
+/* 翻译结果区 */
+.result-section {
+  margin-bottom: 20px;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #2c5aa0;
+}
+
+.result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.result-label {
+  font-weight: 600;
+  color: #333;
+  font-size: 14px;
+}
+
+.copy-btn {
+  padding: 4px 12px;
+  background: #2c5aa0;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.copy-btn:hover {
+  background: #1e3d73;
+}
+
+.result-text {
+  font-size: 14px;
+  color: #2c5aa0;
+  word-wrap: break-word;
+  line-height: 1.6;
+}
+
+/* 统计信息区 */
+.stats-section {
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 20px;
+  padding: 15px;
+  background: #f9f9f9;
+  border-radius: 8px;
+}
+
+.stat-item {
+  text-align: center;
+}
+
+.stat-label {
+  display: block;
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 5px;
+}
+
+.stat-value {
+  display: block;
+  font-size: 24px;
+  font-weight: 600;
+  color: #2c5aa0;
+}
+
+/* 设置区 */
+.settings-section {
+  margin-bottom: 20px;
+}
+
+.setting-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+  cursor: pointer;
+}
+
+.toggle {
+  width: 44px;
+  height: 24px;
+  margin-right: 12px;
+  appearance: none;
+  background: #ccc;
+  border-radius: 12px;
+  position: relative;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.toggle:checked {
+  background: #2c5aa0;
+}
+
+.toggle::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+
+.toggle:checked::after {
+  transform: translateX(20px);
+}
+
+.toggle-label {
+  font-size: 14px;
+  color: #333;
+}
+
+/* 底部按钮区 */
+.footer {
+  display: flex;
+  justify-content: space-around;
+  padding-top: 15px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.footer-btn {
+  padding: 8px 16px;
+  background: transparent;
+  color: #666;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.footer-btn:hover {
+  background: #f0f0f0;
+  border-color: #999;
+  color: #333;
+}
+
+.footer-btn:active {
+  background: #e0e0e0;
+}
+
+/* 响应式调整 */
+@media (max-width: 400px) {
+  body {
+    width: 320px;
+  }
+
+  .popup-container {
+    padding: 15px;
+  }
+
+  .stats-section {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .stat-item {
+    display: flex;
+    justify-content: space-between;
+  }
+}
+
+/* 动画效果 */
+.result-section {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 加载状态 */
+.loading {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #f3f3f3;
+  border-top: 2px solid #2c5aa0;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 暗色主题支持 */
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #2d2d2d;
+    color: #e0e0e0;
+  }
+
+  .header {
+    border-bottom-color: #444;
+  }
+
+  .text-input {
+    background: #3a3a3a;
+    border-color: #444;
+    color: #e0e0e0;
+  }
+
+  .text-input:focus {
+    border-color: #66b0ff;
+    box-shadow: 0 0 0 2px rgba(102, 176, 255, 0.1);
+  }
+
+  .result-section {
+    background: #1e1e1e;
+    border-left-color: #66b0ff;
+  }
+
+  .stats-section {
+    background: #3a3a3a;
+  }
+
+  .footer {
+    border-top-color: #444;
+  }
+
+  .footer-btn {
+    background: transparent;
+    border-color: #444;
+    color: #aaa;
+  }
+
+  .footer-btn:hover {
+    background: #444;
+    border-color: #666;
+    color: #e0e0e0;
+  }
+}

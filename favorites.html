@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>我的收藏</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      padding: 20px;
+      max-width: 800px;
+      margin: 0 auto;
+      line-height: 1.6;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #4CAF50;
+      border-bottom: 2px solid #4CAF50;
+      padding-bottom: 10px;
+      margin-bottom: 30px;
+    }
+    .favorite-item {
+      margin-bottom: 20px;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background: #f9f9f9;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .favorite-item:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .favorite-text {
+      color: #333;
+      margin-bottom: 8px;
+      font-size: 14px;
+      background: #e8f5e8;
+      padding: 10px;
+      border-radius: 4px;
+      border-left: 3px solid #4CAF50;
+      word-wrap: break-word;
+    }
+    .favorite-url {
+      color: #2196F3;
+      margin-bottom: 8px;
+      font-size: 12px;
+      word-break: break-all;
+      cursor: pointer;
+    }
+    .favorite-url:hover {
+      text-decoration: underline;
+    }
+    .timestamp {
+      color: #999;
+      font-size: 12px;
+      text-align: right;
+    }
+    .empty-message {
+      text-align: center;
+      color: #666;
+      padding: 40px;
+      font-style: italic;
+      font-size: 16px;
+    }
+    .clear-favorites {
+      margin-top: 20px;
+      padding: 12px 24px;
+      background: #ff4444;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: background-color 0.2s;
+    }
+    .clear-favorites:hover {
+      background: #cc0000;
+    }
+    .header-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .count {
+      color: #666;
+      font-size: 14px;
+    }
+    .export-btn {
+      padding: 8px 16px;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+      margin-right: 10px;
+    }
+    .export-btn:hover {
+      background: #45a049;
+    }
+    .delete-btn {
+      padding: 4px 8px;
+      background: #ff5252;
+      color: white;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 12px;
+      float: right;
+      transition: background-color 0.2s;
+    }
+    .delete-btn:hover {
+      background: #d32f2f;
+    }
+    @media (max-width: 600px) {
+      body {
+        padding: 10px;
+      }
+      .container {
+        padding: 20px;
+      }
+      .header-actions {
+        flex-direction: column;
+        gap: 10px;
+      }
+      .export-btn {
+        width: 100%;
+      }
+    }
+    .favorite-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+    .favorite-content {
+      flex: 1;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>我的收藏</h1>
+
+    <div class="header-actions">
+      <span class="count" id="favoritesCount">共 0 条收藏</span>
+      <div>
+        <button class="export-btn" onclick="exportFavorites()">导出收藏</button>
+      </div>
+    </div>
+
+    <div id="favoritesList">
+      <div class="empty-message">正在加载收藏列表...</div>
+    </div>
+
+    <button class="clear-favorites" id="clearBtn" style="display: none;" onclick="clearFavorites()">清空收藏列表</button>
+  </div>
+
+  <script>
+    // 页面加载完成后获取收藏列表
+    document.addEventListener('DOMContentLoaded', () => {
+      loadFavorites();
+    });
+
+    // 加载收藏列表
+    function loadFavorites() {
+      chrome.storage.local.get(['favorites'], (result) => {
+        const favorites = result.favorites || [];
+        displayFavorites(favorites);
+      });
+    }
+
+    // 显示收藏列表
+    function displayFavorites(favorites) {
+      const favoritesList = document.getElementById('favoritesList');
+      const clearBtn = document.getElementById('clearBtn');
+      const count = document.getElementById('favoritesCount');
+
+      count.textContent = `共 ${favorites.length} 条收藏`;
+
+      if (favorites.length === 0) {
+        favoritesList.innerHTML = '<div class="empty-message">暂无收藏内容<br><br>提示：选中网页上的文字，然后按住Ctrl键即可收藏</div>';
+        clearBtn.style.display = 'none';
+      } else {
+        favoritesList.innerHTML = favorites.map((item, index) => `
+          <div class="favorite-item">
+            <div class="favorite-header">
+              <div class="favorite-content">
+                <div class="favorite-text">${escapeHtml(item.text)}</div>
+                <div class="favorite-url" onclick="openUrl('${escapeHtml(item.url)}')" title="点击访问来源页面">${getDomain(item.url)}</div>
+                <div class="timestamp">${new Date(item.timestamp).toLocaleString('zh-CN')}</div>
+              </div>
+              <button class="delete-btn" onclick="deleteFavorite(${index})">删除</button>
+            </div>
+          </div>
+        `).join('');
+        clearBtn.style.display = 'inline-block';
+      }
+    }
+
+    // 获取域名
+    function getDomain(url) {
+      try {
+        const urlObj = new URL(url);
+        return urlObj.hostname + urlObj.pathname;
+      } catch (e) {
+        return url;
+      }
+    }
+
+    // 打开URL
+    function openUrl(url) {
+      chrome.tabs.create({ url: url });
+    }
+
+    // HTML转义函数
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // 删除单个收藏
+    function deleteFavorite(index) {
+      if (confirm('确定要删除这条收藏吗？')) {
+        chrome.storage.local.get(['favorites'], (result) => {
+          const favorites = result.favorites || [];
+          favorites.splice(index, 1);
+          chrome.storage.local.set({ favorites }, () => {
+            displayFavorites(favorites);
+          });
+        });
+      }
+    }
+
+    // 清空收藏列表
+    function clearFavorites() {
+      if (confirm('确定要清空所有收藏吗？此操作不可撤销。')) {
+        chrome.storage.local.remove(['favorites'], () => {
+          displayFavorites([]);
+          alert('收藏列表已清空');
+        });
+      }
+    }
+
+    // 导出收藏列表
+    function exportFavorites() {
+      chrome.storage.local.get(['favorites'], (result) => {
+        const favorites = result.favorites || [];
+
+        if (favorites.length === 0) {
+          alert('没有可导出的收藏');
+          return;
+        }
+
+        // 创建导出文本
+        const exportText = favorites.map(item => {
+          return `收藏内容: ${item.text}\n来源页面: ${item.url}\n收藏时间: ${new Date(item.timestamp).toLocaleString('zh-CN')}\n${'-'.repeat(50)}`;
+        }).join('\n\n');
+
+        // 创建Blob并下载
+        const blob = new Blob([exportText], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `我的收藏_${new Date().toISOString().split('T')[0]}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      });
+    }
+
+    // 监听存储变化（如果有其他标签页修改了收藏列表）
+    chrome.storage.onChanged.addListener((changes, namespace) => {
+      if (namespace === 'local' && changes.favorites) {
+        displayFavorites(changes.favorites.newValue || []);
+      }
+    });
+  </script>
+</body>
+</html>
