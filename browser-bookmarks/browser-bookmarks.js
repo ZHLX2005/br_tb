@@ -4,13 +4,22 @@ let allFolders = [];
 let bookmarkTree = [];
 
 // 获取所有书签
-function loadBookmarks() {    
+function loadBookmarks() {
   chrome.bookmarks.getTree((bookmarkTreeNodes) => {
     bookmarkTree = bookmarkTreeNodes;
     allBookmarks = flattenBookmarks(bookmarkTreeNodes);
     allFolders = collectFolders(bookmarkTreeNodes);
+
+    // 跳过根节点，直接渲染子节点
+    const children = [];
+    bookmarkTreeNodes.forEach(rootNode => {
+      if (rootNode.children) {
+        children.push(...rootNode.children);
+      }
+    });
+
     updateStats();
-    renderBookmarks(bookmarkTreeNodes);
+    renderBookmarks(children);
   });
 }
 
@@ -290,7 +299,14 @@ function searchBookmarks(query) {
   container.innerHTML = '';
 
   if (!query.trim()) {
-    renderBookmarks(bookmarkTree);
+    // 跳过根节点，直接渲染子节点
+    const children = [];
+    bookmarkTree.forEach(rootNode => {
+      if (rootNode.children) {
+        children.push(...rootNode.children);
+      }
+    });
+    renderBookmarks(children);
     return;
   }
 
@@ -357,6 +373,9 @@ function openAddBookmarkToFolderModal(folderId) {
   openModal('addBookmarkModal');
 }
 
+// 暴露到全局作用域
+window.openAddBookmarkToFolderModal = openAddBookmarkToFolderModal;
+
 document.getElementById('addBookmarkForm').addEventListener('submit', (e) => {
   e.preventDefault();
   const title = document.getElementById('newBookmarkTitle').value;
@@ -407,6 +426,9 @@ function openEditBookmarkModal(bookmarkId) {
   });
 }
 
+// 暴露到全局作用域
+window.openEditBookmarkModal = openEditBookmarkModal;
+
 document.getElementById('editBookmarkForm').addEventListener('submit', (e) => {
   e.preventDefault();
   const id = document.getElementById('editBookmarkId').value;
@@ -432,6 +454,9 @@ function deleteBookmark(bookmarkId) {
   }
 }
 
+// 暴露到全局作用域
+window.deleteBookmark = deleteBookmark;
+
 // ==================== 删除文件夹 ====================
 
 function deleteFolder(folderId) {
@@ -442,6 +467,9 @@ function deleteFolder(folderId) {
   }
 }
 
+// 暴露到全局作用域
+window.deleteFolder = deleteFolder;
+
 // ==================== 移动书签 ====================
 
 function openMoveBookmarkModal(bookmarkId) {
@@ -449,6 +477,9 @@ function openMoveBookmarkModal(bookmarkId) {
   document.getElementById('moveBookmarkId').value = bookmarkId;
   openModal('moveBookmarkModal');
 }
+
+// 暴露到全局作用域
+window.openMoveBookmarkModal = openMoveBookmarkModal;
 
 document.getElementById('moveBookmarkForm').addEventListener('submit', (e) => {
   e.preventDefault();
