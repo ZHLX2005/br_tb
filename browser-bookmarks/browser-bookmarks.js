@@ -373,9 +373,6 @@ function openAddBookmarkToFolderModal(folderId) {
   openModal('addBookmarkModal');
 }
 
-// 暴露到全局作用域
-window.openAddBookmarkToFolderModal = openAddBookmarkToFolderModal;
-
 document.getElementById('addBookmarkForm').addEventListener('submit', (e) => {
   e.preventDefault();
   const title = document.getElementById('newBookmarkTitle').value;
@@ -426,9 +423,6 @@ function openEditBookmarkModal(bookmarkId) {
   });
 }
 
-// 暴露到全局作用域
-window.openEditBookmarkModal = openEditBookmarkModal;
-
 document.getElementById('editBookmarkForm').addEventListener('submit', (e) => {
   e.preventDefault();
   const id = document.getElementById('editBookmarkId').value;
@@ -454,9 +448,6 @@ function deleteBookmark(bookmarkId) {
   }
 }
 
-// 暴露到全局作用域
-window.deleteBookmark = deleteBookmark;
-
 // ==================== 删除文件夹 ====================
 
 function deleteFolder(folderId) {
@@ -467,9 +458,6 @@ function deleteFolder(folderId) {
   }
 }
 
-// 暴露到全局作用域
-window.deleteFolder = deleteFolder;
-
 // ==================== 移动书签 ====================
 
 function openMoveBookmarkModal(bookmarkId) {
@@ -477,9 +465,6 @@ function openMoveBookmarkModal(bookmarkId) {
   document.getElementById('moveBookmarkId').value = bookmarkId;
   openModal('moveBookmarkModal');
 }
-
-// 暴露到全局作用域
-window.openMoveBookmarkModal = openMoveBookmarkModal;
 
 document.getElementById('moveBookmarkForm').addEventListener('submit', (e) => {
   e.preventDefault();
@@ -555,3 +540,11 @@ chrome.bookmarks.onRemoved.addListener(() => loadBookmarks());
 chrome.bookmarks.onChanged.addListener(() => loadBookmarks());
 chrome.bookmarks.onMoved.addListener(() => loadBookmarks());
 chrome.bookmarks.onChildrenReordered.addListener(() => loadBookmarks());
+
+// ==================== 暴露函数到全局作用域（用于onclick） ====================
+
+window.openAddBookmarkToFolderModal = openAddBookmarkToFolderModal;
+window.openEditBookmarkModal = openEditBookmarkModal;
+window.openMoveBookmarkModal = openMoveBookmarkModal;
+window.deleteBookmark = deleteBookmark;
+window.deleteFolder = deleteFolder;
