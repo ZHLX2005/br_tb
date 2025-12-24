@@ -117,9 +117,9 @@ function createBookmarkItem(bookmark) {
     </div>
     <div class="bookmark-date">${formatDate(bookmark.dateAdded)}</div>
     <div class="bookmark-actions">
-      <button class="btn btn-sm btn-primary" onclick="openEditBookmarkModal('${bookmark.id}')" title="编辑">✏️</button>
-      <button class="btn btn-sm btn-primary" onclick="openMoveBookmarkModal('${bookmark.id}')" title="移动">📁</button>
-      <button class="btn btn-sm btn-danger" onclick="deleteBookmark('${bookmark.id}')" title="删除">🗑️</button>
+      <button class="btn btn-sm btn-primary" data-action="editBookmark" data-id="${bookmark.id}" title="编辑">✏️</button>
+      <button class="btn btn-sm btn-primary" data-action="moveBookmark" data-id="${bookmark.id}" title="移动">📁</button>
+      <button class="btn btn-sm btn-danger" data-action="deleteBookmark" data-id="${bookmark.id}" title="删除">🗑️</button>
     </div>
   `;
 
@@ -195,8 +195,8 @@ function createFolder(folderNode, level) {
   const folderActions = document.createElement('div');
   folderActions.className = 'folder-actions';
   folderActions.innerHTML = `
-    <button class="btn btn-sm btn-primary" onclick="openAddBookmarkToFolderModal('${folderNode.id}')" title="添加书签">➕</button>
-    <button class="btn btn-sm btn-danger" onclick="deleteFolder('${folderNode.id}')" title="删除文件夹">🗑️</button>
+    <button class="btn btn-sm btn-primary" data-action="addBookmarkToFolder" data-id="${folderNode.id}" title="添加书签">➕</button>
+    <button class="btn btn-sm btn-danger" data-action="deleteFolder" data-id="${folderNode.id}" title="删除文件夹">🗑️</button>
   `;
 
   header.appendChild(title);
@@ -531,6 +531,37 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   });
+
+  // 事件委托：处理所有动态按钮点击
+  document.body.addEventListener('click', (e) => {
+    const button = e.target.closest('[data-action]');
+    if (!button) return;
+
+    const action = button.dataset.action;
+    const id = button.dataset.id;
+
+    switch (action) {
+      case 'editBookmark':
+        openEditBookmarkModal(id);
+        break;
+      case 'moveBookmark':
+        openMoveBookmarkModal(id);
+        break;
+      case 'deleteBookmark':
+        deleteBookmark(id);
+        break;
+      case 'addBookmarkToFolder':
+        openAddBookmarkToFolderModal(id);
+        break;
+      case 'deleteFolder':
+        deleteFolder(id);
+        break;
+      case 'closeModal':
+        const target = button.dataset.target;
+        closeModal(target);
+        break;
+    }
+  });
 });
 
 // ==================== 监听书签变化 ====================
@@ -540,11 +571,3 @@ chrome.bookmarks.onRemoved.addListener(() => loadBookmarks());
 chrome.bookmarks.onChanged.addListener(() => loadBookmarks());
 chrome.bookmarks.onMoved.addListener(() => loadBookmarks());
 chrome.bookmarks.onChildrenReordered.addListener(() => loadBookmarks());
-
-// ==================== 暴露函数到全局作用域（用于onclick） ====================
-
-window.openAddBookmarkToFolderModal = openAddBookmarkToFolderModal;
-window.openEditBookmarkModal = openEditBookmarkModal;
-window.openMoveBookmarkModal = openMoveBookmarkModal;
-window.deleteBookmark = deleteBookmark;
-window.deleteFolder = deleteFolder;

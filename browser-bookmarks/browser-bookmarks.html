@@ -442,7 +442,7 @@
           <select id="newBookmarkParent"></select>
         </div>
         <div class="modal-buttons">
-          <button type="button" class="btn" onclick="closeModal('addBookmarkModal')">取消</button>
+          <button type="button" class="btn" data-action="closeModal" data-target="addBookmarkModal">取消</button>
           <button type="submit" class="btn btn-primary">添加</button>
         </div>
       </form>
@@ -463,7 +463,7 @@
           <select id="newFolderParent"></select>
         </div>
         <div class="modal-buttons">
-          <button type="button" class="btn" onclick="closeModal('addFolderModal')">取消</button>
+          <button type="button" class="btn" data-action="closeModal" data-target="addFolderModal">取消</button>
           <button type="submit" class="btn btn-primary">添加</button>
         </div>
       </form>
@@ -485,7 +485,7 @@
           <input type="url" id="editBookmarkUrl" required>
         </div>
         <div class="modal-buttons">
-          <button type="button" class="btn" onclick="closeModal('editBookmarkModal')">取消</button>
+          <button type="button" class="btn" data-action="closeModal" data-target="editBookmarkModal">取消</button>
           <button type="submit" class="btn btn-primary">保存</button>
         </div>
       </form>
@@ -503,7 +503,7 @@
           <select id="moveBookmarkTarget"></select>
         </div>
         <div class="modal-buttons">
-          <button type="button" class="btn" onclick="closeModal('moveBookmarkModal')">取消</button>
+          <button type="button" class="btn" data-action="closeModal" data-target="moveBookmarkModal">取消</button>
           <button type="submit" class="btn btn-primary">移动</button>
         </div>
       </form>
