@@ -4,7 +4,7 @@ let allFolders = [];
 let bookmarkTree = [];
 
 // 获取所有书签
-function loadBookmarks() {
+function loadBookmarks() {  
   chrome.bookmarks.getTree((bookmarkTreeNodes) => {
     bookmarkTree = bookmarkTreeNodes;
     allBookmarks = flattenBookmarks(bookmarkTreeNodes);
