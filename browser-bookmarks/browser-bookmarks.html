@@ -242,6 +242,140 @@
     .toggle-btn.expanded {
       transform: rotate(180deg);
     }
+    /* 操作按钮样式 */
+    .actions-bar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      padding: 10px 18px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-primary {
+      background: #6c757d;
+      color: white;
+    }
+    .btn-primary:hover {
+      background: #5a6268;
+      transform: translateY(-1px);
+    }
+    .btn-danger {
+      background: #dc3545;
+      color: white;
+    }
+    .btn-danger:hover {
+      background: #c82333;
+    }
+    .btn-sm {
+      padding: 5px 10px;
+      font-size: 12px;
+    }
+    .bookmark-actions {
+      display: none;
+      gap: 5px;
+      margin-left: 10px;
+    }
+    .bookmark-item:hover .bookmark-actions {
+      display: flex;
+    }
+    .folder-actions {
+      display: none;
+      gap: 5px;
+    }
+    .folder-header:hover .folder-actions {
+      display: flex;
+    }
+    /* 弹窗样式 */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+    .modal-overlay.active {
+      display: flex;
+    }
+    .modal {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      width: 90%;
+      max-width: 500px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+      animation: modalFadeIn 0.2s ease-out;
+    }
+    @keyframes modalFadeIn {
+      from {
+        opacity: 0;
+        transform: scale(0.9);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+    .modal h2 {
+      color: #6c757d;
+      margin-bottom: 20px;
+      font-size: 20px;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      color: #495057;
+      font-weight: 500;
+    }
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      padding: 10px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    .form-group input:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: #adb5bd;
+    }
+    .modal-buttons {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 20px;
+    }
+    /* 拖拽样式 */
+    .bookmark-item.dragging {
+      opacity: 0.5;
+      background: #e9ecef;
+    }
+    .bookmark-item.drag-over {
+      border-left: 4px solid #6c757d;
+      background: #e9ecef;
+    }
+    .folder-content.drag-over-folder {
+      background: #e9ecef;
+      border-radius: 8px;
+    }
     @media (max-width: 600px) {
       body {
         padding: 10px;
@@ -273,6 +407,11 @@
   <div class="container">
     <h1>浏览器原生收藏夹</h1>
 
+    <div class="actions-bar">
+      <button class="btn btn-primary" id="addBookmarkBtn">➕ 添加书签</button>
+      <button class="btn btn-primary" id="addFolderBtn">📁 添加文件夹</button>
+    </div>
+
     <div class="header-actions">
       <div class="search-box">
         <input type="text" id="searchInput" placeholder="搜索收藏夹...">
@@ -282,6 +421,92 @@
 
     <div id="bookmarksContainer">
       <div class="loading">正在加载收藏夹...</div>
+    </div>
+  </div>
+
+  <!-- 添加书签弹窗 -->
+  <div class="modal-overlay" id="addBookmarkModal">
+    <div class="modal">
+      <h2>添加书签</h2>
+      <form id="addBookmarkForm">
+        <div class="form-group">
+          <label>标题</label>
+          <input type="text" id="newBookmarkTitle" required placeholder="请输入书签标题">
+        </div>
+        <div class="form-group">
+          <label>URL</label>
+          <input type="url" id="newBookmarkUrl" required placeholder="https://example.com">
+        </div>
+        <div class="form-group">
+          <label>保存到</label>
+          <select id="newBookmarkParent"></select>
+        </div>
+        <div class="modal-buttons">
+          <button type="button" class="btn" onclick="closeModal('addBookmarkModal')">取消</button>
+          <button type="submit" class="btn btn-primary">添加</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 添加文件夹弹窗 -->
+  <div class="modal-overlay" id="addFolderModal">
+    <div class="modal">
+      <h2>添加文件夹</h2>
+      <form id="addFolderForm">
+        <div class="form-group">
+          <label>文件夹名称</label>
+          <input type="text" id="newFolderTitle" required placeholder="请输入文件夹名称">
+        </div>
+        <div class="form-group">
+          <label>保存到</label>
+          <select id="newFolderParent"></select>
+        </div>
+        <div class="modal-buttons">
+          <button type="button" class="btn" onclick="closeModal('addFolderModal')">取消</button>
+          <button type="submit" class="btn btn-primary">添加</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 编辑书签弹窗 -->
+  <div class="modal-overlay" id="editBookmarkModal">
+    <div class="modal">
+      <h2>编辑书签</h2>
+      <form id="editBookmarkForm">
+        <input type="hidden" id="editBookmarkId">
+        <div class="form-group">
+          <label>标题</label>
+          <input type="text" id="editBookmarkTitle" required>
+        </div>
+        <div class="form-group">
+          <label>URL</label>
+          <input type="url" id="editBookmarkUrl" required>
+        </div>
+        <div class="modal-buttons">
+          <button type="button" class="btn" onclick="closeModal('editBookmarkModal')">取消</button>
+          <button type="submit" class="btn btn-primary">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 移动书签弹窗 -->
+  <div class="modal-overlay" id="moveBookmarkModal">
+    <div class="modal">
+      <h2>移动到</h2>
+      <form id="moveBookmarkForm">
+        <input type="hidden" id="moveBookmarkId">
+        <div class="form-group">
+          <label>选择目标文件夹</label>
+          <select id="moveBookmarkTarget"></select>
+        </div>
+        <div class="modal-buttons">
+          <button type="button" class="btn" onclick="closeModal('moveBookmarkModal')">取消</button>
+          <button type="submit" class="btn btn-primary">移动</button>
+        </div>
+      </form>
     </div>
   </div>
 

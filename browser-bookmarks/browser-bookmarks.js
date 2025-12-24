@@ -1,5 +1,6 @@
 // 全局变量存储所有书签
 let allBookmarks = [];
+let allFolders = [];
 let bookmarkTree = [];
 
 // 获取所有书签
@@ -7,9 +8,29 @@ function loadBookmarks() {
   chrome.bookmarks.getTree((bookmarkTreeNodes) => {
     bookmarkTree = bookmarkTreeNodes;
     allBookmarks = flattenBookmarks(bookmarkTreeNodes);
+    allFolders = collectFolders(bookmarkTreeNodes);
     updateStats();
     renderBookmarks(bookmarkTreeNodes);
   });
+}
+
+// 收集所有文件夹
+function collectFolders(nodes, folders = [], path = '') {
+  nodes.forEach(node => {
+    if (!node.url) {
+      // 这是一个文件夹
+      const currentPath = path ? `${path} / ${node.title || '未命名'}` : (node.title || '未命名');
+      folders.push({
+        id: node.id,
+        title: node.title || '未命名文件夹',
+        path: currentPath
+      });
+      if (node.children) {
+        collectFolders(node.children, folders, currentPath);
+      }
+    }
+  });
+  return folders;
 }
 
 // 扁平化书签树，用于搜索
@@ -70,6 +91,8 @@ function createBookmarkItem(bookmark) {
   const div = document.createElement('div');
   div.className = 'bookmark-item';
   div.dataset.url = bookmark.url;
+  div.dataset.id = bookmark.id;
+  div.draggable = true;
 
   // 获取 favicon
   const url = new URL(bookmark.url);
@@ -84,10 +107,55 @@ function createBookmarkItem(bookmark) {
       <div class="bookmark-url">${escapeHtml(bookmark.url)}</div>
     </div>
     <div class="bookmark-date">${formatDate(bookmark.dateAdded)}</div>
+    <div class="bookmark-actions">
+      <button class="btn btn-sm btn-primary" onclick="openEditBookmarkModal('${bookmark.id}')" title="编辑">✏️</button>
+      <button class="btn btn-sm btn-primary" onclick="openMoveBookmarkModal('${bookmark.id}')" title="移动">📁</button>
+      <button class="btn btn-sm btn-danger" onclick="deleteBookmark('${bookmark.id}')" title="删除">🗑️</button>
+    </div>
   `;
 
-  div.addEventListener('click', () => {
-    chrome.tabs.create({ url: bookmark.url });
+  // 点击打开书签
+  div.addEventListener('click', (e) => {
+    if (!e.target.closest('.bookmark-actions')) {
+      chrome.tabs.create({ url: bookmark.url });
+    }
+  });
+
+  // 拖拽事件
+  div.addEventListener('dragstart', (e) => {
+    div.classList.add('dragging');
+    e.dataTransfer.setData('text/plain', bookmark.id);
+    e.dataTransfer.effectAllowed = 'move';
+  });
+
+  div.addEventListener('dragend', () => {
+    div.classList.remove('dragging');
+    document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+  });
+
+  div.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (!div.classList.contains('dragging')) {
+      div.classList.add('drag-over');
+    }
+  });
+
+  div.addEventListener('dragleave', () => {
+    div.classList.remove('drag-over');
+  });
+
+  div.addEventListener('drop', (e) => {
+    e.preventDefault();
+    div.classList.remove('drag-over');
+    const draggedId = e.dataTransfer.getData('text/plain');
+    if (draggedId !== bookmark.id) {
+      chrome.bookmarks.get(bookmark.id, (results) => {
+        const targetParentId = results[0].parentId;
+        const targetIndex = results[0].index;
+        moveBookmarkTo(draggedId, targetParentId, targetIndex);
+      });
+    }
   });
 
   return div;
@@ -97,6 +165,7 @@ function createBookmarkItem(bookmark) {
 function createFolder(folderNode, level) {
   const div = document.createElement('div');
   div.className = 'folder';
+  div.dataset.folderId = folderNode.id;
 
   const header = document.createElement('div');
   header.className = 'folder-header';
@@ -114,12 +183,21 @@ function createFolder(folderNode, level) {
   toggleBtn.className = 'toggle-btn';
   toggleBtn.innerHTML = '&#9662;'; // 向下箭头
 
+  const folderActions = document.createElement('div');
+  folderActions.className = 'folder-actions';
+  folderActions.innerHTML = `
+    <button class="btn btn-sm btn-primary" onclick="openAddBookmarkToFolderModal('${folderNode.id}')" title="添加书签">➕</button>
+    <button class="btn btn-sm btn-danger" onclick="deleteFolder('${folderNode.id}')" title="删除文件夹">🗑️</button>
+  `;
+
   header.appendChild(title);
   header.appendChild(count);
+  header.appendChild(folderActions);
   header.appendChild(toggleBtn);
 
   const content = document.createElement('div');
   content.className = 'folder-content';
+  content.dataset.folderId = folderNode.id;
 
   if (level === 0) {
     content.classList.add('active');
@@ -142,9 +220,29 @@ function createFolder(folderNode, level) {
   });
 
   // 切换展开/收起
-  header.addEventListener('click', () => {
-    content.classList.toggle('active');
-    toggleBtn.classList.toggle('expanded');
+  header.addEventListener('click', (e) => {
+    if (!e.target.closest('.folder-actions')) {
+      content.classList.toggle('active');
+      toggleBtn.classList.toggle('expanded');
+    }
+  });
+
+  // 文件夹拖拽支持
+  content.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    content.classList.add('drag-over-folder');
+  });
+
+  content.addEventListener('dragleave', () => {
+    content.classList.remove('drag-over-folder');
+  });
+
+  content.addEventListener('drop', (e) => {
+    e.preventDefault();
+    content.classList.remove('drag-over-folder');
+    const draggedId = e.dataTransfer.getData('text/plain');
+    const targetFolderId = content.dataset.folderId;
+    moveBookmarkTo(draggedId, targetFolderId);
   });
 
   return div;
@@ -218,7 +316,164 @@ function searchBookmarks(query) {
   container.appendChild(div);
 }
 
-// 防抖函数
+// ==================== 弹窗控制 ====================
+
+function openModal(modalId) {
+  document.getElementById(modalId).classList.add('active');
+}
+
+function closeModal(modalId) {
+  document.getElementById(modalId).classList.remove('active');
+}
+
+// 填充文件夹选择器
+function populateFolderSelect(selectId, selectedId = null) {
+  const select = document.getElementById(selectId);
+  select.innerHTML = '';
+  allFolders.forEach(folder => {
+    const option = document.createElement('option');
+    option.value = folder.id;
+    option.textContent = folder.path;
+    if (selectedId && folder.id === selectedId) {
+      option.selected = true;
+    }
+    select.appendChild(option);
+  });
+}
+
+// ==================== 添加书签 ====================
+
+function openAddBookmarkModal() {
+  populateFolderSelect('newBookmarkParent');
+  document.getElementById('newBookmarkTitle').value = '';
+  document.getElementById('newBookmarkUrl').value = '';
+  openModal('addBookmarkModal');
+}
+
+function openAddBookmarkToFolderModal(folderId) {
+  populateFolderSelect('newBookmarkParent', folderId);
+  document.getElementById('newBookmarkTitle').value = '';
+  document.getElementById('newBookmarkUrl').value = '';
+  openModal('addBookmarkModal');
+}
+
+document.getElementById('addBookmarkForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const title = document.getElementById('newBookmarkTitle').value;
+  const url = document.getElementById('newBookmarkUrl').value;
+  const parentId = document.getElementById('newBookmarkParent').value;
+
+  chrome.bookmarks.create({
+    parentId: parentId,
+    title: title,
+    url: url
+  }, () => {
+    closeModal('addBookmarkModal');
+    loadBookmarks();
+  });
+});
+
+// ==================== 添加文件夹 ====================
+
+function openAddFolderModal() {
+  populateFolderSelect('newFolderParent');
+  document.getElementById('newFolderTitle').value = '';
+  openModal('addFolderModal');
+}
+
+document.getElementById('addFolderForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const title = document.getElementById('newFolderTitle').value;
+  const parentId = document.getElementById('newFolderParent').value;
+
+  chrome.bookmarks.create({
+    parentId: parentId,
+    title: title
+  }, () => {
+    closeModal('addFolderModal');
+    loadBookmarks();
+  });
+});
+
+// ==================== 编辑书签 ====================
+
+function openEditBookmarkModal(bookmarkId) {
+  chrome.bookmarks.get(bookmarkId, (results) => {
+    const bookmark = results[0];
+    document.getElementById('editBookmarkId').value = bookmark.id;
+    document.getElementById('editBookmarkTitle').value = bookmark.title;
+    document.getElementById('editBookmarkUrl').value = bookmark.url;
+    openModal('editBookmarkModal');
+  });
+}
+
+document.getElementById('editBookmarkForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const id = document.getElementById('editBookmarkId').value;
+  const title = document.getElementById('editBookmarkTitle').value;
+  const url = document.getElementById('editBookmarkUrl').value;
+
+  chrome.bookmarks.update(id, {
+    title: title,
+    url: url
+  }, () => {
+    closeModal('editBookmarkModal');
+    loadBookmarks();
+  });
+});
+
+// ==================== 删除书签 ====================
+
+function deleteBookmark(bookmarkId) {
+  if (confirm('确定要删除这个书签吗？')) {
+    chrome.bookmarks.remove(bookmarkId, () => {
+      loadBookmarks();
+    });
+  }
+}
+
+// ==================== 删除文件夹 ====================
+
+function deleteFolder(folderId) {
+  if (confirm('确定要删除这个文件夹及其所有内容吗？此操作不可恢复！')) {
+    chrome.bookmarks.removeTree(folderId, () => {
+      loadBookmarks();
+    });
+  }
+}
+
+// ==================== 移动书签 ====================
+
+function openMoveBookmarkModal(bookmarkId) {
+  populateFolderSelect('moveBookmarkTarget');
+  document.getElementById('moveBookmarkId').value = bookmarkId;
+  openModal('moveBookmarkModal');
+}
+
+document.getElementById('moveBookmarkForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const id = document.getElementById('moveBookmarkId').value;
+  const targetParentId = document.getElementById('moveBookmarkTarget').value;
+
+  moveBookmarkTo(id, targetParentId);
+  closeModal('moveBookmarkModal');
+});
+
+function moveBookmarkTo(bookmarkId, parentId, index = null) {
+  const options = {
+    parentId: parentId
+  };
+  if (index !== null) {
+    options.index = index;
+  }
+
+  chrome.bookmarks.move(bookmarkId, options, () => {
+    loadBookmarks();
+  });
+}
+
+// ==================== 防抖函数 ====================
+
 function debounce(func, wait) {
   let timeout;
   return function executedFunction(...args) {
@@ -231,7 +486,8 @@ function debounce(func, wait) {
   };
 }
 
-// 页面加载完成后执行
+// ==================== 页面加载完成 ====================
+
 document.addEventListener('DOMContentLoaded', () => {
   loadBookmarks();
 
@@ -244,9 +500,25 @@ document.addEventListener('DOMContentLoaded', () => {
   searchInput.addEventListener('input', (e) => {
     debouncedSearch(e.target.value);
   });
+
+  // 添加书签按钮
+  document.getElementById('addBookmarkBtn').addEventListener('click', openAddBookmarkModal);
+
+  // 添加文件夹按钮
+  document.getElementById('addFolderBtn').addEventListener('click', openAddFolderModal);
+
+  // 点击遮罩关闭弹窗
+  document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        overlay.classList.remove('active');
+      }
+    });
+  });
 });
 
-// 监听书签变化
+// ==================== 监听书签变化 ====================
+
 chrome.bookmarks.onCreated.addListener(() => loadBookmarks());
 chrome.bookmarks.onRemoved.addListener(() => loadBookmarks());
 chrome.bookmarks.onChanged.addListener(() => loadBookmarks());
