@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "划词翻译插件",
   "version": "1.0",
-  "description": "一个简单的划词翻译浏览器插件demo",
+  "description": "浏览器插件的案例demo",
   "permissions": [
     "contextMenus",
     "storage",
