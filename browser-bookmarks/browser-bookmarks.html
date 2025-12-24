@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>浏览器原生收藏夹</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      padding: 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+      line-height: 1.6;
+      background: #f5f5f5;
+      min-height: 100vh;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      animation: fadeIn 0.3s ease-in-out;
+    }
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    h1 {
+      color: #2196F3;
+      border-bottom: 3px solid #2196F3;
+      padding-bottom: 15px;
+      margin-bottom: 30px;
+      font-size: 28px;
+      display: flex;
+      align-items: center;
+    }
+    h1::before {
+      content: '🔖';
+      margin-right: 10px;
+    }
+    .header-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 25px;
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+    .search-box {
+      flex: 1;
+      min-width: 200px;
+    }
+    .search-box input {
+      width: 100%;
+      padding: 10px 15px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: border-color 0.3s;
+    }
+    .search-box input:focus {
+      outline: none;
+      border-color: #2196F3;
+    }
+    .stats {
+      color: #495057;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .stats::before {
+      content: '📊 ';
+    }
+    .folder {
+      margin-bottom: 30px;
+    }
+    .folder-header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 15px 20px;
+      border-radius: 10px;
+      margin-bottom: 15px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .folder-header:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    }
+    .folder-title {
+      font-size: 18px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+    }
+    .folder-title::before {
+      content: '📁';
+      margin-right: 10px;
+    }
+    .folder-count {
+      background: rgba(255, 255, 255, 0.2);
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 13px;
+    }
+    .folder-content {
+      display: none;
+      padding: 0 10px;
+    }
+    .folder-content.active {
+      display: block;
+      animation: slideDown 0.3s ease-out;
+    }
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    .bookmark-item {
+      display: flex;
+      align-items: center;
+      padding: 12px 15px;
+      margin-bottom: 10px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border-left: 4px solid #2196F3;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+    .bookmark-item:hover {
+      background: white;
+      transform: translateX(5px);
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    .bookmark-favicon {
+      width: 16px;
+      height: 16px;
+      margin-right: 12px;
+      flex-shrink: 0;
+    }
+    .bookmark-favicon img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    .bookmark-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .bookmark-title {
+      font-size: 14px;
+      font-weight: 500;
+      color: #333;
+      margin-bottom: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .bookmark-url {
+      font-size: 12px;
+      color: #666;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .bookmark-date {
+      font-size: 11px;
+      color: #999;
+      margin-left: auto;
+      padding-left: 15px;
+      flex-shrink: 0;
+    }
+    .nested-folder {
+      margin-left: 20px;
+      border-left: 2px solid #e0e0e0;
+      padding-left: 15px;
+    }
+    .loading {
+      text-align: center;
+      padding: 60px 20px;
+      color: #666;
+      font-size: 16px;
+    }
+    .loading::before {
+      content: '⏳';
+      display: block;
+      font-size: 60px;
+      margin-bottom: 20px;
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .empty {
+      text-align: center;
+      padding: 60px 20px;
+      color: #666;
+      font-size: 16px;
+    }
+    .empty::before {
+      content: '📭';
+      display: block;
+      font-size: 60px;
+      margin-bottom: 20px;
+    }
+    .no-results {
+      text-align: center;
+      padding: 40px 20px;
+      color: #666;
+      font-size: 15px;
+    }
+    .toggle-btn {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 20px;
+      cursor: pointer;
+      transition: transform 0.3s;
+    }
+    .toggle-btn.expanded {
+      transform: rotate(180deg);
+    }
+    @media (max-width: 600px) {
+      body {
+        padding: 10px;
+      }
+      .container {
+        padding: 20px;
+      }
+      .header-actions {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      h1 {
+        font-size: 22px;
+      }
+      .folder-header {
+        padding: 12px 15px;
+      }
+      .folder-title {
+        font-size: 16px;
+      }
+      .nested-folder {
+        margin-left: 10px;
+        padding-left: 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>浏览器原生收藏夹</h1>
+
+    <div class="header-actions">
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="搜索收藏夹...">
+      </div>
+      <div class="stats" id="stats">正在加载...</div>
+    </div>
+
+    <div id="bookmarksContainer">
+      <div class="loading">正在加载收藏夹...</div>
+    </div>
+  </div>
+
+  <script src="browser-bookmarks.js"></script>
+</body>
+</html>

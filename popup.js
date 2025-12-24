@@ -8,6 +8,7 @@ const todayCountEl = document.getElementById('todayCount');
 const totalCountEl = document.getElementById('totalCount');
 const autoTranslateToggle = document.getElementById('autoTranslate');
 const showContextMenuToggle = document.getElementById('showContextMenu');
+const bookmarksBtn = document.getElementById('bookmarksBtn');
 const historyBtn = document.getElementById('historyBtn');
 const settingsBtn = document.getElementById('settingsBtn');
 const aboutBtn = document.getElementById('aboutBtn');
@@ -39,6 +40,7 @@ function bindEvents() {
   showContextMenuToggle.addEventListener('change', saveSettings);
 
   // 底部按钮
+  bookmarksBtn.addEventListener('click', showBookmarks);
   historyBtn.addEventListener('click', showFavorites);
   settingsBtn.addEventListener('click', showSettings);
   aboutBtn.addEventListener('click', showAbout);
@@ -208,10 +210,17 @@ function saveToFavorites(originalText, translatedText) {
   });
 }
 
+// 显示浏览器原生书签
+function showBookmarks() {
+  chrome.tabs.create({
+    url: chrome.runtime.getURL('browser-bookmarks/browser-bookmarks.html')
+  });
+}
+
 // 显示收藏列表
 function showFavorites() {
   chrome.tabs.create({
-    url: chrome.runtime.getURL('favorites.html')
+    url: chrome.runtime.getURL('favorites/favorites.html')
   });
 }
 
