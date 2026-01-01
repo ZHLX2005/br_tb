@@ -80,7 +80,7 @@ function createResultPanel() {
   `;
 
   panel.innerHTML = `
-    <div style="
+    <div id="ocr-panel-header" style="
       padding: 15px 20px;
       background: #6c757d;
       color: white;
@@ -89,6 +89,8 @@ function createResultPanel() {
       display: flex;
       justify-content: space-between;
       align-items: center;
+      cursor: move;
+      user-select: none;
     ">
       <span>📝 识别结果</span>
       <button id="ocr-close-result" style="
@@ -181,7 +183,75 @@ function createResultPanel() {
   panel.querySelector('#ocr-copy-result').addEventListener('click', copyResult);
   panel.querySelector('#ocr-restart-btn').addEventListener('click', restartOCR);
 
+  // 绑定拖动功能
+  setupDraggable(panel);
+
   return panel;
+}
+
+/**
+ * 设置面板拖动功能
+ */
+function setupDraggable(panel) {
+  const header = panel.querySelector('#ocr-panel-header');
+  if (!header) return;
+
+  let isDragging = false;
+  let startX, startY, initialX, initialY;
+
+  // 鼠标按下
+  header.addEventListener('mousedown', (e) => {
+    // 如果点击的是关闭按钮，不启动拖动
+    if (e.target.id === 'ocr-close-result') return;
+
+    isDragging = true;
+    startX = e.clientX;
+    startY = e.clientY;
+
+    // 获取面板当前位置
+    const rect = panel.getBoundingClientRect();
+    initialX = rect.left;
+    initialY = rect.top;
+
+    // 改变鼠标样式
+    header.style.cursor = 'grabbing';
+
+    // 阻止文本选择
+    e.preventDefault();
+  });
+
+  // 鼠标移动
+  document.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+
+    // 计算新位置
+    let newX = initialX + dx;
+    let newY = initialY + dy;
+
+    // 确保不超出视窗
+    const maxX = window.innerWidth - panel.offsetWidth;
+    const maxY = window.innerHeight - panel.offsetHeight;
+
+    // 限制边界
+    newX = Math.max(0, Math.min(newX, maxX));
+    newY = Math.max(0, Math.min(newY, maxY));
+
+    // 更新位置
+    panel.style.left = newX + 'px';
+    panel.style.top = newY + 'px';
+    panel.style.right = 'auto'; // 清除 right 属性
+  });
+
+  // 鼠标释放
+  document.addEventListener('mouseup', () => {
+    if (isDragging) {
+      isDragging = false;
+      header.style.cursor = 'move';
+    }
+  });
 }
 
 // 显示结果面板
