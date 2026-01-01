@@ -1,5 +1,6 @@
 // 菜单ID
 const MENU_ID = 'translateSelection';
+const OCR_MENU_ID = 'ocrSelection';
 
 // 创建右键菜单项
 chrome.runtime.onInstalled.addListener(() => {
@@ -7,6 +8,12 @@ chrome.runtime.onInstalled.addListener(() => {
     id: MENU_ID,
     title: '翻译 "%s"',
     contexts: ['selection']
+  });
+
+  chrome.contextMenus.create({
+    id: OCR_MENU_ID,
+    title: '📷 OCR 区域识别',
+    contexts: ['page', 'image']
   });
 });
 
@@ -53,6 +60,11 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
       originalText: selectedText,
       translatedText: translatedText
     });
+  } else if (info.menuItemId === OCR_MENU_ID) {
+    // 启动 OCR 区域选择
+    chrome.tabs.sendMessage(tab.id, {
+      action: 'startOCRSelection'
+    });
   }
 });
 
@@ -72,6 +84,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       originalText: request.text,
       translatedText: translatedText
     });
+  } else if (request.action === 'performOCR') {
+    // 执行 OCR 识别
+    handleOCRRequest(request).then(sendResponse);
+    return true; // 异步响应
   } else if (request.action === 'addToFavorites') {
     // 添加到收藏列表
     chrome.storage.local.get(['favorites'], (result) => {
@@ -125,3 +141,32 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
     updateContextMenuVisibility();
   }
 });
+
+/**
+ * 处理 OCR 请求
+ * @param {Object} request - 请求对象，包含 rect 区域信息
+ * @returns {Promise} OCR 识别结果
+ */
+async function handleOCRRequest(request) {
+  try {
+    const { rect } = request;
+
+    // 截取当前标签页
+    const dataUrl = await chrome.tabs.captureVisibleTab(null, { format: 'png' });
+
+    // 将截图和区域信息发送回 content script 进行裁剪和 OCR
+    // 因为 service worker 环境没有 Image/Canvas 等 DOM API
+    return {
+      success: true,
+      dataUrl: dataUrl,
+      rect: rect
+    };
+
+  } catch (error) {
+    console.error('OCR Error:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}

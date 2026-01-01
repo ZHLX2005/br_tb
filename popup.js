@@ -8,6 +8,7 @@ const todayCountEl = document.getElementById('todayCount');
 const totalCountEl = document.getElementById('totalCount');
 const autoTranslateToggle = document.getElementById('autoTranslate');
 const showContextMenuToggle = document.getElementById('showContextMenu');
+const ocrBtn = document.getElementById('ocrBtn');
 const bookmarksBtn = document.getElementById('bookmarksBtn');
 const historyBtn = document.getElementById('historyBtn');
 const settingsBtn = document.getElementById('settingsBtn');
@@ -40,6 +41,7 @@ function bindEvents() {
   showContextMenuToggle.addEventListener('change', saveSettings);
 
   // 底部按钮
+  ocrBtn.addEventListener('click', showOCR);
   bookmarksBtn.addEventListener('click', showBookmarks);
   historyBtn.addEventListener('click', showFavorites);
   settingsBtn.addEventListener('click', showSettings);
@@ -216,6 +218,23 @@ function saveToFavorites(originalText, translatedText) {
       }
 
       chrome.storage.local.set({ favorites });
+    }
+  });
+}
+
+// 显示 OCR 截图识别
+function showOCR() {
+  // 获取当前活动标签页，发送消息启动 OCR 框选
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    if (tabs && tabs.length > 0) {
+      chrome.tabs.sendMessage(tabs[0].id, {
+        action: 'startOCRSelection'
+      }).catch(() => {
+        // 如果无法发送消息（如 chrome:// 页面），提示用户
+        alert('请在普通网页上使用 OCR 功能');
+      });
+      // 关闭 popup
+      window.close();
     }
   });
 }
