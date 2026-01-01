@@ -121,13 +121,19 @@ function copyResult() {
 // 加载设置
 function loadSettings() {
   chrome.storage.local.get(['settings'], (result) => {
-    const settings = result.settings || {
-      autoTranslate: true,
+    // 默认设置（与 content.js 保持一致）
+    const defaultSettings = {
+      autoTranslate: false,
       showContextMenu: true
     };
 
+    // 使用存储的设置或默认值
+    const settings = result.settings || defaultSettings;
+
     autoTranslateToggle.checked = settings.autoTranslate;
     showContextMenuToggle.checked = settings.showContextMenu;
+
+    console.log('Popup 设置已加载:', settings);
   });
 
   // 加载 OCR 设置

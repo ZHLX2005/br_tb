@@ -234,14 +234,24 @@ function showFavoriteNotification(text) {
 // 监听文本选择事件
 document.addEventListener('mouseup', (e) => {
   // 检查设置是否已加载完成，以及是否启用了自动翻译
-  if (!settingsLoaded || !settings.autoTranslate) {
+  if (!settingsLoaded) {
+    console.log('[自动翻译] 设置未加载，跳过');
     return;
   }
+
+  if (!settings.autoTranslate) {
+    console.log('[自动翻译] 自动翻译未开启，跳过');
+    return;
+  }
+
+  console.log('[自动翻译] 触发 mouseup 事件，开始处理...');
 
   // 延迟一小段时间确保选择完成
   setTimeout(() => {
     const selection = window.getSelection();
     const selectedText = selection.toString().trim();
+
+    console.log('[自动翻译] 选中的文本:', selectedText);
 
     // 如果有选中文本且与上次不同
     if (selectedText && selectedText !== lastSelection) {
@@ -251,12 +261,16 @@ document.addEventListener('mouseup', (e) => {
       const range = selection.getRangeAt(0);
       const rect = range.getBoundingClientRect();
 
+      console.log('[自动翻译] 发送翻译请求:', selectedText);
+
       // 发送翻译请求到后台
       chrome.runtime.sendMessage({
         action: 'translate',
         text: selectedText
       }, (response) => {
         if (response && response.success) {
+          console.log('[自动翻译] 收到翻译结果:', response.translatedText);
+
           // 在选中文本下方显示翻译结果
           showTooltip(
             rect.left,
@@ -264,6 +278,8 @@ document.addEventListener('mouseup', (e) => {
             response.originalText,
             response.translatedText
           );
+        } else {
+          console.error('[自动翻译] 翻译失败:', response);
         }
       });
     } else if (!selectedText) {
@@ -277,8 +293,13 @@ document.addEventListener('mouseup', (e) => {
 // 监听来自后台的消息
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'updateSettings') {
+    console.log('[消息] 收到 updateSettings 消息:', request.settings);
+
     // 更新设置
     settings = { ...settings, ...request.settings };
+
+    console.log('[消息] 更新后的设置:', settings);
+
     sendResponse({ success: true });
   } else if (request.action === 'showTranslation') {
     // 获取当前选择的位置
@@ -334,17 +355,43 @@ document.addEventListener('DOMContentLoaded', () => {
 // 加载设置
 function loadSettings() {
   chrome.storage.local.get(['settings'], (result) => {
+    // 如果没有存储的设置，使用默认值
+    const defaultSettings = {
+      autoTranslate: false,
+      showContextMenu: true
+    };
+
     if (result.settings) {
-      settings = { ...settings, ...result.settings };
+      // 合并存储的设置和默认值（存储的设置优先）
+      settings = { ...defaultSettings, ...result.settings };
+    } else {
+      // 使用默认值
+      settings = { ...defaultSettings };
     }
+
     // 标记设置已加载完成
     settingsLoaded = true;
+
+    console.log('设置已加载:', settings);
   });
 }
 
 // 监听storage变化（当popup修改设置时自动同步）
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName === 'local' && changes.settings) {
-    settings = { ...settings, ...changes.settings.newValue };
+    const oldSettings = changes.settings.oldValue;
+    const newSettings = changes.settings.newValue;
+
+    console.log('[设置变化] 检测到设置更新');
+    console.log('[设置变化] 旧设置:', oldSettings);
+    console.log('[设置变化] 新设置:', newSettings);
+
+    settings = { ...settings, ...newSettings };
+
+    // 标记设置已加载（确保自动翻译功能可用）
+    settingsLoaded = true;
+
+    console.log('[设置变化] 当前设置:', settings);
+    console.log('[设置变化] settingsLoaded 已设置为:', settingsLoaded);
   }
 });
