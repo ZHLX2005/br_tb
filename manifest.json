@@ -14,29 +14,27 @@
   "host_permissions": [
     "<all_urls>"
   ],
-  "background": {  
+  "background": {
     "service_worker": "background.js"
   },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content.js", "content-ocr.js"],
-      "css": ["content.css"]
+      "js": ["content/content.js", "content/content-ocr.js"],
+      "css": ["content/content.css"]
     }
   ],
   "action": {
-    "default_popup": "popup.html",
+    "default_popup": "popup/popup.html",
     "default_title": "划词翻译"
   },
   "web_accessible_resources": [
     {
       "resources": [
-        "favorites/favorites.html",
-        "favorites/favorites.js",
-        "browser-bookmarks/browser-bookmarks.html",
-        "browser-bookmarks/browser-bookmarks.js",
-        "ocr-screenshot/ocr-screenshot.html",
-        "ocr-screenshot/ocr-screenshot.js"
+        "modules/favorites/favorites.html",
+        "modules/favorites/favorites.js",
+        "modules/browser-bookmarks/browser-bookmarks.html",
+        "modules/browser-bookmarks/browser-bookmarks.js"
       ],
       "matches": ["<all_urls>"]
     }

@@ -274,14 +274,14 @@ function showOCR() {
 // 显示浏览器原生书签
 function showBookmarks() {
   chrome.tabs.create({
-    url: chrome.runtime.getURL('browser-bookmarks/browser-bookmarks.html')
+    url: chrome.runtime.getURL('modules/browser-bookmarks/browser-bookmarks.html')
   });
 }
 
 // 显示收藏列表
 function showFavorites() {
   chrome.tabs.create({
-    url: chrome.runtime.getURL('favorites/favorites.html')
+    url: chrome.runtime.getURL('modules/favorites/favorites.html')
   });
 }
 
