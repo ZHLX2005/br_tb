@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Chrome browser extension for demonstration and testing purposes. It showcases various browser extension capabilities including word selection translation, favorites management, and browser bookmarks integration.
+This is a Chrome browser extension for demonstration and testing purposes. It showcases various browser extension capabilities including word selection translation, OCR with AI-powered image recognition, favorites management, and browser bookmarks integration.
 
-**Key Design Principle**: This is a demo/experimental project for verifying various use cases. Features are often simplified or simulated.
+**Key Design Principle**: This is a demo/experimental project for verifying various use cases. Features are often simplified or simulated, though OCR uses a real API.
 
 ## Development Commands
 
@@ -30,22 +30,24 @@ This is a Chrome browser extension for demonstration and testing purposes. It sh
 │   Content   │ ◄─────────────────────► │   Background │
 │   Script    │      sendMessage       │   (Service   │
 │ (content.js)│                         │   Worker)    │
-└─────────────┘                         └──────────────┘
-      │                                         │
-      │                                         │ chrome.tabs
-      ▼                                         ▼
-   Web Page                              ┌──────────┐
-                                          │  Popup   │
-                                          │(UI only) │
-                                          └──────────┘
+│content-ocr.js│                        └──────────────┘
+└─────────────┘                                         │
+      │                                                 │ chrome.tabs
+      │                                                 ▼
+   Web Page                                          ┌──────────┐
+      │                                             │  Popup   │
+      │                                             │(UI only) │
+      ▼                                             └──────────┘
+   chrome.storage.local ◄────────────────────────────┘
 ```
 
 ### Key Files
 
 - **manifest.json**: Extension configuration (Manifest V3)
-- **background.js**: Service worker, handles context menus, storage, and messages
+- **background.js**: Service worker, handles context menus, screenshot capture (`captureVisibleTab`), and messages
 - **content.js**: Injected into web pages, handles text selection and tooltips
-- **popup.html/js**: Extension popup interface for manual operations
+- **content-ocr.js**: OCR functionality including screenshot selection, coordinate adjustment, and GLM-4.5V API calls
+- **popup.html/js/css**: Extension popup interface for settings and manual operations
 - **favorites/**: User's favorite translations (separate feature module)
 - **browser-bookmarks/**: Browser native bookmarks viewer (separate feature module)
 
@@ -53,16 +55,112 @@ This is a Chrome browser extension for demonstration and testing purposes. It sh
 
 The extension uses `chrome.runtime.sendMessage` and `chrome.runtime.onMessage` for component communication:
 
-- Content script → Background: Request translation, save favorites
-- Popup → Background: Update statistics, save settings
-- Background → Content script: Update settings
+- Content script → Background: `performOCR` (with rect coordinates), `updateSettings`, `addToFavorites`
+- Popup → Background: `updateSettings`, `updateShortcut`, `clearShortcut`
+- Background → Content script: `startOCRSelection`, `closeOCRResult`, `updateShortcut`, `clearShortcut`
 
-### Storage
+### Storage Schema
 
 Uses `chrome.storage.local` for:
-- Favorites list (up to 200 items, auto-removes oldest)
-- User settings (auto-translate toggle, context menu visibility)
-- Translation statistics (daily/total counts)
+
+```javascript
+{
+  // Favorites list (up to 200 items)
+  favorites: Array<{text, url, timestamp}>,
+
+  // User settings
+  settings: {
+    autoTranslate: boolean,
+    showContextMenu: boolean
+  },
+
+  // Translation statistics
+  statistics: {
+    todayCount: number,
+    totalCount: number,
+    lastUpdateDate: string
+  },
+
+  // OCR settings
+  ocrSettings: {
+    prompt: string,        // Recognition prompt
+    stream: boolean        // Use streaming API
+  },
+
+  // OCR keyboard shortcut (customizable)
+  ocrShortcut: {
+    ctrlKey: boolean,
+    altKey: boolean,
+    shiftKey: boolean,
+    metaKey: boolean,
+    key: string
+  }
+}
+```
+
+## OCR Feature Architecture
+
+### Screenshot Capture Flow
+
+The OCR feature uses a two-stage capture process:
+
+1. **User Selection**: User drags mouse to select region on webpage
+2. **Screenshot Capture**: Background captures full tab via `chrome.tabs.captureVisibleTab()`
+3. **Coordinate Adjustment**: Content script adjusts coordinates for scaling factors
+4. **Image Cropping**: Content script crops the full screenshot using canvas
+5. **API Call**: Send cropped image (base64) to GLM-4.5V API
+
+### Critical: Coordinate System Adjustment
+
+**Why it's needed**: Mouse coordinates are in CSS pixels, but `captureVisibleTab` returns physical pixels. Additionally, some websites apply CSS transforms, zoom, or have browser zoom, creating coordinate mismatches.
+
+**Solution** ([content-ocr.js:384-463](content-ocr.js#L384-L463)):
+- `detectAndAdjustCoordinates()`: Detects and compensates for:
+  - CSS `transform` matrix (extracts scale factors)
+  - CSS `zoom` property
+  - Browser zoom level (using test element method)
+  - `devicePixelRatio`
+- Adjusts coordinates to match screenshot coordinate system
+
+**When troubleshooting offset issues**:
+- Check console for "检测到页面缩放" messages
+- Some websites (e.g., Zhihu) have CSS transforms that require adjustment
+- The adjustment is applied automatically before calling `performOCR()`
+
+### API Configuration
+
+OCR uses GLM-4.5V (智谱 AI) - OpenAI-compatible API:
+
+```javascript
+const API_CONFIG = {
+  baseURL: 'https://open.bigmodel.cn/api/paas/v4',
+  apiKey: 'd237351671da318126fb5bd2f1372a08.EdkVfX8wE0JtcZpP',
+  model: 'glm-4.5v'
+};
+```
+
+**Request format**:
+- `stream: true` → Returns Server-Sent Events (SSE)
+- `stream: false` → Returns complete JSON response
+- Image sent as base64 (without `data:image/png;base64,` prefix)
+
+## Keyboard Shortcut System
+
+### Registration Flow
+
+1. **Setting** ([popup.js:295-441](popup.js#L295-L441)):
+   - User clicks shortcut input in popup
+   - Popup enters "recording" mode (green pulse animation)
+   - User presses key combination
+   - Shortcut saved to `chrome.storage.local`
+   - All tabs notified via `chrome.tabs.sendMessage`
+
+2. **Execution** ([content-ocr.js:857-887](content-ocr.js#L857-L887)):
+   - Content script loads shortcut from storage on page load
+   - `keydown` listener checks for match with `isShortcutMatch()`
+   - On match: prevents default, calls `startSelection()`
+
+**Important**: Shortcuts require at least one modifier key (Ctrl/Alt/Shift/Meta). Content scripts cannot use `chrome.commands` API (only background can), so this uses manual event listening.
 
 ## Module Organization
 
@@ -84,7 +182,7 @@ When adding new features:
 ## Design Guidelines
 
 ### Theme Colors
-- **Primary**: Light gray backgrounds (`#f5f5f5`, `#f8f9fa`)
+- **Primary**: Light gray backgrounds (`#f5f5f5`, `#f8f9fa`, `#6c757d`)
 - **NEVER use**: Blue-purple gradients or similar
 - Keep UI clean, minimal, and professional
 
@@ -101,13 +199,23 @@ When adding new features:
 - `chrome.storage.local`: Persistent data storage
 - `chrome.tabs`: Create and manage tabs
 - `chrome.runtime`: Message passing between components
+- `chrome.tabs.captureVisibleTab`: Screenshot capture for OCR
+
+## Content Script Limitations
+
+**Important**: Content scripts run in webpage context and have limited Chrome API access:
+- ❌ Cannot access: `chrome.tabs`, `chrome.windows`, `chrome.debugger`
+- ✌ Can access: `chrome.runtime.sendMessage`, `chrome.storage.local`, DOM APIs
+
+For operations requiring `chrome.tabs` (like getting tab ID), use `sender.tab.id` in the background script's message handler.
 
 ## Feature Modules
 
 ### Current Features
 1. **Word Selection Translation** (content.js + background.js)
-2. **Favorites Management** (favorites/)
-3. **Browser Bookmarks** (browser-bookmarks/)
+2. **OCR with Screenshot** (content-ocr.js + GLM-4.5V API)
+3. **Favorites Management** (favorites/)
+4. **Browser Bookmarks** (browser-bookmarks/)
 
 ### Adding New Features
 1. Create feature directory with HTML/JS files
@@ -119,6 +227,7 @@ When adding new features:
 ## Notes
 
 - Translation functionality is currently simulated (appends 'x' to text)
+- OCR uses real API (GLM-4.5V from 智谱 AI)
 - Extension uses Chinese language in UI
 - No build tools or bundlers required
 - Direct file editing is sufficient for development
