@@ -346,7 +346,7 @@ function onMouseUp(e) {
   document.removeEventListener('mouseup', onMouseUp);
 
   // 获取选择区域
-  const rect = {
+  const rawRect = {
     left: parseInt(selectionBox.style.left),
     top: parseInt(selectionBox.style.top),
     width: parseInt(selectionBox.style.width),
@@ -365,13 +365,101 @@ function onMouseUp(e) {
   }
 
   // 如果选择区域太小，忽略
-  if (rect.width < 10 || rect.height < 10) {
+  if (rawRect.width < 10 || rawRect.height < 10) {
     cleanup();
     return;
   }
 
+  // 检测并校正坐标
+  const adjustedRect = detectAndAdjustCoordinates(rawRect);
+
   // 发送消息进行 OCR
-  performOCR(rect);
+  performOCR(adjustedRect);
+}
+
+/**
+ * 检测并校正坐标系统差异
+ * 某些网站（如知乎）可能有 CSS transform 或缩放，导致坐标偏差
+ */
+function detectAndAdjustCoordinates(rect) {
+  // 1. 检测页面是否有 transform 或 scale
+  const bodyStyle = window.getComputedStyle(document.body);
+  const transform = bodyStyle.transform || bodyStyle.webkitTransform;
+  const zoom = bodyStyle.zoom;
+
+  // 2. 获取设备像素比
+  const devicePixelRatio = window.devicePixelRatio || 1;
+
+  // 3. 检测浏览器缩放级别（通过检测实际像素和CSS像素的比值）
+  const browserZoom = detectBrowserZoom();
+
+  // 计算总的缩放因子
+  let scaleAdjustment = 1;
+
+  // 如果有 transform matrix，提取缩放因子
+  if (transform && transform !== 'none') {
+    const matrix = transform.match(/matrix\((.+)\)/);
+    if (matrix) {
+      const values = matrix[1].split(', ').map(parseFloat);
+      // transform: matrix(a, b, c, d, tx, ty)
+      // a 和 d 是 X 和 Y 方向的缩放
+      const scaleX = values[0];
+      const scaleY = values[3];
+      scaleAdjustment *= ((scaleX + scaleY) / 2);
+    }
+  }
+
+  // 如果有 CSS zoom
+  if (zoom && zoom !== '1' && zoom !== 'normal') {
+    scaleAdjustment *= parseFloat(zoom);
+  }
+
+  // 考虑浏览器缩放
+  if (browserZoom !== 1) {
+    scaleAdjustment *= browserZoom;
+  }
+
+  // 如果有缩放，调整坐标
+  if (scaleAdjustment !== 1 && Math.abs(scaleAdjustment - 1) > 0.01) {
+    console.log(`检测到页面缩放: ${scaleAdjustment.toFixed(3)}, 调整坐标`);
+
+    return {
+      left: rect.left / scaleAdjustment,
+      top: rect.top / scaleAdjustment,
+      width: rect.width / scaleAdjustment,
+      height: rect.height / scaleAdjustment
+    };
+  }
+
+  // 如果没有检测到缩放，但 devicePixelRatio 不是 1，也需要调整
+  // 因为 captureVisibleTab 返回的是物理像素，而鼠标坐标是 CSS 像素
+  if (devicePixelRatio !== 1) {
+    return {
+      left: rect.left * devicePixelRatio,
+      top: rect.top * devicePixelRatio,
+      width: rect.width * devicePixelRatio,
+      height: rect.height * devicePixelRatio
+    };
+  }
+
+  return rect;
+}
+
+/**
+ * 检测浏览器缩放级别
+ * 通过创建一个 100px 的测试元素并检查其实际宽度
+ */
+function detectBrowserZoom() {
+  const testDiv = document.createElement('div');
+  testDiv.style.cssText = 'position: absolute; width: 100px; height: 100px; visibility: hidden; pointer-events: none;';
+  document.body.appendChild(testDiv);
+
+  const rect = testDiv.getBoundingClientRect();
+  const zoom = rect.width / 100;
+
+  document.body.removeChild(testDiv);
+
+  return zoom;
 }
 
 // 键盘事件（ESC 取消）
