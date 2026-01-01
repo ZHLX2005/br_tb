@@ -9,6 +9,15 @@ let isSelecting = false;
 let startX = 0;
 let startY = 0;
 let resultPanel = null;
+let currentCroppedImage = null;
+let currentAbortController = null;
+
+// API 配置
+const API_CONFIG = {
+  baseURL: 'https://open.bigmodel.cn/api/paas/v4',
+  apiKey: 'd237351671da318126fb5bd2f1372a08.EdkVfX8wE0JtcZpP',
+  model: 'glm-4.5v'
+};
 
 // 创建选择框
 function createSelectionBox() {
@@ -111,6 +120,57 @@ function createResultPanel() {
       " alt="截图预览">
     </div>
     <div style="
+      padding: 15px 20px;
+      background: #f8f9fa;
+      border-bottom: 1px solid #e9ecef;
+    ">
+      <div style="
+        font-size: 13px;
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 8px;
+      ">💬 用户提示词</div>
+      <textarea id="ocr-prompt-input" style="
+        width: 100%;
+        min-height: 60px;
+        padding: 10px;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        font-size: 13px;
+        font-family: inherit;
+        resize: vertical;
+      " placeholder="请输入提示词，例如：请识别图片中的所有文字内容">请识别图片中的所有文字内容</textarea>
+      <div style="
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 10px;
+      ">
+        <label style="
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 13px;
+          color: #495057;
+          cursor: pointer;
+        ">
+          <input type="checkbox" id="ocr-stream-toggle" style="cursor: pointer">
+          流式输出
+        </label>
+        <button id="ocr-restart-btn" style="
+          margin-left: auto;
+          padding: 6px 12px;
+          background: #6c757d;
+          color: white;
+          border: none;
+          border-radius: 6px;
+          font-size: 12px;
+          cursor: pointer;
+          display: none;
+        ">🔄 重新识别</button>
+      </div>
+    </div>
+    <div style="
       padding: 20px;
       max-height: 250px;
       overflow-y: auto;
@@ -158,6 +218,7 @@ function createResultPanel() {
   panel.querySelector('#ocr-close-result').addEventListener('click', hideResultPanel);
   panel.querySelector('#ocr-close-panel').addEventListener('click', hideResultPanel);
   panel.querySelector('#ocr-copy-result').addEventListener('click', copyResult);
+  panel.querySelector('#ocr-restart-btn').addEventListener('click', restartOCR);
 
   return panel;
 }
@@ -176,6 +237,12 @@ function showResultPanel(text, imageDataUrl = null) {
     previewImg.style.display = 'block';
   } else {
     previewImg.style.display = 'none';
+  }
+
+  // 显示重新识别按钮
+  const restartBtn = document.getElementById('ocr-restart-btn');
+  if (restartBtn) {
+    restartBtn.style.display = 'block';
   }
 
   resultPanel.style.display = 'block';
@@ -347,13 +414,21 @@ async function performOCR(rect) {
       try {
         // 在 content script 中裁剪图片
         const croppedImage = await cropImage(response.dataUrl, response.rect);
+        currentCroppedImage = croppedImage;
 
-        // TODO: 调用真实的 OCR API
-        // const result = await callOCRApi(croppedImage);
+        // 获取用户提示词和流式设置
+        const promptInput = document.getElementById('ocr-prompt-input');
+        const streamToggle = document.getElementById('ocr-stream-toggle');
+        const prompt = promptInput ? promptInput.value : '请识别图片中的所有文字内容';
+        const useStream = streamToggle ? streamToggle.checked : false;
 
-        // MVP: 返回固定结果，同时显示截图预览
-        const result = '截图成功,完成返回';
-        showResultPanel(result, croppedImage);
+        // 调用真实 OCR API
+        if (useStream) {
+          await callOCRApiStream(croppedImage, prompt);
+        } else {
+          const result = await callOCRApiNonStream(croppedImage, prompt);
+          showResultPanel(result, croppedImage);
+        }
       } catch (error) {
         showResultPanel('识别失败: ' + error.message);
       }
@@ -397,40 +472,224 @@ function cropImage(dataUrl, rect) {
 }
 
 /**
- * 调用真实 OCR API（示例，未来实现）
+ * 非流式 OCR API 调用
  * @param {string} imageBase64 - 图片的 base64 数据
+ * @param {string} prompt - 用户提示词
  * @returns {Promise<string>} OCR 识别结果
  */
-async function callOCRApi(imageBase64) {
+async function callOCRApiNonStream(imageBase64, prompt = '请识别图片中的所有文字内容') {
   // 移除 data:image/png;base64, 前缀
   const base64Data = imageBase64.split(',')[1];
 
-  // TODO: 替换为你的真实 API endpoint
-  const apiUrl = 'YOUR_API_ENDPOINT_HERE';
+  const apiUrl = `${API_CONFIG.baseURL}/chat/completions`;
 
   try {
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${API_CONFIG.apiKey}`
       },
       body: JSON.stringify({
-        image: base64Data,
-        // 其他 API 需要的参数
+        model: API_CONFIG.model,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'image_url',
+                image_url: {
+                  url: base64Data
+                }
+              },
+              {
+                type: 'text',
+                text: prompt
+              }
+            ]
+          }
+        ],
+        thinking: {
+          type: 'enabled'
+        },
+        stream: false
       })
     });
 
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`API 请求失败: ${response.status} - ${errorText}`);
+    }
+
     const data = await response.json();
 
-    // 根据你的 API 返回格式调整
-    return data.text || data.result || '无法获取识别结果';
+    // 返回识别结果
+    if (data.choices && data.choices[0] && data.choices[0].message) {
+      return data.choices[0].message.content || '无法获取识别结果';
+    }
+
+    return '无法获取识别结果';
   } catch (error) {
     throw new Error('API 调用失败: ' + error.message);
   }
 }
 
+/**
+ * 流式 OCR API 调用
+ * @param {string} imageBase64 - 图片的 base64 数据
+ * @param {string} prompt - 用户提示词
+ */
+async function callOCRApiStream(imageBase64, prompt = '请识别图片中的所有文字内容') {
+  // 移除 data:image/png;base64, 前缀
+  const base64Data = imageBase64.split(',')[1];
+
+  const apiUrl = `${API_CONFIG.baseURL}/chat/completions`;
+
+  // 创建 AbortController 用于取消请求
+  currentAbortController = new AbortController();
+
+  const resultTextElement = document.getElementById('ocr-result-text');
+  if (!resultTextElement) return;
+
+  let fullText = '';
+
+  try {
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${API_CONFIG.apiKey}`
+      },
+      body: JSON.stringify({
+        model: API_CONFIG.model,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'image_url',
+                image_url: {
+                  url: base64Data
+                }
+              },
+              {
+                type: 'text',
+                text: prompt
+              }
+            ]
+          }
+        ],
+        thinking: {
+          type: 'enabled'
+        },
+        stream: true
+      }),
+      signal: currentAbortController.signal
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`API 请求失败: ${response.status} - ${errorText}`);
+    }
+
+    // 读取流式响应
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+
+    resultTextElement.textContent = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+      const lines = chunk.split('\n');
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6);
+
+          if (data === '[DONE]') {
+            break;
+          }
+
+          try {
+            const parsed = JSON.parse(data);
+
+            if (parsed.choices && parsed.choices[0] && parsed.choices[0].delta) {
+              const delta = parsed.choices[0].delta;
+
+              // 优先使用 content，如果有 reasoning_content 也可以处理
+              const content = delta.content || delta.reasoning_content || '';
+
+              if (content) {
+                fullText += content;
+                resultTextElement.textContent = fullText;
+
+                // 自动滚动到底部
+                resultTextElement.scrollTop = resultTextElement.scrollHeight;
+              }
+            }
+          } catch (e) {
+            // 忽略解析错误
+            console.warn('解析 SSE 数据失败:', e);
+          }
+        }
+      }
+    }
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      resultTextElement.textContent = fullText + '\n\n[请求已取消]';
+    } else {
+      throw new Error('API 调用失败: ' + error.message);
+    }
+  } finally {
+    currentAbortController = null;
+  }
+}
+
+/**
+ * 重新识别（使用已保存的截图）
+ */
+async function restartOCR() {
+  if (!currentCroppedImage) {
+    alert('没有可用的截图，请重新选择区域');
+    return;
+  }
+
+  // 获取用户提示词和流式设置
+  const promptInput = document.getElementById('ocr-prompt-input');
+  const streamToggle = document.getElementById('ocr-stream-toggle');
+  const prompt = promptInput ? promptInput.value : '请识别图片中的所有文字内容';
+  const useStream = streamToggle ? streamToggle.checked : false;
+
+  // 取消之前的请求
+  if (currentAbortController) {
+    currentAbortController.abort();
+  }
+
+  try {
+    // 调用 OCR API
+    if (useStream) {
+      await callOCRApiStream(currentCroppedImage, prompt);
+    } else {
+      const result = await callOCRApiNonStream(currentCroppedImage, prompt);
+      showResultPanel(result, currentCroppedImage);
+    }
+  } catch (error) {
+    showResultPanel('识别失败: ' + error.message);
+  }
+}
+
 // 清理
 function cleanup() {
+  // 取消进行中的 API 请求
+  if (currentAbortController) {
+    currentAbortController.abort();
+    currentAbortController = null;
+  }
+
   const overlay = document.getElementById('ocr-overlay');
   const instruction = document.getElementById('ocr-instruction');
   if (overlay) overlay.remove();
