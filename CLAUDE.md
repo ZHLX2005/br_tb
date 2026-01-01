@@ -21,6 +21,40 @@ This is a Chrome browser extension for demonstration and testing purposes. It sh
 # Files are loaded directly by Chrome
 ```
 
+## Project Structure
+
+```
+test_feature/
+├── manifest.json          # Extension configuration (Manifest V3)
+├── background.js          # Service worker (background scripts)
+├── CLAUDE.md              # This file
+├── icon*.png              # Extension icons
+│
+├── popup/                 # Main popup UI
+│   ├── popup.html
+│   ├── popup.css
+│   └── popup.js
+│
+├── content/               # Content scripts (injected into web pages)
+│   ├── content.js         # Translation functionality
+│   ├── content-ocr.js     # OCR functionality
+│   └── content.css
+│
+└── modules/               # Feature modules (separate pages)
+    ├── favorites/         # Favorite translations management
+    │   ├── favorites.html
+    │   └── favorites.js
+    └── browser-bookmarks/ # Browser native bookmarks viewer
+        ├── browser-bookmarks.html
+        └── browser-bookmarks.js
+```
+
+**Organization Principles**:
+- Root contains only configuration files and background service worker
+- `popup/` contains the main extension popup UI
+- `content/` contains scripts injected into web pages
+- `modules/` contains self-contained feature modules that open in new tabs
+
 ## Architecture
 
 ### Component Communication
@@ -29,27 +63,26 @@ This is a Chrome browser extension for demonstration and testing purposes. It sh
 ┌─────────────┐     chrome.runtime     ┌──────────────┐
 │   Content   │ ◄─────────────────────► │   Background │
 │   Script    │      sendMessage       │   (Service   │
-│ (content.js)│                         │   Worker)    │
-│content-ocr.js│                        └──────────────┘
+│ (content/   │                         │   Worker)    │
+│  *.js)      │                        └──────────────┘
 └─────────────┘                                         │
       │                                                 │ chrome.tabs
       │                                                 ▼
    Web Page                                          ┌──────────┐
       │                                             │  Popup   │
-      │                                             │(UI only) │
-      ▼                                             └──────────┘
+      │                                             │(popup/   │
+      ▼                                             │  *.js)   │
    chrome.storage.local ◄────────────────────────────┘
 ```
 
 ### Key Files
 
-- **manifest.json**: Extension configuration (Manifest V3)
-- **background.js**: Service worker, handles context menus, screenshot capture (`captureVisibleTab`), and messages
-- **content.js**: Injected into web pages, handles text selection and tooltips
-- **content-ocr.js**: OCR functionality including screenshot selection, coordinate adjustment, and GLM-4.5V API calls
-- **popup.html/js/css**: Extension popup interface for settings and manual operations
-- **favorites/**: User's favorite translations (separate feature module)
-- **browser-bookmarks/**: Browser native bookmarks viewer (separate feature module)
+- **manifest.json**: Extension configuration (Manifest V3), defines permissions and content scripts
+- **background.js**: Service worker, handles context menus, screenshot capture (`captureVisibleTab`), and message routing
+- **content/content.js**: Injected into web pages, handles text selection and translation tooltips
+- **content/content-ocr.js**: OCR functionality including screenshot selection, coordinate adjustment, and GLM-4.5V API calls
+- **popup/**: Extension popup interface for settings and manual operations
+- **modules/**: Self-contained feature modules (favorites, browser-bookmarks)
 
 ### Message Passing
 
@@ -114,7 +147,7 @@ The OCR feature uses a two-stage capture process:
 
 **Why it's needed**: Mouse coordinates are in CSS pixels, but `captureVisibleTab` returns physical pixels. Additionally, some websites apply CSS transforms, zoom, or have browser zoom, creating coordinate mismatches.
 
-**Solution** ([content-ocr.js:384-463](content-ocr.js#L384-L463)):
+**Solution** ([content/content-ocr.js](content/content-ocr.js)):
 - `detectAndAdjustCoordinates()`: Detects and compensates for:
   - CSS `transform` matrix (extracts scale factors)
   - CSS `zoom` property
@@ -148,14 +181,14 @@ const API_CONFIG = {
 
 ### Registration Flow
 
-1. **Setting** ([popup.js:295-441](popup.js#L295-L441)):
+1. **Setting** ([popup/popup.js](popup/popup.js)):
    - User clicks shortcut input in popup
    - Popup enters "recording" mode (green pulse animation)
    - User presses key combination
    - Shortcut saved to `chrome.storage.local`
    - All tabs notified via `chrome.tabs.sendMessage`
 
-2. **Execution** ([content-ocr.js:857-887](content-ocr.js#L857-L887)):
+2. **Execution** ([content/content-ocr.js](content/content-ocr.js)):
    - Content script loads shortcut from storage on page load
    - `keydown` listener checks for match with `isShortcutMatch()`
    - On match: prevents default, calls `startSelection()`
@@ -164,20 +197,32 @@ const API_CONFIG = {
 
 ## Module Organization
 
-Each major feature should be organized in its own directory:
+### Adding New Feature Modules
+
+Each feature module should be organized in its own directory under `modules/`:
 
 ```
-feature-name/
-  ├── feature-name.html
-  ├── feature-name.js
-  └── (feature-name.css if needed)
+modules/
+└── feature-name/
+    ├── feature-name.html
+    ├── feature-name.js
+    └── (feature-name.css if needed)
 ```
 
-When adding new features:
-1. Create a dedicated directory
-2. Add HTML/JS to `web_accessible_resources` in manifest.json
-3. Add entry point in popup.html with appropriate button
-4. Implement navigation function in popup.js using `chrome.runtime.getURL()`
+**Steps to add a new feature module**:
+1. Create a dedicated directory under `modules/`
+2. Add HTML/JS/CSS files
+3. Add HTML/JS paths to `web_accessible_resources` in [manifest.json](manifest.json)
+4. Add entry point in [popup/popup.html](popup/popup.html) with appropriate button
+5. Implement navigation function in [popup/popup.js](popup/popup.js):
+   ```javascript
+   function showFeature() {
+     chrome.tabs.create({
+       url: chrome.runtime.getURL('modules/feature-name/feature-name.html')
+     });
+   }
+   ```
+6. Keep modules isolated - each feature should be self-contained
 
 ## Design Guidelines
 
@@ -203,7 +248,7 @@ When adding new features:
 
 ## Content Script Limitations
 
-**Important**: Content scripts run in webpage context and have limited Chrome API access:
+**Important**: Content scripts (in `content/` folder) run in webpage context and have limited Chrome API access:
 - ❌ Cannot access: `chrome.tabs`, `chrome.windows`, `chrome.debugger`
 - ✌ Can access: `chrome.runtime.sendMessage`, `chrome.storage.local`, DOM APIs
 
@@ -212,17 +257,10 @@ For operations requiring `chrome.tabs` (like getting tab ID), use `sender.tab.id
 ## Feature Modules
 
 ### Current Features
-1. **Word Selection Translation** (content.js + background.js)
-2. **OCR with Screenshot** (content-ocr.js + GLM-4.5V API)
-3. **Favorites Management** (favorites/)
-4. **Browser Bookmarks** (browser-bookmarks/)
-
-### Adding New Features
-1. Create feature directory with HTML/JS files
-2. Update manifest.json `web_accessible_resources`
-3. Add navigation button in popup.html
-4. Add handler function in popup.js
-5. Keep modules isolated - each feature should be self-contained
+1. **Word Selection Translation** ([content/content.js](content/content.js) + background.js)
+2. **OCR with Screenshot** ([content/content-ocr.js](content/content-ocr.js) + GLM-4.5V API)
+3. **Favorites Management** ([modules/favorites/](modules/favorites/))
+4. **Browser Bookmarks** ([modules/browser-bookmarks/](modules/browser-bookmarks/))
 
 ## Notes
 
