@@ -11,6 +11,7 @@ let startY = 0;
 let resultPanel = null;
 let currentCroppedImage = null;
 let currentAbortController = null;
+let isUserScrolling = false;  // 标记用户是否正在滚动
 
 // API 配置
 const API_CONFIG = {
@@ -381,7 +382,36 @@ function createResultPanel() {
   // 绑定拖动功能
   setupDraggable(panel);
 
+  // 绑定滚动行为
+  setupScrollBehavior(panel);
+
   return panel;
+}
+
+/**
+ * 设置面板滚动行为
+ */
+function setupScrollBehavior(panel) {
+  const resultTextElement = panel.querySelector('#ocr-result-text');
+  if (!resultTextElement) return;
+
+  let scrollTimeout = null;
+
+  // 监听滚动事件
+  resultTextElement.addEventListener('scroll', () => {
+    // 标记用户正在滚动
+    isUserScrolling = true;
+
+    // 清除之前的定时器
+    if (scrollTimeout) {
+      clearTimeout(scrollTimeout);
+    }
+
+    // 2秒后重置标志（假设用户2秒没有滚动就是停止了）
+    scrollTimeout = setTimeout(() => {
+      isUserScrolling = false;
+    }, 2000);
+  });
 }
 
 /**
@@ -943,11 +973,24 @@ async function callOCRApiStream(imageBase64, prompt = '请识别图片中的所�
   const outputCallback = (textChunk) => {
     return new Promise((resolve) => {
       requestAnimationFrame(() => {
+        const resultTextElement = document.getElementById('ocr-result-text');
+        if (!resultTextElement) {
+          resolve();
+          return;
+        }
+
         fullText += textChunk;
         resultTextElement.textContent = fullText;
 
-        // 自动滚动到底部
-        resultTextElement.scrollTop = resultTextElement.scrollHeight;
+        // 智能滚动：只有当用户在底部时才自动滚动
+        // 检测用户是否在底部（允许 50px 的误差范围）
+        const isAtBottom = resultTextElement.scrollHeight - resultTextElement.scrollTop - resultTextElement.clientHeight < 50;
+
+        if (isAtBottom && !isUserScrolling) {
+          // 用户在底部且没有主动滚动，自动滚动到最新内容
+          resultTextElement.scrollTop = resultTextElement.scrollHeight;
+        }
+        // 如果用户向上滚动了，不再自动滚动，让用户自由查看前面的内容
 
         resolve();
       });
