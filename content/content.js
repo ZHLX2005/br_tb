@@ -1,13 +1,13 @@
 // 创建翻译浮层元素
 let translationTooltip = null;
 let lastSelection = '';
-// 设置状态（默认关闭，等待从storage加载实际设置）
+// 设置状态（默认值，会从 storage 加载实际值）
 let settings = {
   autoTranslate: false,
   showContextMenu: true
 };
-// 标记设置是否已加载完成
-let settingsLoaded = false;
+// 标记设置是否已从 storage 加载完成
+let settingsInitialized = false;
 
 // 初始化翻译浮层
 function createTooltip() {
@@ -233,9 +233,9 @@ function showFavoriteNotification(text) {
 
 // 监听文本选择事件
 document.addEventListener('mouseup', (e) => {
-  // 检查设置是否已加载完成，以及是否启用了自动翻译
-  if (!settingsLoaded) {
-    console.log('[自动翻译] 设置未加载，跳过');
+  // 检查设置是否已初始化，以及是否启用了自动翻译
+  if (!settingsInitialized) {
+    console.log('[自动翻译] 设置尚未初始化，跳过');
     return;
   }
 
@@ -349,30 +349,41 @@ document.addEventListener('keydown', (e) => {
 // 页面加载完成后的初始化
 document.addEventListener('DOMContentLoaded', () => {
   createTooltip();
-  loadSettings();
+});
+
+// 立即加载设置（不等待 DOMContentLoaded）
+// 使用 Promise 确保设置在用户操作前已加载
+loadSettings().then(() => {
+  console.log('[初始化] 设置加载完成，当前状态:', settings);
+}).catch(err => {
+  console.error('[初始化] 设置加载失败:', err);
 });
 
 // 加载设置
 function loadSettings() {
-  chrome.storage.local.get(['settings'], (result) => {
-    // 如果没有存储的设置，使用默认值
-    const defaultSettings = {
-      autoTranslate: false,
-      showContextMenu: true
-    };
+  return new Promise((resolve) => {
+    chrome.storage.local.get(['settings'], (result) => {
+      // 如果没有存储的设置，使用默认值
+      const defaultSettings = {
+        autoTranslate: false,
+        showContextMenu: true
+      };
 
-    if (result.settings) {
-      // 合并存储的设置和默认值（存储的设置优先）
-      settings = { ...defaultSettings, ...result.settings };
-    } else {
-      // 使用默认值
-      settings = { ...defaultSettings };
-    }
+      if (result.settings) {
+        // 合并存储的设置和默认值（存储的设置优先）
+        settings = { ...defaultSettings, ...result.settings };
+      } else {
+        // 使用默认值
+        settings = { ...defaultSettings };
+      }
 
-    // 标记设置已加载完成
-    settingsLoaded = true;
+      // 标记设置已初始化
+      settingsInitialized = true;
 
-    console.log('设置已加载:', settings);
+      console.log('[初始化] 设置已加载:', settings);
+      console.log('[初始化] settingsInitialized 已设置为 true');
+      resolve(settings);
+    });
   });
 }
 
@@ -388,10 +399,10 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 
     settings = { ...settings, ...newSettings };
 
-    // 标记设置已加载（确保自动翻译功能可用）
-    settingsLoaded = true;
+    // 确保设置初始化标志已设置
+    settingsInitialized = true;
 
     console.log('[设置变化] 当前设置:', settings);
-    console.log('[设置变化] settingsLoaded 已设置为:', settingsLoaded);
+    console.log('[设置变化] settingsInitialized 已设置为 true');
   }
 });
