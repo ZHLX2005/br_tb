@@ -12,6 +12,8 @@ const ocrPromptInput = document.getElementById('ocrPromptInput');
 const ocrStreamToggle = document.getElementById('ocrStreamToggle');
 const ocrShortcutInput = document.getElementById('ocrShortcutInput');
 const clearShortcutBtn = document.getElementById('clearShortcutBtn');
+const favoritesShortcutInput = document.getElementById('favoritesShortcutInput');
+const clearFavoritesShortcutBtn = document.getElementById('clearFavoritesShortcutBtn');
 const ocrBtn = document.getElementById('ocrBtn');
 const bookmarksBtn = document.getElementById('bookmarksBtn');
 const historyBtn = document.getElementById('historyBtn');
@@ -23,6 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadSettings();
   loadStatistics();
   loadShortcut();
+  loadFavoritesShortcut();
   bindEvents();
 });
 
@@ -50,6 +53,10 @@ function bindEvents() {
   // 快捷键设置
   ocrShortcutInput.addEventListener('click', startShortcutRecording);
   clearShortcutBtn.addEventListener('click', clearShortcut);
+
+  // 收藏快捷键设置
+  favoritesShortcutInput.addEventListener('click', startFavoritesShortcutRecording);
+  clearFavoritesShortcutBtn.addEventListener('click', clearFavoritesShortcut);
 
   // 底部按钮
   ocrBtn.addEventListener('click', showOCR);
@@ -453,6 +460,135 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     loadStatistics();
   }
 });
+
+// ==================== 收藏快捷键相关函数 ====================
+
+// 收藏快捷键录制状态
+let isRecordingFavoritesShortcut = false;
+
+// 开始录制收藏快捷键
+function startFavoritesShortcutRecording() {
+  if (isRecordingFavoritesShortcut) return;
+
+  isRecordingFavoritesShortcut = true;
+  favoritesShortcutInput.classList.add('recording');
+  favoritesShortcutInput.value = '请按下快捷键组合...';
+  favoritesShortcutInput.disabled = true;
+
+  // 监听键盘事件
+  document.addEventListener('keydown', recordFavoritesShortcut);
+  document.addEventListener('keyup', finishFavoritesShortcutRecording);
+}
+
+// 录制收藏快捷键
+function recordFavoritesShortcut(e) {
+  e.preventDefault();
+  e.stopPropagation();
+
+  // 获取按下的修饰键
+  const modifiers = [];
+  if (e.ctrlKey) modifiers.push('Ctrl');
+  if (e.altKey) modifiers.push('Alt');
+  if (e.shiftKey) modifiers.push('Shift');
+  if (e.metaKey) modifiers.push('Meta');
+
+  // 获取主键（排除修饰键）
+  const mainKey = e.key;
+
+  // 验证快捷键是否有效
+  if (modifiers.length === 0) {
+    favoritesShortcutInput.value = '请至少按下一个修饰键 (Ctrl/Alt/Shift/Meta)';
+    return;
+  }
+
+  // 构建快捷键字符串
+  const shortcutString = [...modifiers, mainKey].join('+');
+
+  favoritesShortcutInput.value = shortcutString;
+}
+
+// 完成收藏快捷键录制
+function finishFavoritesShortcutRecording(e) {
+  e.preventDefault();
+  e.stopPropagation();
+
+  isRecordingFavoritesShortcut = false;
+  favoritesShortcutInput.classList.remove('recording');
+  favoritesShortcutInput.disabled = false;
+
+  // 移除监听器
+  document.removeEventListener('keydown', recordFavoritesShortcut);
+  document.removeEventListener('keyup', finishFavoritesShortcutRecording);
+
+  // 解析快捷键
+  const shortcutString = favoritesShortcutInput.value;
+
+  // 验证快捷键格式
+  if (!shortcutString || shortcutString.includes('请按下')) {
+    favoritesShortcutInput.value = '';
+    return;
+  }
+
+  // 保存快捷键
+  const shortcut = parseShortcutString(shortcutString);
+  saveFavoritesShortcut(shortcut);
+
+  // 显示友好的格式
+  favoritesShortcutInput.value = formatShortcutDisplay(shortcutString);
+}
+
+// 保存收藏快捷键到存储
+function saveFavoritesShortcut(shortcut) {
+  chrome.storage.local.set({ favoritesShortcut: shortcut });
+
+  // 通知所有标签页更新快捷键监听
+  chrome.tabs.query({}, (tabs) => {
+    tabs.forEach(tab => {
+      chrome.tabs.sendMessage(tab.id, {
+        action: 'updateFavoritesShortcut',
+        shortcut: shortcut
+      }).catch(() => {
+        // 忽略无法发送消息的标签页
+      });
+    });
+  });
+}
+
+// 加载收藏快捷键设置
+function loadFavoritesShortcut() {
+  chrome.storage.local.get(['favoritesShortcut'], (result) => {
+    if (result.favoritesShortcut) {
+      const shortcut = result.favoritesShortcut;
+      const parts = [];
+      if (shortcut.ctrlKey) parts.push('Ctrl');
+      if (shortcut.altKey) parts.push('Alt');
+      if (shortcut.shiftKey) parts.push('Shift');
+      if (shortcut.metaKey) parts.push('Meta');
+      parts.push(shortcut.key);
+
+      favoritesShortcutInput.value = formatShortcutDisplay(parts.join('+'));
+    } else {
+      favoritesShortcutInput.value = '';
+    }
+  });
+}
+
+// 清除收藏快捷键
+function clearFavoritesShortcut() {
+  chrome.storage.local.remove('favoritesShortcut');
+  favoritesShortcutInput.value = '';
+
+  // 通知所有标签页清除快捷键监听
+  chrome.tabs.query({}, (tabs) => {
+    tabs.forEach(tab => {
+      chrome.tabs.sendMessage(tab.id, {
+        action: 'clearFavoritesShortcut'
+      }).catch(() => {
+        // 忽略无法发送消息的标签页
+      });
+    });
+  });
+}
 
 // 快捷键支持
 document.addEventListener('keydown', (e) => {

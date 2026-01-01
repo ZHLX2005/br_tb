@@ -118,7 +118,7 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
   } else if (request.action === 'openFavorites') {
     // 打开收藏列表页面
     chrome.tabs.create({
-      url: chrome.runtime.getURL('favorites.html')
+      url: chrome.runtime.getURL('modules/favorites/favorites.html')
     });
   }
 

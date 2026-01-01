@@ -9,6 +9,10 @@ let settings = {
 // 标记设置是否已从 storage 加载完成
 let settingsInitialized = false;
 
+// 收藏快捷键（默认值：按下 Ctrl 键收藏）
+let favoritesShortcut = null;
+let favoritesShortcutPressed = false;
+
 // 初始化翻译浮层
 function createTooltip() {
   translationTooltip = document.createElement('div');
@@ -135,13 +139,38 @@ function showFavorites() {
   hideTooltip();
 }
 
-// 监听键盘事件（用于Ctrl+收藏）
+// 检查快捷键是否匹配
+function checkFavoritesShortcut(e) {
+  // 如果没有设置自定义快捷键，使用默认行为（Ctrl键）
+  if (!favoritesShortcut) {
+    return e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey && e.key === 'Control';
+  }
+
+  // 检查自定义快捷键是否匹配
+  return (
+    e.ctrlKey === favoritesShortcut.ctrlKey &&
+    e.altKey === favoritesShortcut.altKey &&
+    e.shiftKey === favoritesShortcut.shiftKey &&
+    e.metaKey === favoritesShortcut.metaKey &&
+    e.key.toLowerCase() === favoritesShortcut.key.toLowerCase()
+  );
+}
+
+// 获取快捷键的主键（用于 keyup 检测）
+function getShortcutMainKey() {
+  if (!favoritesShortcut) {
+    return 'Control';
+  }
+  return favoritesShortcut.key;
+}
+
+// 监听键盘事件（用于收藏快捷键）
 document.addEventListener('keydown', (e) => {
-  // 检查是否按下Ctrl键且不是组合键（避免与其他快捷键冲突）
-  if (e.ctrlKey && !e.altKey && !e.shiftKey && e.key === 'Control') {
+  // 检查是否按下收藏快捷键
+  if (checkFavoritesShortcut(e)) {
     // 避免重复触发
-    if (window._ctrlPressed) return;
-    window._ctrlPressed = true;
+    if (favoritesShortcutPressed) return;
+    favoritesShortcutPressed = true;
 
     // 检查是否有选中文本
     const selection = window.getSelection();
@@ -159,18 +188,18 @@ document.addEventListener('keydown', (e) => {
 
 // 监听键盘抬起事件
 document.addEventListener('keyup', (e) => {
-  if (e.key === 'Control') {
-    window._ctrlPressed = false;
+  if (e.key.toLowerCase() === getShortcutMainKey().toLowerCase()) {
+    favoritesShortcutPressed = false;
   }
 });
 
-// 监听文本选择变化（支持鼠标选择后按Ctrl收藏）
+// 监听文本选择变化（支持鼠标选择后按快捷键收藏）
 document.addEventListener('selectionchange', () => {
   const selection = window.getSelection();
   const selectedText = selection.toString().trim();
 
-  // 如果有选中文本且Ctrl键被按下
-  if (selectedText && window._ctrlPressed) {
+  // 如果有选中文本且快捷键被按下
+  if (selectedText && favoritesShortcutPressed) {
     addToFavorites(selectedText, window.location.href);
     showFavoriteNotification(selectedText);
   }
@@ -315,6 +344,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         request.translatedText
       );
     }
+  } else if (request.action === 'updateFavoritesShortcut') {
+    // 更新收藏快捷键
+    favoritesShortcut = request.shortcut;
+    console.log('[收藏快捷键] 收到更新消息:', favoritesShortcut);
+    sendResponse({ success: true });
+  } else if (request.action === 'clearFavoritesShortcut') {
+    // 清除收藏快捷键（恢复默认）
+    favoritesShortcut = null;
+    console.log('[收藏快捷键] 快捷键已清除，恢复默认（Ctrl键）');
+    sendResponse({ success: true });
   }
 });
 
@@ -359,6 +398,9 @@ loadSettings().then(() => {
   console.error('[初始化] 设置加载失败:', err);
 });
 
+// 立即加载收藏快捷键
+loadFavoritesShortcut();
+
 // 加载设置
 function loadSettings() {
   return new Promise((resolve) => {
@@ -387,6 +429,20 @@ function loadSettings() {
   });
 }
 
+// 加载收藏快捷键
+function loadFavoritesShortcut() {
+  chrome.storage.local.get(['favoritesShortcut'], (result) => {
+    if (result.favoritesShortcut) {
+      favoritesShortcut = result.favoritesShortcut;
+      console.log('[收藏快捷键] 快捷键已加载:', favoritesShortcut);
+    } else {
+      // 默认快捷键：仅按 Ctrl 键
+      favoritesShortcut = null;
+      console.log('[收藏快捷键] 使用默认快捷键（Ctrl键）');
+    }
+  });
+}
+
 // 监听storage变化（当popup修改设置时自动同步）
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName === 'local' && changes.settings) {
@@ -404,5 +460,12 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 
     console.log('[设置变化] 当前设置:', settings);
     console.log('[设置变化] settingsInitialized 已设置为 true');
+  }
+
+  // 监听收藏快捷键变化
+  if (areaName === 'local' && changes.favoritesShortcut) {
+    const newShortcut = changes.favoritesShortcut.newValue;
+    favoritesShortcut = newShortcut;
+    console.log('[收藏快捷键] 快捷键已更新:', favoritesShortcut);
   }
 });
