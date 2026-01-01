@@ -304,6 +304,8 @@ function createInstruction() {
 function createResultPanel() {
   const panel = document.createElement('div');
   panel.id = 'ocr-result-panel';
+  panel.style.display = 'flex';
+  panel.style.visibility = 'hidden';
 
   panel.innerHTML = `
     <div id="ocr-panel-header">
@@ -497,7 +499,7 @@ function showResultPanel(text, imageDataUrl = null) {
     restartBtn.style.display = 'block';
   }
 
-  resultPanel.style.display = 'block';
+  resultPanel.style.visibility = 'visible';
 }
 
 // 显示结果面板（带图片和加载状态）
@@ -529,7 +531,7 @@ function showResultPanelWithImage(imageDataUrl, text) {
     restartBtn.style.display = 'block';
   }
 
-  resultPanel.style.display = 'block';
+  resultPanel.style.visibility = 'visible';
 }
 
 // 只更新结果文字
@@ -543,7 +545,7 @@ function updateResultText(text) {
 // 隐藏结果面板
 function hideResultPanel() {
   if (resultPanel) {
-    resultPanel.style.display = 'none';
+    resultPanel.style.visibility = 'hidden';
   }
 }
 

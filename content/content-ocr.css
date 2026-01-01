@@ -152,6 +152,7 @@
   overflow-x: hidden;
   /* 关键：允许 flex 子元素收缩到比内容更小 */
   min-height: 0;
+  display: flex;
 }
 
 #ocr-result-text {
@@ -162,7 +163,7 @@
   white-space: pre-wrap;
   word-wrap: break-word;
   /* 确保文本区域可以正确滚动 */
-  overflow-y: auto;
+  overflow-y: visible;
 }
 
 /* ========== 底部按钮区域 ========== */
