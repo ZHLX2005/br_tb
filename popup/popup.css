@@ -353,6 +353,70 @@ body {
   background: #e0e0e0;
 }
 
+/* 流速控制样式 */
+.flow-rate-control {
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.flow-rate-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: #495057;
+}
+
+.flow-rate-slider {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: #dee2e6;
+  outline: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+
+.flow-rate-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #6c757d;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.flow-rate-slider::-webkit-slider-thumb:hover {
+  background: #5a6268;
+}
+
+.flow-rate-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #6c757d;
+  cursor: pointer;
+  border: none;
+  transition: background 0.2s;
+}
+
+.flow-rate-slider::-moz-range-thumb:hover {
+  background: #5a6268;
+}
+
+.flow-rate-warning {
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 4px;
+  color: #856404;
+  font-size: 11px;
+  text-align: center;
+}
+
 /* 响应式调整 */
 @media (max-width: 400px) {
   body {

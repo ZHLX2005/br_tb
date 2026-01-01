@@ -99,6 +99,30 @@
           <input type="checkbox" id="ocrStreamToggle" class="toggle">
           <span class="toggle-label">流式输出（实时显示识别结果）</span>
         </label>
+
+        <!-- 流速控制 -->
+        <div id="flowRateControl" class="flow-rate-control" style="display: none; margin-top: 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label class="setting-label" style="margin: 0;">输出速度</label>
+            <span id="flowRateValue" class="flow-rate-value">中等</span>
+          </div>
+          <input
+            type="range"
+            id="flowRateSlider"
+            class="flow-rate-slider"
+            min="1"
+            max="5"
+            step="1"
+            value="3"
+          >
+          <div style="display: flex; justify-content: space-between; margin-top: 4px; font-size: 11px; color: #6c757d;">
+            <span>慢速</span>
+            <span>较快</span>
+          </div>
+          <div id="flowRateWarning" class="flow-rate-warning" style="display: none;">
+            ⚠️ 输出速度较快可能导致页面卡顿
+          </div>
+        </div>
         <div class="ocr-setting-item" style="margin-top: 12px;">
           <label class="setting-label">快捷键</label>
           <div class="shortcut-input-wrapper">

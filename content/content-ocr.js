@@ -19,6 +19,201 @@ const API_CONFIG = {
   model: 'glm-4.5v'
 };
 
+// ========== 性能优化工具函数 ==========
+
+/**
+ * 节流函数 - 限制函数执行频率
+ * @param {Function} func - 要节流的函数
+ * @param {number} delay - 延迟时间（毫秒）
+ * @returns {Function} 节流后的函数
+ */
+function throttle(func, delay) {
+  let lastCall = 0;
+  let timeoutId = null;
+
+  return function executedFunction(...args) {
+    const now = Date.now();
+    const remaining = delay - (now - lastCall);
+
+    if (remaining <= 0) {
+      // 立即执行
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+      lastCall = now;
+      func.apply(this, args);
+    } else if (!timeoutId) {
+      // 设置延迟执行，确保最后一次调用被执行
+      timeoutId = setTimeout(() => {
+        lastCall = Date.now();
+        timeoutId = null;
+        func.apply(this, args);
+      }, remaining);
+    }
+  };
+}
+
+/**
+ * 防抖函数 - 延迟执行，只执行最后一次
+ * @param {Function} func - 要防抖的函数
+ * @param {number} delay - 延迟时间（毫秒）
+ * @returns {Function} 防抖后的函数
+ */
+function debounce(func, delay) {
+  let timeoutId = null;
+
+  return function executedFunction(...args) {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+
+    timeoutId = setTimeout(() => {
+      func.apply(this, args);
+      timeoutId = null;
+    }, delay);
+  };
+}
+
+/**
+ * 使用 requestAnimationFrame 优化的节流
+ * 适用于视觉更新场景
+ * @param {Function} func - 要优化的函数
+ * @returns {Function} 优化后的函数
+ */
+function throttleRAF(func) {
+  let rafId = null;
+
+  return function executedFunction(...args) {
+    if (rafId === null) {
+      rafId = requestAnimationFrame(() => {
+        func.apply(this, args);
+        rafId = null;
+      });
+    }
+  };
+}
+
+/**
+ * 流速控制类 - 使用预加载缓冲机制实现平滑输出
+ * 解决服务器推送不均导致的文字卡顿问题
+ */
+class StreamFlowController {
+  /**
+   * @param {Object} options - 配置选项
+   * @param {number} options.preloadThreshold - 预加载阈值（字符数），达到此值开始输出，默认 100
+   * @param {number} options.outputInterval - 输出间隔（毫秒），控制输出速率，默认 40ms (25fps)
+   * @param {number} options.minBufferSize - 最小缓冲区大小，低于此值停止输出等待补充，默认 20
+   * @param {number} options.chunkSize - 每次输出的字符数，默认 15
+   */
+  constructor(options = {}) {
+    this.preloadThreshold = options.preloadThreshold ?? 80; // 预加载80字符后开始输出
+    this.outputInterval = options.outputInterval ?? 35; // 每35ms输出一次
+    this.minBufferSize = options.minBufferSize ?? 15; // 缓冲区最少保留15字符
+    this.chunkSize = options.chunkSize ?? 12; // 每次输出12字符
+
+    this.buffer = '';
+    this.isStarted = false;
+    this.isEnded = false;
+    this.outputTimer = null;
+    this.onFlushCallback = null;
+  }
+
+  /**
+   * 启动输出定时器
+   */
+  startOutput(onFlush) {
+    this.onFlushCallback = onFlush;
+
+    const outputLoop = async () => {
+      if (this.isEnded) {
+        this.stop();
+        return;
+      }
+
+      // 检查是否需要继续输出
+      const shouldOutput =
+        // 已开始输出且缓冲区有足够数据
+        (this.isStarted && this.buffer.length > this.minBufferSize) ||
+        // 缓冲区达到预加载阈值，首次开始输出
+        (!this.isStarted && this.buffer.length >= this.preloadThreshold);
+
+      if (shouldOutput && this.buffer.length > 0) {
+        this.isStarted = true;
+
+        // 计算本次输出的字符数
+        const outputSize = Math.min(
+          this.chunkSize,
+          this.buffer.length - this.minBufferSize // 保持缓冲区不低于最小值
+        );
+
+        if (outputSize > 0) {
+          const outputText = this.buffer.slice(0, outputSize);
+          this.buffer = this.buffer.slice(outputSize);
+
+          try {
+            await this.onFlushCallback(outputText);
+          } catch (e) {
+            console.error('输出回调失败:', e);
+          }
+        }
+      }
+
+      // 继续下一轮
+      this.outputTimer = setTimeout(outputLoop, this.outputInterval);
+    };
+
+    // 启动输出循环
+    this.outputTimer = setTimeout(outputLoop, this.outputInterval);
+  }
+
+  /**
+   * 添加数据到缓冲区
+   * @param {string} data - 要添加的数据
+   */
+  add(data) {
+    this.buffer += data;
+  }
+
+  /**
+   * 标记数据流结束，输出剩余所有数据
+   * @returns {Promise<void>}
+   */
+  async end() {
+    this.isEnded = true;
+
+    // 停止定时器
+    this.stop();
+
+    // 输出所有剩余数据
+    if (this.buffer.length > 0 && this.onFlushCallback) {
+      await this.onFlushCallback(this.buffer);
+      this.buffer = '';
+    }
+  }
+
+  /**
+   * 停止输出定时器
+   */
+  stop() {
+    if (this.outputTimer) {
+      clearTimeout(this.outputTimer);
+      this.outputTimer = null;
+    }
+  }
+
+  /**
+   * 获取缓冲区状态
+   */
+  getBufferStatus() {
+    return {
+      bufferLength: this.buffer.length,
+      isStarted: this.isStarted,
+      isEnded: this.isEnded
+    };
+  }
+}
+
 // 创建选择框
 function createSelectionBox() {
   const box = document.createElement('div');
@@ -220,7 +415,7 @@ function setupDraggable(panel) {
     e.preventDefault();
   });
 
-  // 鼠标移动
+  // 鼠标移动（使用 RAF 优化）
   document.addEventListener('mousemove', (e) => {
     if (!isDragging) return;
 
@@ -239,10 +434,12 @@ function setupDraggable(panel) {
     newX = Math.max(0, Math.min(newX, maxX));
     newY = Math.max(0, Math.min(newY, maxY));
 
-    // 更新位置
-    panel.style.left = newX + 'px';
-    panel.style.top = newY + 'px';
-    panel.style.right = 'auto'; // 清除 right 属性
+    // 使用 RAF 优化位置更新
+    requestAnimationFrame(() => {
+      panel.style.left = newX + 'px';
+      panel.style.top = newY + 'px';
+      panel.style.right = 'auto'; // 清除 right 属性
+    });
   });
 
   // 鼠标释放
@@ -389,7 +586,7 @@ function onMouseDown(e) {
   document.addEventListener('mouseup', onMouseUp);
 }
 
-// 鼠标移动
+// 鼠标移动（使用 RAF 优化，减少重绘）
 function onMouseMove(e) {
   if (!isSelecting) return;
 
@@ -401,10 +598,15 @@ function onMouseMove(e) {
   const left = Math.min(startX, currentX);
   const top = Math.min(startY, currentY);
 
-  selectionBox.style.left = left + 'px';
-  selectionBox.style.top = top + 'px';
-  selectionBox.style.width = width + 'px';
-  selectionBox.style.height = height + 'px';
+  // 使用 RAF 优化的更新函数
+  requestAnimationFrame(() => {
+    if (selectionBox) {
+      selectionBox.style.left = left + 'px';
+      selectionBox.style.top = top + 'px';
+      selectionBox.style.width = width + 'px';
+      selectionBox.style.height = height + 'px';
+    }
+  });
 }
 
 // 鼠标释放
@@ -539,13 +741,13 @@ function onKeyDown(e) {
   }
 }
 
-// 页面滚动事件
-function onScroll() {
+// 页面滚动事件（使用节流优化）
+const onScroll = throttle(() => {
   // 滚动时隐藏选择框
   if (selectionBox && selectionBox.style.display === 'block') {
     selectionBox.style.display = 'none';
   }
-}
+}, 100);
 
 // 执行 OCR
 async function performOCR(rect) {
@@ -694,7 +896,7 @@ async function callOCRApiNonStream(imageBase64, prompt = '请识别图片中的�
 }
 
 /**
- * 流式 OCR API 调用
+ * 流式 OCR API 调用（使用预加载缓冲机制实现平滑输出）
  * @param {string} imageBase64 - 图片的 base64 数据
  * @param {string} prompt - 用户提示词
  */
@@ -711,6 +913,46 @@ async function callOCRApiStream(imageBase64, prompt = '请识别图片中的所�
   if (!resultTextElement) return;
 
   let fullText = '';
+
+  // 从存储中获取流速设置
+  const flowRateSettings = await new Promise((resolve) => {
+    chrome.storage.local.get(['ocrSettings'], (result) => {
+      const ocrSettings = result.ocrSettings || {};
+      resolve(ocrSettings.flowRate || {
+        level: 3,
+        outputInterval: 35,
+        chunkSize: 12
+      });
+    });
+  });
+
+  // 创建流速控制器 - 使用用户配置的流速参数
+  const flowController = new StreamFlowController({
+    preloadThreshold: 80,                   // 预加载 80 字符后开始输出
+    outputInterval: flowRateSettings.outputInterval,  // 用户配置的输出间隔
+    minBufferSize: 15,                       // 缓冲区最少保留 15 字符
+    chunkSize: flowRateSettings.chunkSize              // 用户配置的每次输出字符数
+  });
+
+  console.log(`[OCR] 使用流速档位: Lv${flowRateSettings.level}, 间隔: ${flowRateSettings.outputInterval}ms, 块大小: ${flowRateSettings.chunkSize}`);
+
+  /**
+   * 输出回调函数 - 更新 DOM
+   * @param {string} textChunk - 要显示的文本块
+   */
+  const outputCallback = (textChunk) => {
+    return new Promise((resolve) => {
+      requestAnimationFrame(() => {
+        fullText += textChunk;
+        resultTextElement.textContent = fullText;
+
+        // 自动滚动到底部
+        resultTextElement.scrollTop = resultTextElement.scrollHeight;
+
+        resolve();
+      });
+    });
+  };
 
   try {
     const response = await fetch(apiUrl, {
@@ -754,6 +996,9 @@ async function callOCRApiStream(imageBase64, prompt = '请识别图片中的所�
     // 清空加载状态，准备接收流式数据
     resultTextElement.textContent = '';
 
+    // 启动输出定时器
+    flowController.startOutput(outputCallback);
+
     // 读取流式响应
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
@@ -784,11 +1029,8 @@ async function callOCRApiStream(imageBase64, prompt = '请识别图片中的所�
               const content = delta.content || delta.reasoning_content || '';
 
               if (content) {
-                fullText += content;
-                resultTextElement.textContent = fullText;
-
-                // 自动滚动到底部
-                resultTextElement.scrollTop = resultTextElement.scrollHeight;
+                // 添加数据到缓冲区（非阻塞）
+                flowController.add(content);
               }
             }
           } catch (e) {
@@ -798,10 +1040,17 @@ async function callOCRApiStream(imageBase64, prompt = '请识别图片中的所�
         }
       }
     }
+
+    // 数据接收完毕，结束输出并刷新剩余数据
+    await flowController.end();
+
   } catch (error) {
     if (error.name === 'AbortError') {
+      // 停止输出定时器
+      flowController.stop();
       resultTextElement.textContent = fullText + '\n\n[请求已取消]';
     } else {
+      flowController.stop();
       throw new Error('API 调用失败: ' + error.message);
     }
   } finally {
