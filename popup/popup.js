@@ -10,6 +10,10 @@ const autoTranslateToggle = document.getElementById('autoTranslate');
 const showContextMenuToggle = document.getElementById('showContextMenu');
 const ocrPromptInput = document.getElementById('ocrPromptInput');
 const ocrStreamToggle = document.getElementById('ocrStreamToggle');
+const flowRateControl = document.getElementById('flowRateControl');
+const flowRateSlider = document.getElementById('flowRateSlider');
+const flowRateValue = document.getElementById('flowRateValue');
+const flowRateWarning = document.getElementById('flowRateWarning');
 const ocrShortcutInput = document.getElementById('ocrShortcutInput');
 const clearShortcutBtn = document.getElementById('clearShortcutBtn');
 const favoritesShortcutInput = document.getElementById('favoritesShortcutInput');
@@ -20,12 +24,23 @@ const historyBtn = document.getElementById('historyBtn');
 const settingsBtn = document.getElementById('settingsBtn');
 const aboutBtn = document.getElementById('aboutBtn');
 
+// 流速档位配置 (1-5)
+const FLOW_RATE_PRESETS = {
+  1: { name: '很慢', outputInterval: 60, chunkSize: 8, warning: false },
+  2: { name: '较慢', outputInterval: 45, chunkSize: 10, warning: false },
+  3: { name: '中等', outputInterval: 35, chunkSize: 12, warning: false },
+  4: { name: '较快', outputInterval: 25, chunkSize: 15, warning: true },
+  5: { name: '很快', outputInterval: 15, chunkSize: 20, warning: true }
+};
+
 // 初始化
 document.addEventListener('DOMContentLoaded', () => {
   loadSettings();
   loadStatistics();
   loadShortcut();
   loadFavoritesShortcut();
+  loadFlowRateSettings();
+  updateFlowRateControlVisibility();
   bindEvents();
 });
 
@@ -48,7 +63,14 @@ function bindEvents() {
   autoTranslateToggle.addEventListener('change', saveSettings);
   showContextMenuToggle.addEventListener('change', saveSettings);
   ocrPromptInput.addEventListener('input', saveOCRSettings);
-  ocrStreamToggle.addEventListener('change', saveOCRSettings);
+  ocrStreamToggle.addEventListener('change', () => {
+    saveOCRSettings();
+    updateFlowRateControlVisibility();
+  });
+
+  // 流速滑块变化
+  flowRateSlider.addEventListener('input', updateFlowRateDisplay);
+  flowRateSlider.addEventListener('change', saveFlowRate);
 
   // 快捷键设置
   ocrShortcutInput.addEventListener('click', startShortcutRecording);
@@ -191,6 +213,66 @@ function saveOCRSettings() {
   };
 
   chrome.storage.local.set({ ocrSettings });
+}
+
+// 更新流速控制面板的可见性
+function updateFlowRateControlVisibility() {
+  if (ocrStreamToggle.checked) {
+    flowRateControl.style.display = 'block';
+  } else {
+    flowRateControl.style.display = 'none';
+  }
+}
+
+// 更新流速显示
+function updateFlowRateDisplay() {
+  const level = parseInt(flowRateSlider.value);
+  const preset = FLOW_RATE_PRESETS[level];
+
+  flowRateValue.textContent = preset.name;
+
+  // 显示/隐藏警告
+  if (preset.warning) {
+    flowRateWarning.style.display = 'block';
+  } else {
+    flowRateWarning.style.display = 'none';
+  }
+}
+
+// 保存流速设置
+function saveFlowRate() {
+  const level = parseInt(flowRateSlider.value);
+  const preset = FLOW_RATE_PRESETS[level];
+
+  chrome.storage.local.get(['ocrSettings'], (result) => {
+    const ocrSettings = result.ocrSettings || {
+      prompt: '请识别图片中的所有文字内容',
+      stream: false
+    };
+
+    ocrSettings.flowRate = {
+      level: level,
+      outputInterval: preset.outputInterval,
+      chunkSize: preset.chunkSize
+    };
+
+    chrome.storage.local.set({ ocrSettings });
+  });
+}
+
+// 加载流速设置
+function loadFlowRateSettings() {
+  chrome.storage.local.get(['ocrSettings'], (result) => {
+    const ocrSettings = result.ocrSettings || {};
+
+    if (ocrSettings.flowRate) {
+      flowRateSlider.value = ocrSettings.flowRate.level || 3;
+    } else {
+      flowRateSlider.value = 3; // 默认中等速度
+    }
+
+    updateFlowRateDisplay();
+  });
 }
 
 // 加载统计信息
