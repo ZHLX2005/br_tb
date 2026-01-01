@@ -20,6 +20,74 @@ const API_CONFIG = {
   model: 'glm-4.5v'
 };
 
+// ========== Markdown 解析函数 ==========
+
+/**
+ * 简单的 Markdown 转 HTML 解析器
+ * 支持基本的 Markdown 语法：标题、粗体、斜体、代码块、列表、链接
+ * @param {string} markdown - Markdown 文本
+ * @returns {string} HTML 字符串
+ */
+function parseMarkdown(markdown) {
+  if (!markdown) return '';
+
+  let html = markdown;
+
+  // 转义 HTML 特殊字符（防止 XSS）
+  html = html.replace(/&/g, '&amp;')
+             .replace(/</g, '&lt;')
+             .replace(/>/g, '&gt;');
+
+  // 代码块 (```code```)
+  html = html.replace(/```(\w*)([\s\S]*?)```/g, (match, lang, code) => {
+    return `<pre style="background:#f5f5f5;padding:12px;border-radius:6px;overflow-x:auto;"><code>${code.trim()}</code></pre>`;
+  });
+
+  // 行内代码 (`code`)
+  html = html.replace(/`([^`]+)`/g, '<code style="background:#f5f5f5;padding:2px 6px;border-radius:4px;color:#e83e8c;">$1</code>');
+
+  // 标题 (# ## ### #### ##### ######)
+  html = html.replace(/^######\s+(.+)$/gm, '<h6 style="font-size:14px;font-weight:600;margin:12px 0 8px;">$1</h6>');
+  html = html.replace(/^#####\s+(.+)$/gm, '<h5 style="font-size:15px;font-weight:600;margin:12px 0 8px;">$1</h5>');
+  html = html.replace(/^####\s+(.+)$/gm, '<h4 style="font-size:16px;font-weight:600;margin:14px 0 10px;">$1</h4>');
+  html = html.replace(/^###\s+(.+)$/gm, '<h3 style="font-size:18px;font-weight:600;margin:16px 0 12px;">$1</h3>');
+  html = html.replace(/^##\s+(.+)$/gm, '<h2 style="font-size:20px;font-weight:600;margin:18px 0 14px;">$1</h2>');
+  html = html.replace(/^#\s+(.+)$/gm, '<h1 style="font-size:24px;font-weight:700;margin:20px 0 16px;">$1</h1>');
+
+  // 粗体 (**text** 或 __text__)
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/__(.+?)__/g, '<strong>$1</strong>');
+
+  // 斜体 (*text* 或 _text_)
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  html = html.replace(/_(.+?)_/g, '<em>$1</em>');
+
+  // 删除线 (~~text~~)
+  html = html.replace(/~~(.+?)~~/g, '<del>$1</del>');
+
+  // 无序列表 (- item 或 * item)
+  html = html.replace(/^[\-\*]\s+(.+)$/gm, '<li style="margin:4px 0;">$1</li>');
+  html = html.replace(/(<li.*<\/li>\n?)+/g, '<ul style="margin:8px 0;padding-left:20px;">$&</ul>');
+
+  // 有序列表 (1. item)
+  html = html.replace(/^\d+\.\s+(.+)$/gm, '<li style="margin:4px 0;">$1</li>');
+  html = html.replace(/(<li.*<\/li>\n?)+/g, '<ol style="margin:8px 0;padding-left:20px;">$&</ol>');
+
+  // 链接 ([text](url))
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color:#007bff;text-decoration:none;" target="_blank">$1</a>');
+
+  // 图片 (![alt](url))
+  html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" style="max-width:100%;border-radius:6px;margin:8px 0;" />');
+
+  // 引用 (> text)
+  html = html.replace(/^>\s+(.+)$/gm, '<blockquote style="border-left:4px solid #dee2e6;padding-left:12px;margin:8px 0;color:#6c757d;">$1</blockquote>');
+
+  // 换行转换（不在 pre 标签内的换行）
+  html = html.replace(/\n/g, '<br>');
+
+  return html;
+}
+
 // ========== 性能优化工具函数 ==========
 
 /**
@@ -317,6 +385,39 @@ function createResultPanel() {
         display: none;
       " alt="截图预览">
     </div>
+    <!-- 思考模式区域 (可折叠) -->
+    <div id="thinking-section" style="
+      border-top: 1px solid #e9ecef;
+      display: none;
+    ">
+      <div id="thinking-toggle" style="
+        padding: 10px 20px;
+        background: #f1f3f5;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 13px;
+        font-weight: 600;
+        color: #495057;
+        user-select: none;
+      ">
+        <span>🤔 思考过程</span>
+        <span id="thinking-arrow">▼</span>
+      </div>
+      <div id="thinking-content" style="
+        padding: 15px 20px;
+        background: #fafafa;
+        max-height: 200px;
+        overflow-y: auto;
+        font-size: 13px;
+        line-height: 1.6;
+        color: #666;
+        display: none;
+        white-space: pre-wrap;
+      "></div>
+    </div>
+    <!-- 主回答区域 -->
     <div style="
       padding: 20px;
       max-height: 250px;
@@ -378,6 +479,18 @@ function createResultPanel() {
   panel.querySelector('#ocr-close-panel').addEventListener('click', hideResultPanel);
   panel.querySelector('#ocr-copy-result').addEventListener('click', copyResult);
   panel.querySelector('#ocr-restart-btn').addEventListener('click', restartOCR);
+
+  // 绑定思考面板折叠功能
+  const thinkingToggle = panel.querySelector('#thinking-toggle');
+  const thinkingContent = panel.querySelector('#thinking-content');
+  const thinkingArrow = panel.querySelector('#thinking-arrow');
+  let thinkingExpanded = false;
+
+  thinkingToggle?.addEventListener('click', () => {
+    thinkingExpanded = !thinkingExpanded;
+    thinkingContent.style.display = thinkingExpanded ? 'block' : 'none';
+    thinkingArrow.textContent = thinkingExpanded ? '▲' : '▼';
+  });
 
   // 绑定拖动功能
   setupDraggable(panel);
@@ -486,7 +599,26 @@ function showResultPanel(text, imageDataUrl = null) {
   if (!resultPanel) {
     resultPanel = createResultPanel();
   }
-  document.getElementById('ocr-result-text').textContent = text;
+
+  // 隐藏思考区域（旧函数兼容）
+  const thinkingSection = document.getElementById('thinking-section');
+  if (thinkingSection) thinkingSection.style.display = 'none';
+
+  // 使用原始文本输出
+  const resultTextElement = document.getElementById('ocr-result-text');
+  if (typeof text === 'string') {
+    resultTextElement.textContent = text;
+  } else if (text && typeof text === 'object') {
+    // 支持传入对象格式 { mainContent, thinkingContent }
+    if (text.thinkingContent) {
+      const thinkingContent = document.getElementById('thinking-content');
+      if (thinkingContent) {
+        thinkingContent.textContent = text.thinkingContent;
+        thinkingSection.style.display = 'block';
+      }
+    }
+    resultTextElement.textContent = text.mainContent || '';
+  }
 
   // 显示图片预览
   const previewImg = document.getElementById('ocr-image-preview');
@@ -512,6 +644,10 @@ function showResultPanelWithImage(imageDataUrl, text) {
     resultPanel = createResultPanel();
   }
 
+  // 隐藏思考区域
+  const thinkingSection = document.getElementById('thinking-section');
+  if (thinkingSection) thinkingSection.style.display = 'none';
+
   // 显示图片预览
   const previewImg = document.getElementById('ocr-image-preview');
   if (imageDataUrl) {
@@ -520,7 +656,10 @@ function showResultPanelWithImage(imageDataUrl, text) {
   }
 
   // 设置加载文字
-  document.getElementById('ocr-result-text').textContent = text;
+  const resultTextElement = document.getElementById('ocr-result-text');
+  if (typeof text === 'string') {
+    resultTextElement.textContent = text;
+  }
 
   // 显示重新识别按钮
   const restartBtn = document.getElementById('ocr-restart-btn');
@@ -866,7 +1005,7 @@ function cropImage(dataUrl, rect) {
  * 非流式 OCR API 调用
  * @param {string} imageBase64 - 图片的 base64 数据
  * @param {string} prompt - 用户提示词
- * @returns {Promise<string>} OCR 识别结果
+ * @returns {Promise<{mainContent: string, thinkingContent: string}>} OCR 识别结果（包含主回答和思考内容）
  */
 async function callOCRApiNonStream(imageBase64, prompt = '请识别图片中的所有文字内容') {
   // 移除 data:image/png;base64, 前缀
@@ -874,37 +1013,52 @@ async function callOCRApiNonStream(imageBase64, prompt = '请识别图片中的�
 
   const apiUrl = `${API_CONFIG.baseURL}/chat/completions`;
 
+  // 从存储中获取思考模式设置
+  const thinkingEnabled = await new Promise((resolve) => {
+    chrome.storage.local.get(['ocrSettings'], (result) => {
+      const ocrSettings = result.ocrSettings || {};
+      resolve(ocrSettings.thinkingEnabled || false);
+    });
+  });
+
   try {
+    // 构建 API 请求体
+    const requestBody = {
+      model: API_CONFIG.model,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'image_url',
+              image_url: {
+                url: base64Data
+              }
+            },
+            {
+              type: 'text',
+              text: prompt
+            }
+          ]
+        }
+      ],
+      stream: false
+    };
+
+    // 只有启用思考模式时才添加 thinking 参数
+    if (thinkingEnabled) {
+      requestBody.thinking = {
+        type: 'enabled'
+      };
+    }
+
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${API_CONFIG.apiKey}`
       },
-      body: JSON.stringify({
-        model: API_CONFIG.model,
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'image_url',
-                image_url: {
-                  url: base64Data
-                }
-              },
-              {
-                type: 'text',
-                text: prompt
-              }
-            ]
-          }
-        ],
-        thinking: {
-          type: 'enabled'
-        },
-        stream: false
-      })
+      body: JSON.stringify(requestBody)
     });
 
     if (!response.ok) {
@@ -914,12 +1068,19 @@ async function callOCRApiNonStream(imageBase64, prompt = '请识别图片中的�
 
     const data = await response.json();
 
-    // 返回识别结果
+    // 返回识别结果（分离思考内容和主回答）
     if (data.choices && data.choices[0] && data.choices[0].message) {
-      return data.choices[0].message.content || '无法获取识别结果';
+      const message = data.choices[0].message;
+      return {
+        mainContent: message.content || '无法获取识别结果',
+        thinkingContent: thinkingEnabled ? (message.reasoning_content || '') : ''
+      };
     }
 
-    return '无法获取识别结果';
+    return {
+      mainContent: '无法获取识别结果',
+      thinkingContent: ''
+    };
   } catch (error) {
     throw new Error('API 调用失败: ' + error.message);
   }
@@ -940,57 +1101,87 @@ async function callOCRApiStream(imageBase64, prompt = '请识别图片中的所�
   currentAbortController = new AbortController();
 
   const resultTextElement = document.getElementById('ocr-result-text');
+  const thinkingSection = document.getElementById('thinking-section');
+  const thinkingContent = document.getElementById('thinking-content');
+
   if (!resultTextElement) return;
 
-  let fullText = '';
+  let fullMainText = '';     // 主回答内容
+  let fullThinkingText = ''; // 思考过程内容
+  let hasThinkingContent = false; // 标记是否有思考内容
 
-  // 从存储中获取流速设置
-  const flowRateSettings = await new Promise((resolve) => {
+  // 从存储中获取设置
+  const settings = await new Promise((resolve) => {
     chrome.storage.local.get(['ocrSettings'], (result) => {
       const ocrSettings = result.ocrSettings || {};
-      resolve(ocrSettings.flowRate || {
-        level: 3,
-        outputInterval: 35,
-        chunkSize: 12
+      resolve({
+        flowRate: ocrSettings.flowRate || {
+          level: 3,
+          outputInterval: 35,
+          chunkSize: 12
+        },
+        thinkingEnabled: ocrSettings.thinkingEnabled || false
       });
     });
   });
 
-  // 创建流速控制器 - 使用用户配置的流速参数
-  const flowController = new StreamFlowController({
-    preloadThreshold: 80,                   // 预加载 80 字符后开始输出
-    outputInterval: flowRateSettings.outputInterval,  // 用户配置的输出间隔
-    minBufferSize: 15,                       // 缓冲区最少保留 15 字符
-    chunkSize: flowRateSettings.chunkSize              // 用户配置的每次输出字符数
+  const flowRateSettings = settings.flowRate;
+  const thinkingEnabled = settings.thinkingEnabled;
+
+  // 创建流速控制器
+  const mainFlowController = new StreamFlowController({
+    preloadThreshold: 80,
+    outputInterval: flowRateSettings.outputInterval,
+    minBufferSize: 15,
+    chunkSize: flowRateSettings.chunkSize
   });
+
+  // 只有启用思考模式时才创建思考流控制器
+  const thinkingFlowController = thinkingEnabled ? new StreamFlowController({
+    preloadThreshold: 50,
+    outputInterval: flowRateSettings.outputInterval,
+    minBufferSize: 10,
+    chunkSize: Math.max(5, Math.floor(flowRateSettings.chunkSize / 2))
+  }) : null;
 
   console.log(`[OCR] 使用流速档位: Lv${flowRateSettings.level}, 间隔: ${flowRateSettings.outputInterval}ms, 块大小: ${flowRateSettings.chunkSize}`);
 
   /**
-   * 输出回调函数 - 更新 DOM
-   * @param {string} textChunk - 要显示的文本块
+   * 思考内容输出回调
    */
-  const outputCallback = (textChunk) => {
+  const thinkingOutputCallback = (textChunk) => {
     return new Promise((resolve) => {
       requestAnimationFrame(() => {
-        const resultTextElement = document.getElementById('ocr-result-text');
+        if (thinkingContent) {
+          fullThinkingText += textChunk;
+          thinkingContent.textContent = fullThinkingText;
+        }
+        resolve();
+      });
+    });
+  };
+
+  /**
+   * 主回答输出回调
+   */
+  const mainOutputCallback = (textChunk) => {
+    return new Promise((resolve) => {
+      requestAnimationFrame(() => {
         if (!resultTextElement) {
           resolve();
           return;
         }
 
-        fullText += textChunk;
-        resultTextElement.textContent = fullText;
+        fullMainText += textChunk;
+        // 使用原始文本输出
+        resultTextElement.textContent = fullMainText;
 
-        // 智能滚动：只有当用户在底部时才自动滚动
-        // 检测用户是否在底部（允许 50px 的误差范围）
+        // 智能滚动
         const isAtBottom = resultTextElement.scrollHeight - resultTextElement.scrollTop - resultTextElement.clientHeight < 50;
 
         if (isAtBottom && !isUserScrolling) {
-          // 用户在底部且没有主动滚动，自动滚动到最新内容
           resultTextElement.scrollTop = resultTextElement.scrollHeight;
         }
-        // 如果用户向上滚动了，不再自动滚动，让用户自由查看前面的内容
 
         resolve();
       });
@@ -998,36 +1189,43 @@ async function callOCRApiStream(imageBase64, prompt = '请识别图片中的所�
   };
 
   try {
+    // 构建 API 请求体
+    const requestBody = {
+      model: API_CONFIG.model,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'image_url',
+              image_url: {
+                url: base64Data
+              }
+            },
+            {
+              type: 'text',
+              text: prompt
+            }
+          ]
+        }
+      ],
+      stream: true
+    };
+
+    // 只有启用思考模式时才添加 thinking 参数
+    if (thinkingEnabled) {
+      requestBody.thinking = {
+        type: 'enabled'
+      };
+    }
+
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${API_CONFIG.apiKey}`
       },
-      body: JSON.stringify({
-        model: API_CONFIG.model,
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'image_url',
-                image_url: {
-                  url: base64Data
-                }
-              },
-              {
-                type: 'text',
-                text: prompt
-              }
-            ]
-          }
-        ],
-        thinking: {
-          type: 'enabled'
-        },
-        stream: true
-      }),
+      body: JSON.stringify(requestBody),
       signal: currentAbortController.signal
     });
 
@@ -1036,11 +1234,16 @@ async function callOCRApiStream(imageBase64, prompt = '请识别图片中的所�
       throw new Error(`API 请求失败: ${response.status} - ${errorText}`);
     }
 
-    // 清空加载状态，准备接收流式数据
+    // 清空加载状态
     resultTextElement.textContent = '';
+    if (thinkingContent) thinkingContent.textContent = '';
+    if (thinkingSection) thinkingSection.style.display = 'none';
 
     // 启动输出定时器
-    flowController.startOutput(outputCallback);
+    if (thinkingFlowController) {
+      thinkingFlowController.startOutput(thinkingOutputCallback);
+    }
+    mainFlowController.startOutput(mainOutputCallback);
 
     // 读取流式响应
     const reader = response.body.getReader();
@@ -1068,12 +1271,19 @@ async function callOCRApiStream(imageBase64, prompt = '请识别图片中的所�
             if (parsed.choices && parsed.choices[0] && parsed.choices[0].delta) {
               const delta = parsed.choices[0].delta;
 
-              // 优先使用 content，如果有 reasoning_content 也可以处理
-              const content = delta.content || delta.reasoning_content || '';
+              // 分离思考内容和主回答内容（仅当启用思考模式时）
+              if (thinkingEnabled && thinkingFlowController && delta.reasoning_content) {
+                // 思考内容
+                if (!hasThinkingContent) {
+                  hasThinkingContent = true;
+                  if (thinkingSection) thinkingSection.style.display = 'block';
+                }
+                thinkingFlowController.add(delta.reasoning_content);
+              }
 
-              if (content) {
-                // 添加数据到缓冲区（非阻塞）
-                flowController.add(content);
+              if (delta.content) {
+                // 主回答内容
+                mainFlowController.add(delta.content);
               }
             }
           } catch (e) {
@@ -1085,15 +1295,25 @@ async function callOCRApiStream(imageBase64, prompt = '请识别图片中的所�
     }
 
     // 数据接收完毕，结束输出并刷新剩余数据
-    await flowController.end();
+    const endPromises = [mainFlowController.end()];
+    if (thinkingFlowController) {
+      endPromises.push(thinkingFlowController.end());
+    }
+    await Promise.all(endPromises);
 
   } catch (error) {
     if (error.name === 'AbortError') {
       // 停止输出定时器
-      flowController.stop();
-      resultTextElement.textContent = fullText + '\n\n[请求已取消]';
+      if (thinkingFlowController) {
+        thinkingFlowController.stop();
+      }
+      mainFlowController.stop();
+      resultTextElement.innerHTML = fullMainText + '\n\n<p style="color:#999;">[请求已取消]</p>';
     } else {
-      flowController.stop();
+      if (thinkingFlowController) {
+        thinkingFlowController.stop();
+      }
+      mainFlowController.stop();
       throw new Error('API 调用失败: ' + error.message);
     }
   } finally {

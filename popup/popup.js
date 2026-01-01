@@ -10,6 +10,7 @@ const autoTranslateToggle = document.getElementById('autoTranslate');
 const showContextMenuToggle = document.getElementById('showContextMenu');
 const ocrPromptInput = document.getElementById('ocrPromptInput');
 const ocrStreamToggle = document.getElementById('ocrStreamToggle');
+const ocrThinkingToggle = document.getElementById('ocrThinkingToggle');
 const flowRateControl = document.getElementById('flowRateControl');
 const flowRateSlider = document.getElementById('flowRateSlider');
 const flowRateValue = document.getElementById('flowRateValue');
@@ -67,6 +68,7 @@ function bindEvents() {
     saveOCRSettings();
     updateFlowRateControlVisibility();
   });
+  ocrThinkingToggle.addEventListener('change', saveOCRSettings);
 
   // 流速滑块变化
   flowRateSlider.addEventListener('input', updateFlowRateDisplay);
@@ -169,11 +171,13 @@ function loadSettings() {
   chrome.storage.local.get(['ocrSettings'], (result) => {
     const ocrSettings = result.ocrSettings || {
       prompt: '请识别图片中的所有文字内容',
-      stream: false
+      stream: false,
+      thinkingEnabled: false
     };
 
     ocrPromptInput.value = ocrSettings.prompt;
     ocrStreamToggle.checked = ocrSettings.stream;
+    ocrThinkingToggle.checked = ocrSettings.thinkingEnabled || false;
   });
 }
 
@@ -207,9 +211,15 @@ function saveSettings() {
 
 // 保存 OCR 设置
 function saveOCRSettings() {
+  // 获取当前的 flowRate 设置
+  const currentLevel = parseInt(flowRateSlider.value);
+  const flowRate = FLOW_RATE_PRESETS[currentLevel];
+
   const ocrSettings = {
     prompt: ocrPromptInput.value,
-    stream: ocrStreamToggle.checked
+    stream: ocrStreamToggle.checked,
+    thinkingEnabled: ocrThinkingToggle.checked,
+    flowRate: flowRate
   };
 
   chrome.storage.local.set({ ocrSettings });
