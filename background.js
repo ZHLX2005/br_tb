@@ -69,7 +69,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 });
 
 // 监听来自content script的消息
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
   if (request.action === 'updateSettings') {
     // 更新右键菜单显示状态
     updateContextMenuVisibility();
@@ -143,7 +143,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 });
 
 /**
- * 处理 OCR 请求
+ * 处理 OCR 请求 - 使用 captureVisibleTab + canvas 裁剪
  * @param {Object} request - 请求对象，包含 rect 区域信息
  * @returns {Promise} OCR 识别结果
  */
@@ -151,11 +151,10 @@ async function handleOCRRequest(request) {
   try {
     const { rect } = request;
 
-    // 截取当前标签页
+    // 使用 captureVisibleTab 获取当前窗口的完整截图
+    // 注意：captureVisibleTab 第一个参数在 Manifest V3 中应该是 windowId
     const dataUrl = await chrome.tabs.captureVisibleTab(null, { format: 'png' });
 
-    // 将截图和区域信息发送回 content script 进行裁剪和 OCR
-    // 因为 service worker 环境没有 Image/Canvas 等 DOM API
     return {
       success: true,
       dataUrl: dataUrl,

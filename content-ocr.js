@@ -399,6 +399,7 @@ async function performOCR(rect) {
     };
 
     // 发送消息给 background script 获取截图
+    // background script 会从 sender.tab.id 获取当前标签页 ID
     chrome.runtime.sendMessage({
       action: 'performOCR',
       rect: rect
