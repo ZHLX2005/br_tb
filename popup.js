@@ -8,6 +8,8 @@ const todayCountEl = document.getElementById('todayCount');
 const totalCountEl = document.getElementById('totalCount');
 const autoTranslateToggle = document.getElementById('autoTranslate');
 const showContextMenuToggle = document.getElementById('showContextMenu');
+const ocrPromptInput = document.getElementById('ocrPromptInput');
+const ocrStreamToggle = document.getElementById('ocrStreamToggle');
 const ocrBtn = document.getElementById('ocrBtn');
 const bookmarksBtn = document.getElementById('bookmarksBtn');
 const historyBtn = document.getElementById('historyBtn');
@@ -39,6 +41,8 @@ function bindEvents() {
   // 设置项变化
   autoTranslateToggle.addEventListener('change', saveSettings);
   showContextMenuToggle.addEventListener('change', saveSettings);
+  ocrPromptInput.addEventListener('input', saveOCRSettings);
+  ocrStreamToggle.addEventListener('change', saveOCRSettings);
 
   // 底部按钮
   ocrBtn.addEventListener('click', showOCR);
@@ -118,6 +122,17 @@ function loadSettings() {
     autoTranslateToggle.checked = settings.autoTranslate;
     showContextMenuToggle.checked = settings.showContextMenu;
   });
+
+  // 加载 OCR 设置
+  chrome.storage.local.get(['ocrSettings'], (result) => {
+    const ocrSettings = result.ocrSettings || {
+      prompt: '请识别图片中的所有文字内容',
+      stream: false
+    };
+
+    ocrPromptInput.value = ocrSettings.prompt;
+    ocrStreamToggle.checked = ocrSettings.stream;
+  });
 }
 
 // 保存设置
@@ -146,6 +161,16 @@ function saveSettings() {
     action: 'updateSettings',
     settings
   });
+}
+
+// 保存 OCR 设置
+function saveOCRSettings() {
+  const ocrSettings = {
+    prompt: ocrPromptInput.value,
+    stream: ocrStreamToggle.checked
+  };
+
+  chrome.storage.local.set({ ocrSettings });
 }
 
 // 加载统计信息

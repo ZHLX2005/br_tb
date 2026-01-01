@@ -57,6 +57,26 @@
           <span class="toggle-label">显示右键菜单</span>
         </label>
       </div>
+
+      <!-- OCR 设置 -->
+      <div class="ocr-section">
+        <div class="section-title">
+          <span>📷 OCR 设置</span>
+        </div>
+        <div class="ocr-setting-item">
+          <label class="setting-label">识别提示词</label>
+          <textarea
+            id="ocrPromptInput"
+            class="ocr-textarea"
+            placeholder="请输入 OCR 识别的提示词..."
+            rows="2"
+          >请识别图片中的所有文字内容</textarea>
+        </div>
+        <label class="setting-item" style="margin-top: 12px;">
+          <input type="checkbox" id="ocrStreamToggle" class="toggle">
+          <span class="toggle-label">流式输出（实时显示识别结果）</span>
+        </label>
+      </div>
     </div>
 
     <div class="footer">

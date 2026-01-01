@@ -120,57 +120,6 @@ function createResultPanel() {
       " alt="截图预览">
     </div>
     <div style="
-      padding: 15px 20px;
-      background: #f8f9fa;
-      border-bottom: 1px solid #e9ecef;
-    ">
-      <div style="
-        font-size: 13px;
-        font-weight: 600;
-        color: #495057;
-        margin-bottom: 8px;
-      ">💬 用户提示词</div>
-      <textarea id="ocr-prompt-input" style="
-        width: 100%;
-        min-height: 60px;
-        padding: 10px;
-        border: 2px solid #e0e0e0;
-        border-radius: 8px;
-        font-size: 13px;
-        font-family: inherit;
-        resize: vertical;
-      " placeholder="请输入提示词，例如：请识别图片中的所有文字内容">请识别图片中的所有文字内容</textarea>
-      <div style="
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-top: 10px;
-      ">
-        <label style="
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          font-size: 13px;
-          color: #495057;
-          cursor: pointer;
-        ">
-          <input type="checkbox" id="ocr-stream-toggle" style="cursor: pointer">
-          流式输出
-        </label>
-        <button id="ocr-restart-btn" style="
-          margin-left: auto;
-          padding: 6px 12px;
-          background: #6c757d;
-          color: white;
-          border: none;
-          border-radius: 6px;
-          font-size: 12px;
-          cursor: pointer;
-          display: none;
-        ">🔄 重新识别</button>
-      </div>
-    </div>
-    <div style="
       padding: 20px;
       max-height: 250px;
       overflow-y: auto;
@@ -187,6 +136,18 @@ function createResultPanel() {
       display: flex;
       gap: 10px;
     ">
+      <button id="ocr-restart-btn" style="
+        flex: 1;
+        padding: 8px 16px;
+        background: #6c757d;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-size: 13px;
+        cursor: pointer;
+        transition: background 0.2s;
+        display: none;
+      ">🔄 重新识别</button>
       <button id="ocr-copy-result" style="
         flex: 1;
         padding: 8px 16px;
@@ -246,6 +207,39 @@ function showResultPanel(text, imageDataUrl = null) {
   }
 
   resultPanel.style.display = 'block';
+}
+
+// 显示结果面板（带图片和加载状态）
+function showResultPanelWithImage(imageDataUrl, text) {
+  if (!resultPanel) {
+    resultPanel = createResultPanel();
+  }
+
+  // 显示图片预览
+  const previewImg = document.getElementById('ocr-image-preview');
+  if (imageDataUrl) {
+    previewImg.src = imageDataUrl;
+    previewImg.style.display = 'block';
+  }
+
+  // 设置加载文字
+  document.getElementById('ocr-result-text').textContent = text;
+
+  // 显示重新识别按钮
+  const restartBtn = document.getElementById('ocr-restart-btn');
+  if (restartBtn) {
+    restartBtn.style.display = 'block';
+  }
+
+  resultPanel.style.display = 'block';
+}
+
+// 只更新结果文字
+function updateResultText(text) {
+  const resultTextElement = document.getElementById('ocr-result-text');
+  if (resultTextElement) {
+    resultTextElement.textContent = text;
+  }
 }
 
 // 隐藏结果面板
@@ -397,44 +391,50 @@ function onScroll() {
 
 // 执行 OCR
 async function performOCR(rect) {
-  // 显示加载状态
-  showResultPanel('正在识别中，请稍候...');
+  // 从存储中获取 OCR 设置
+  chrome.storage.local.get(['ocrSettings'], async (settingsResult) => {
+    const ocrSettings = settingsResult.ocrSettings || {
+      prompt: '请识别图片中的所有文字内容',
+      stream: false
+    };
 
-  // 发送消息给 background script 获取截图
-  chrome.runtime.sendMessage({
-    action: 'performOCR',
-    rect: rect
-  }, async (response) => {
-    if (chrome.runtime.lastError) {
-      showResultPanel('识别失败: ' + chrome.runtime.lastError.message);
-      return;
-    }
-
-    if (response && response.success && response.dataUrl) {
-      try {
-        // 在 content script 中裁剪图片
-        const croppedImage = await cropImage(response.dataUrl, response.rect);
-        currentCroppedImage = croppedImage;
-
-        // 获取用户提示词和流式设置
-        const promptInput = document.getElementById('ocr-prompt-input');
-        const streamToggle = document.getElementById('ocr-stream-toggle');
-        const prompt = promptInput ? promptInput.value : '请识别图片中的所有文字内容';
-        const useStream = streamToggle ? streamToggle.checked : false;
-
-        // 调用真实 OCR API
-        if (useStream) {
-          await callOCRApiStream(croppedImage, prompt);
-        } else {
-          const result = await callOCRApiNonStream(croppedImage, prompt);
-          showResultPanel(result, croppedImage);
-        }
-      } catch (error) {
-        showResultPanel('识别失败: ' + error.message);
+    // 发送消息给 background script 获取截图
+    chrome.runtime.sendMessage({
+      action: 'performOCR',
+      rect: rect
+    }, async (response) => {
+      if (chrome.runtime.lastError) {
+        showResultPanel('识别失败: ' + chrome.runtime.lastError.message);
+        return;
       }
-    } else {
-      showResultPanel('识别失败: ' + (response?.error || '未知错误'));
-    }
+
+      if (response && response.success && response.dataUrl) {
+        try {
+          // 在 content script 中裁剪图片
+          const croppedImage = await cropImage(response.dataUrl, response.rect);
+          currentCroppedImage = croppedImage;
+
+          // 先显示图片预览和加载状态
+          showResultPanelWithImage(croppedImage, '正在识别中，请稍候...');
+
+          // 使用存储中的设置
+          const prompt = ocrSettings.prompt;
+          const useStream = ocrSettings.stream;
+
+          // 调用真实 OCR API
+          if (useStream) {
+            await callOCRApiStream(croppedImage, prompt);
+          } else {
+            const result = await callOCRApiNonStream(croppedImage, prompt);
+            updateResultText(result);
+          }
+        } catch (error) {
+          showResultPanel('识别失败: ' + error.message);
+        }
+      } else {
+        showResultPanel('识别失败: ' + (response?.error || '未知错误'));
+      }
+    });
   });
 }
 
@@ -592,11 +592,12 @@ async function callOCRApiStream(imageBase64, prompt = '请识别图片中的所�
       throw new Error(`API 请求失败: ${response.status} - ${errorText}`);
     }
 
+    // 清空加载状态，准备接收流式数据
+    resultTextElement.textContent = '';
+
     // 读取流式响应
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
-
-    resultTextElement.textContent = '';
 
     while (true) {
       const { done, value } = await reader.read();
@@ -658,28 +659,33 @@ async function restartOCR() {
     return;
   }
 
-  // 获取用户提示词和流式设置
-  const promptInput = document.getElementById('ocr-prompt-input');
-  const streamToggle = document.getElementById('ocr-stream-toggle');
-  const prompt = promptInput ? promptInput.value : '请识别图片中的所有文字内容';
-  const useStream = streamToggle ? streamToggle.checked : false;
+  // 从存储中获取最新的 OCR 设置
+  chrome.storage.local.get(['ocrSettings'], async (settingsResult) => {
+    const ocrSettings = settingsResult.ocrSettings || {
+      prompt: '请识别图片中的所有文字内容',
+      stream: false
+    };
 
-  // 取消之前的请求
-  if (currentAbortController) {
-    currentAbortController.abort();
-  }
+    const prompt = ocrSettings.prompt;
+    const useStream = ocrSettings.stream;
 
-  try {
-    // 调用 OCR API
-    if (useStream) {
-      await callOCRApiStream(currentCroppedImage, prompt);
-    } else {
-      const result = await callOCRApiNonStream(currentCroppedImage, prompt);
-      showResultPanel(result, currentCroppedImage);
+    // 取消之前的请求
+    if (currentAbortController) {
+      currentAbortController.abort();
     }
-  } catch (error) {
-    showResultPanel('识别失败: ' + error.message);
-  }
+
+    try {
+      // 调用 OCR API
+      if (useStream) {
+        await callOCRApiStream(currentCroppedImage, prompt);
+      } else {
+        const result = await callOCRApiNonStream(currentCroppedImage, prompt);
+        showResultPanel(result, currentCroppedImage);
+      }
+    } catch (error) {
+      showResultPanel('识别失败: ' + error.message);
+    }
+  });
 }
 
 // 清理
