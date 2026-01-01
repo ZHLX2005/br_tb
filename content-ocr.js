@@ -232,6 +232,10 @@ function startSelection() {
   overlay.addEventListener('mousedown', onMouseDown);
   document.addEventListener('keydown', onKeyDown);
 
+  // 监听页面滚动，滚动时隐藏选择框
+  document.addEventListener('wheel', onScroll, { passive: true });
+  document.addEventListener('touchmove', onScroll, { passive: true });
+
   // 显示提示
   setTimeout(() => {
     instruction.style.opacity = '1';
@@ -294,6 +298,11 @@ function onMouseUp(e) {
   if (overlay) overlay.remove();
   if (instruction) instruction.remove();
 
+  // 立即隐藏选择框（完成后不再显示）
+  if (selectionBox) {
+    selectionBox.style.display = 'none';
+  }
+
   // 如果选择区域太小，忽略
   if (rect.width < 10 || rect.height < 10) {
     cleanup();
@@ -308,6 +317,14 @@ function onMouseUp(e) {
 function onKeyDown(e) {
   if (e.key === 'Escape') {
     cleanup();
+  }
+}
+
+// 页面滚动事件
+function onScroll() {
+  // 滚动时隐藏选择框
+  if (selectionBox && selectionBox.style.display === 'block') {
+    selectionBox.style.display = 'none';
   }
 }
 
@@ -425,6 +442,8 @@ function cleanup() {
   document.removeEventListener('mousemove', onMouseMove);
   document.removeEventListener('mouseup', onMouseUp);
   document.removeEventListener('keydown', onKeyDown);
+  document.removeEventListener('wheel', onScroll);
+  document.removeEventListener('touchmove', onScroll);
 }
 
 // 监听来自 background 的消息
