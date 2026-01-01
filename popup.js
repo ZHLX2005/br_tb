@@ -10,6 +10,8 @@ const autoTranslateToggle = document.getElementById('autoTranslate');
 const showContextMenuToggle = document.getElementById('showContextMenu');
 const ocrPromptInput = document.getElementById('ocrPromptInput');
 const ocrStreamToggle = document.getElementById('ocrStreamToggle');
+const ocrShortcutInput = document.getElementById('ocrShortcutInput');
+const clearShortcutBtn = document.getElementById('clearShortcutBtn');
 const ocrBtn = document.getElementById('ocrBtn');
 const bookmarksBtn = document.getElementById('bookmarksBtn');
 const historyBtn = document.getElementById('historyBtn');
@@ -20,6 +22,7 @@ const aboutBtn = document.getElementById('aboutBtn');
 document.addEventListener('DOMContentLoaded', () => {
   loadSettings();
   loadStatistics();
+  loadShortcut();
   bindEvents();
 });
 
@@ -43,6 +46,10 @@ function bindEvents() {
   showContextMenuToggle.addEventListener('change', saveSettings);
   ocrPromptInput.addEventListener('input', saveOCRSettings);
   ocrStreamToggle.addEventListener('change', saveOCRSettings);
+
+  // 快捷键设置
+  ocrShortcutInput.addEventListener('click', startShortcutRecording);
+  clearShortcutBtn.addEventListener('click', clearShortcut);
 
   // 底部按钮
   ocrBtn.addEventListener('click', showOCR);
@@ -286,6 +293,152 @@ function showSettings() {
 // 显示关于
 function showAbout() {
   alert('划词翻译插件 v1.0\n\n这是一个演示插件，翻译功能为模拟实现。\n\n功能特点：\n• 支持划词翻译\n• 右键菜单翻译\n• 翻译历史记录\n• 自动翻译开关\n\n开发者: Demo');
+}
+
+// 快捷键录制状态
+let isRecordingShortcut = false;
+
+// 开始录制快捷键
+function startShortcutRecording() {
+  if (isRecordingShortcut) return;
+
+  isRecordingShortcut = true;
+  ocrShortcutInput.classList.add('recording');
+  ocrShortcutInput.value = '请按下快捷键组合...';
+  ocrShortcutInput.disabled = true;
+
+  // 监听键盘事件
+  document.addEventListener('keydown', recordShortcut);
+  document.addEventListener('keyup', finishShortcutRecording);
+}
+
+// 录制快捷键
+function recordShortcut(e) {
+  e.preventDefault();
+  e.stopPropagation();
+
+  // 获取按下的修饰键
+  const modifiers = [];
+  if (e.ctrlKey) modifiers.push('Ctrl');
+  if (e.altKey) modifiers.push('Alt');
+  if (e.shiftKey) modifiers.push('Shift');
+  if (e.metaKey) modifiers.push('Meta');
+
+  // 获取主键（排除修饰键）
+  const mainKey = e.key;
+
+  // 验证快捷键是否有效
+  if (modifiers.length === 0) {
+    ocrShortcutInput.value = '请至少按下一个修饰键 (Ctrl/Alt/Shift/Meta)';
+    return;
+  }
+
+  // 构建快捷键字符串
+  const shortcutString = [...modifiers, mainKey].join('+');
+
+  ocrShortcutInput.value = shortcutString;
+}
+
+// 完成快捷键录制
+function finishShortcutRecording(e) {
+  e.preventDefault();
+  e.stopPropagation();
+
+  isRecordingShortcut = false;
+  ocrShortcutInput.classList.remove('recording');
+  ocrShortcutInput.disabled = false;
+
+  // 移除监听器
+  document.removeEventListener('keydown', recordShortcut);
+  document.removeEventListener('keyup', finishShortcutRecording);
+
+  // 解析快捷键
+  const shortcutString = ocrShortcutInput.value;
+
+  // 验证快捷键格式
+  if (!shortcutString || shortcutString.includes('请按下')) {
+    ocrShortcutInput.value = '';
+    return;
+  }
+
+  // 保存快捷键
+  const shortcut = parseShortcutString(shortcutString);
+  saveShortcut(shortcut);
+
+  // 显示友好的格式
+  ocrShortcutInput.value = formatShortcutDisplay(shortcutString);
+}
+
+// 解析快捷键字符串为对象
+function parseShortcutString(shortcutString) {
+  const parts = shortcutString.split('+');
+  return {
+    ctrlKey: parts.includes('Ctrl'),
+    altKey: parts.includes('Alt'),
+    shiftKey: parts.includes('Shift'),
+    metaKey: parts.includes('Meta'),
+    key: parts[parts.length - 1] // 最后一个是主键
+  };
+}
+
+// 格式化快捷键显示
+function formatShortcutDisplay(shortcutString) {
+  return shortcutString
+    .replace('Control', 'Ctrl')
+    .replace('Meta', 'Cmd');
+}
+
+// 保存快捷键到存储
+function saveShortcut(shortcut) {
+  chrome.storage.local.set({ ocrShortcut: shortcut });
+
+  // 通知所有标签页更新快捷键监听
+  chrome.tabs.query({}, (tabs) => {
+    tabs.forEach(tab => {
+      chrome.tabs.sendMessage(tab.id, {
+        action: 'updateShortcut',
+        shortcut: shortcut
+      }).catch(() => {
+        // 忽略无法发送消息的标签页
+      });
+    });
+  });
+}
+
+// 加载快捷键设置
+function loadShortcut() {
+  chrome.storage.local.get(['ocrShortcut'], (result) => {
+    if (result.ocrShortcut) {
+      const shortcut = result.ocrShortcut;
+      const parts = [];
+      if (shortcut.ctrlKey) parts.push('Ctrl');
+      if (shortcut.altKey) parts.push('Alt');
+      if (shortcut.shiftKey) parts.push('Shift');
+      if (shortcut.metaKey) parts.push('Meta');
+      parts.push(shortcut.key);
+
+      ocrShortcutInput.value = formatShortcutDisplay(parts.join('+'));
+    } else {
+      ocrShortcutInput.value = '';
+    }
+  });
+}
+
+// 清除快捷键
+function clearShortcut() {
+  chrome.storage.local.remove('ocrShortcut');
+  ocrShortcutInput.value = '';
+
+  // 通知所有标签页清除快捷键监听
+  chrome.tabs.query({}, (tabs) => {
+    tabs.forEach(tab => {
+      chrome.tabs.sendMessage(tab.id, {
+        action: 'clearShortcut'
+      }).catch(() => {
+        // 忽略无法发送消息的标签页
+      });
+    });
+  });
 }
 
 // 监听来自内容脚本的消息

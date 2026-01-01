@@ -76,6 +76,22 @@
           <input type="checkbox" id="ocrStreamToggle" class="toggle">
           <span class="toggle-label">流式输出（实时显示识别结果）</span>
         </label>
+        <div class="ocr-setting-item" style="margin-top: 12px;">
+          <label class="setting-label">快捷键</label>
+          <div class="shortcut-input-wrapper">
+            <input
+              type="text"
+              id="ocrShortcutInput"
+              class="shortcut-input"
+              placeholder="点击设置快捷键..."
+              readonly
+            >
+            <button id="clearShortcutBtn" class="shortcut-clear-btn" title="清除快捷键">✕</button>
+          </div>
+          <small style="color: #6c757d; font-size: 12px; margin-top: 4px; display: block;">
+            点击输入框，然后按下键盘组合键（如 Ctrl+Shift+O）
+          </small>
+        </div>
       </div>
     </div>
 

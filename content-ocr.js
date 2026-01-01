@@ -808,8 +808,80 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   } else if (request.action === 'closeOCRResult') {
     hideResultPanel();
     sendResponse({ success: true });
+  } else if (request.action === 'updateShortcut') {
+    // 更新快捷键
+    currentShortcut = request.shortcut;
+    console.log('OCR 快捷键已更新:', formatShortcutForLog(currentShortcut));
+    sendResponse({ success: true });
+  } else if (request.action === 'clearShortcut') {
+    // 清除快捷键
+    currentShortcut = null;
+    console.log('OCR 快捷键已清除');
+    sendResponse({ success: true });
   }
 });
 
 // 页面卸载时清理
 window.addEventListener('unload', cleanup);
+
+// ========== 快捷键功能 ==========
+
+// 当前注册的快捷键
+let currentShortcut = null;
+
+// 加载快捷键设置
+function loadShortcut() {
+  chrome.storage.local.get(['ocrShortcut'], (result) => {
+    if (result.ocrShortcut) {
+      currentShortcut = result.ocrShortcut;
+      console.log('OCR 快捷键已加载:', formatShortcutForLog(currentShortcut));
+    }
+  });
+}
+
+// 格式化快捷键用于日志输出
+function formatShortcutForLog(shortcut) {
+  const parts = [];
+  if (shortcut.ctrlKey) parts.push('Ctrl');
+  if (shortcut.altKey) parts.push('Alt');
+  if (shortcut.shiftKey) parts.push('Shift');
+  if (shortcut.metaKey) parts.push('Meta');
+  parts.push(shortcut.key);
+  return parts.join('+');
+}
+
+// 检查键盘事件是否匹配快捷键
+function isShortcutMatch(e, shortcut) {
+  if (!shortcut) return false;
+
+  return (
+    e.ctrlKey === shortcut.ctrlKey &&
+    e.altKey === shortcut.altKey &&
+    e.shiftKey === shortcut.shiftKey &&
+    e.metaKey === shortcut.metaKey &&
+    e.key === shortcut.key
+  );
+}
+
+// 监听键盘事件
+document.addEventListener('keydown', (e) => {
+  // 如果当前正在选择区域，不触发快捷键
+  if (isSelecting) return;
+
+  // 如果快捷键未设置，不处理
+  if (!currentShortcut) return;
+
+  // 检查是否匹配快捷键
+  if (isShortcutMatch(e, currentShortcut)) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    console.log('触发 OCR 快捷键:', formatShortcutForLog(currentShortcut));
+
+    // 启动 OCR 选择
+    startSelection();
+  }
+});
+
+// 初始化时加载快捷键
+loadShortcut();

@@ -259,6 +259,71 @@ body {
   border-color: #adb5bd;
 }
 
+/* 快捷键输入样式 */
+.shortcut-input-wrapper {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.shortcut-input {
+  flex: 1;
+  padding: 10px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  background: white;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.shortcut-input:hover {
+  border-color: #adb5bd;
+}
+
+.shortcut-input:focus {
+  outline: none;
+  border-color: #2c5aa0;
+  background: #f0f7ff;
+  cursor: text;
+}
+
+.shortcut-input.recording {
+  border-color: #28a745;
+  background: #f0fff4;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(40, 167, 69, 0.1);
+  }
+}
+
+.shortcut-clear-btn {
+  padding: 8px 12px;
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.2s;
+  line-height: 1;
+}
+
+.shortcut-clear-btn:hover {
+  background: #c82333;
+}
+
+.shortcut-clear-btn:active {
+  transform: scale(0.95);
+}
+
 /* 底部按钮区 */
 .footer {
   display: flex;
