@@ -1,0 +1,229 @@
+/**
+ * OCR 功能样式表
+ */
+
+/* ========== 选择框样式 ========== */
+#ocr-selection-box {
+  position: fixed;
+  border: 2px dashed #6c757d;
+  background: rgba(108, 117, 125, 0.1);
+  pointer-events: none;
+  z-index: 2147483647;
+  display: none;
+  box-shadow: 0 0 20px rgba(108, 117, 125, 0.3);
+}
+
+/* ========== 提示文字样式 ========== */
+#ocr-instruction {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #6c757d;
+  color: white;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 2147483647;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* ========== 结果面板样式 ========== */
+#ocr-result-panel {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  width: 400px;
+  min-width: 300px;
+  max-width: 90vw;
+  height: 500px;
+  min-height: 300px;
+  max-height: 90vh;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+  z-index: 2147483647;
+  display: none;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  /* 使用 flex 布局，固定头部和底部 */
+  display: flex;
+  flex-direction: column;
+  /* 可调整大小 - 支持水平和垂直方向 */
+  resize: both;
+  /* 隐藏溢出，只有内部内容区域滚动 */
+  overflow: hidden;
+}
+
+/* 面板头部 - 固定在顶部 */
+#ocr-panel-header {
+  flex-shrink: 0;
+  padding: 15px 20px;
+  background: #6c757d;
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: move;
+  user-select: none;
+  border-radius: 12px 12px 0 0;
+}
+
+#ocr-close-result {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+#ocr-close-result:hover {
+  opacity: 0.8;
+}
+
+/* 截图预览区域 - 固定在头部下方 */
+.ocr-preview-section {
+  flex-shrink: 0;
+  padding: 15px 20px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.ocr-preview-section > div:first-child {
+  font-size: 13px;
+  font-weight: 600;
+  color: #495057;
+  margin-bottom: 10px;
+}
+
+#ocr-image-preview {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid #dee2e6;
+  display: none;
+}
+
+/* ========== 思考模式区域 ========== */
+#thinking-section {
+  flex-shrink: 0;
+  border-top: 1px solid #e9ecef;
+  display: none;
+}
+
+#thinking-toggle {
+  padding: 10px 20px;
+  background: #f1f3f5;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: #495057;
+  user-select: none;
+}
+
+#thinking-toggle:hover {
+  background: #e9ecef;
+}
+
+#thinking-content {
+  padding: 15px 20px;
+  background: #fafafa;
+  max-height: 150px;
+  overflow-y: auto;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #666;
+  display: none;
+  white-space: pre-wrap;
+}
+
+/* ========== 主回答区域 ========== */
+/* 可滚动的内容区域容器 */
+.ocr-content-section {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  /* 关键：允许 flex 子元素收缩到比内容更小 */
+  min-height: 0;
+}
+
+#ocr-result-text {
+  padding: 20px;
+  color: #333;
+  font-size: 14px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  /* 确保文本区域可以正确滚动 */
+  overflow-y: auto;
+}
+
+/* ========== 底部按钮区域 ========== */
+.ocr-footer-section {
+  flex-shrink: 0;
+  padding: 12px 20px;
+  background: #f8f9fa;
+  border-top: 1px solid #e9ecef;
+  display: flex;
+  gap: 10px;
+  border-radius: 0 0 12px 12px;
+}
+
+#ocr-restart-btn,
+#ocr-copy-result,
+#ocr-close-panel {
+  flex: 1;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+#ocr-restart-btn {
+  background: #6c757d;
+  color: white;
+  display: none;
+}
+
+#ocr-restart-btn:hover {
+  background: #5a6268;
+}
+
+#ocr-copy-result {
+  background: #6c757d;
+  color: white;
+}
+
+#ocr-copy-result:hover {
+  background: #5a6268;
+}
+
+#ocr-close-panel {
+  background: #e9ecef;
+  color: #495057;
+}
+
+#ocr-close-panel:hover {
+  background: #dee2e6;
+}
+
+/* ========== 遮罩层样式 ========== */
+#ocr-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 2147483646;
+  cursor: crosshair;
+}

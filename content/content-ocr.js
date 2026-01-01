@@ -287,15 +287,6 @@ class StreamFlowController {
 function createSelectionBox() {
   const box = document.createElement('div');
   box.id = 'ocr-selection-box';
-  box.style.cssText = `
-    position: fixed;
-    border: 2px dashed #6c757d;
-    background: rgba(108, 117, 125, 0.1);
-    pointer-events: none;
-    z-index: 2147483647;
-    display: none;
-    box-shadow: 0 0 20px rgba(108, 117, 125, 0.3);
-  `;
   document.body.appendChild(box);
   return box;
 }
@@ -304,21 +295,6 @@ function createSelectionBox() {
 function createInstruction() {
   const instruction = document.createElement('div');
   instruction.id = 'ocr-instruction';
-  instruction.style.cssText = `
-    position: fixed;
-    top: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: #6c757d;
-    color: white;
-    padding: 12px 24px;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 500;
-    z-index: 2147483647;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  `;
   instruction.textContent = '🖱️ 按住鼠标左键拖动选择区域，按 ESC 取消';
   document.body.appendChild(instruction);
   return instruction;
@@ -328,147 +304,33 @@ function createInstruction() {
 function createResultPanel() {
   const panel = document.createElement('div');
   panel.id = 'ocr-result-panel';
-  panel.style.cssText = `
-    position: fixed;
-    top: 80px;
-    right: 20px;
-    width: 400px;
-    max-height: 600px;
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-    z-index: 2147483647;
-    display: none;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    overflow: hidden;
-  `;
 
   panel.innerHTML = `
-    <div id="ocr-panel-header" style="
-      padding: 15px 20px;
-      background: #6c757d;
-      color: white;
-      font-size: 16px;
-      font-weight: 600;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      cursor: move;
-      user-select: none;
-    ">
+    <div id="ocr-panel-header">
       <span>📝 识别结果</span>
-      <button id="ocr-close-result" style="
-        background: none;
-        border: none;
-        color: white;
-        font-size: 20px;
-        cursor: pointer;
-        padding: 0;
-        line-height: 1;
-      ">&times;</button>
+      <button id="ocr-close-result">&times;</button>
     </div>
-    <div style="
-      padding: 15px 20px;
-      background: #f8f9fa;
-      border-bottom: 1px solid #e9ecef;
-    ">
-      <div style="
-        font-size: 13px;
-        font-weight: 600;
-        color: #495057;
-        margin-bottom: 10px;
-      ">📷 截图预览</div>
-      <img id="ocr-image-preview" style="
-        width: 100%;
-        border-radius: 8px;
-        border: 1px solid #dee2e6;
-        display: none;
-      " alt="截图预览">
+    <div class="ocr-preview-section">
+      <div>📷 截图预览</div>
+      <img id="ocr-image-preview" alt="截图预览">
     </div>
     <!-- 思考模式区域 (可折叠) -->
-    <div id="thinking-section" style="
-      border-top: 1px solid #e9ecef;
-      display: none;
-    ">
-      <div id="thinking-toggle" style="
-        padding: 10px 20px;
-        background: #f1f3f5;
-        cursor: pointer;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        font-size: 13px;
-        font-weight: 600;
-        color: #495057;
-        user-select: none;
-      ">
+    <div id="thinking-section">
+      <div id="thinking-toggle">
         <span>🤔 思考过程</span>
         <span id="thinking-arrow">▼</span>
       </div>
-      <div id="thinking-content" style="
-        padding: 15px 20px;
-        background: #fafafa;
-        max-height: 200px;
-        overflow-y: auto;
-        font-size: 13px;
-        line-height: 1.6;
-        color: #666;
-        display: none;
-        white-space: pre-wrap;
-      "></div>
+      <div id="thinking-content"></div>
     </div>
-    <!-- 主回答区域 -->
-    <div style="
-      padding: 20px;
-      max-height: 250px;
-      overflow-y: auto;
-      color: #333;
-      font-size: 14px;
-      line-height: 1.8;
-      white-space: pre-wrap;
-      word-wrap: break-word;
-    " id="ocr-result-text">正在识别中...</div>
-    <div style="
-      padding: 12px 20px;
-      background: #f8f9fa;
-      border-top: 1px solid #e9ecef;
-      display: flex;
-      gap: 10px;
-    ">
-      <button id="ocr-restart-btn" style="
-        flex: 1;
-        padding: 8px 16px;
-        background: #6c757d;
-        color: white;
-        border: none;
-        border-radius: 6px;
-        font-size: 13px;
-        cursor: pointer;
-        transition: background 0.2s;
-        display: none;
-      ">🔄 重新识别</button>
-      <button id="ocr-copy-result" style="
-        flex: 1;
-        padding: 8px 16px;
-        background: #6c757d;
-        color: white;
-        border: none;
-        border-radius: 6px;
-        font-size: 13px;
-        cursor: pointer;
-        transition: background 0.2s;
-      ">📋 复制</button>
-      <button id="ocr-close-panel" style="
-        flex: 1;
-        padding: 8px 16px;
-        background: #e9ecef;
-        color: #495057;
-        border: none;
-        border-radius: 6px;
-        font-size: 13px;
-        cursor: pointer;
-        transition: background 0.2s;
-      ">关闭</button>
+    <!-- 主回答区域容器 -->
+    <div class="ocr-content-section">
+      <div id="ocr-result-text">正在识别中...</div>
+    </div>
+    <!-- 底部按钮区域 -->
+    <div class="ocr-footer-section">
+      <button id="ocr-restart-btn">🔄 重新识别</button>
+      <button id="ocr-copy-result">📋 复制</button>
+      <button id="ocr-close-panel">关闭</button>
     </div>
   `;
 
@@ -713,16 +575,6 @@ function startSelection() {
   // 添加遮罩层
   const overlay = document.createElement('div');
   overlay.id = 'ocr-overlay';
-  overlay.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.3);
-    z-index: 2147483646;
-    cursor: crosshair;
-  `;
   document.body.appendChild(overlay);
 
   // 监听鼠标事件
