@@ -10,6 +10,7 @@ const autoTranslateToggle = document.getElementById('autoTranslate');
 const showContextMenuToggle = document.getElementById('showContextMenu');
 const selectionPromptInput = document.getElementById('selectionPromptInput');
 const selectionStreamToggle = document.getElementById('selectionStreamToggle');
+const selectionThinkingToggle = document.getElementById('selectionThinkingToggle');
 const ocrPromptInput = document.getElementById('ocrPromptInput');
 const ocrStreamToggle = document.getElementById('ocrStreamToggle');
 const ocrThinkingToggle = document.getElementById('ocrThinkingToggle');
@@ -68,6 +69,7 @@ function bindEvents() {
   showContextMenuToggle.addEventListener('change', saveSettings);
   selectionPromptInput.addEventListener('input', saveSelectionSettings);
   selectionStreamToggle.addEventListener('change', saveSelectionSettings);
+  selectionThinkingToggle.addEventListener('change', saveSelectionSettings);
   ocrPromptInput.addEventListener('input', saveOCRSettings);
   ocrStreamToggle.addEventListener('change', () => {
     saveOCRSettings();
@@ -219,11 +221,13 @@ function loadSelectionSettings() {
   chrome.storage.local.get(['selectionSettings'], (result) => {
     const selectionSettings = result.selectionSettings || {
       prompt: '请解释 %s',
-      stream: true
+      stream: true,
+      thinkingEnabled: false
     };
 
     selectionPromptInput.value = selectionSettings.prompt;
     selectionStreamToggle.checked = selectionSettings.stream;
+    selectionThinkingToggle.checked = selectionSettings.thinkingEnabled || false;
   });
 }
 
@@ -231,7 +235,8 @@ function loadSelectionSettings() {
 function saveSelectionSettings() {
   const selectionSettings = {
     prompt: selectionPromptInput.value,
-    stream: selectionStreamToggle.checked
+    stream: selectionStreamToggle.checked,
+    thinkingEnabled: selectionThinkingToggle.checked
   };
 
   chrome.storage.local.set({ selectionSettings });

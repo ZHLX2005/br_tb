@@ -13,7 +13,7 @@ let isUserScrolling = false;
 const API_CONFIG = {
   baseURL: 'https://open.bigmodel.cn/api/paas/v4',
   apiKey: 'd237351671da318126fb5bd2f1372a08.EdkVfX8wE0JtcZpP',
-  model: 'glm-4-flash'  // 使用更快的模型用于文本处理
+  model: 'glm-4.5v'
 };
 
 // 设置状态
@@ -29,6 +29,87 @@ let settingsInitialized = false;
 // 收藏快捷键
 let favoritesShortcut = null;
 let favoritesShortcutPressed = false;
+
+// ========== StreamFlowController 流速控制类 ==========
+
+/**
+ * 流速控制类 - 使用预加载缓冲机制实现平滑输出
+ * 解决服务器推送不均导致的文字卡顿问题
+ */
+class StreamFlowController {
+  constructor(options = {}) {
+    this.preloadThreshold = options.preloadThreshold ?? 80;
+    this.outputInterval = options.outputInterval ?? 35;
+    this.minBufferSize = options.minBufferSize ?? 15;
+    this.chunkSize = options.chunkSize ?? 12;
+
+    this.buffer = '';
+    this.isStarted = false;
+    this.isEnded = false;
+    this.outputTimer = null;
+    this.onFlushCallback = null;
+  }
+
+  startOutput(onFlush) {
+    this.onFlushCallback = onFlush;
+
+    const outputLoop = async () => {
+      if (this.isEnded) {
+        this.stop();
+        return;
+      }
+
+      const shouldOutput =
+        (this.isStarted && this.buffer.length > this.minBufferSize) ||
+        (!this.isStarted && this.buffer.length >= this.preloadThreshold);
+
+      if (shouldOutput && this.buffer.length > 0) {
+        this.isStarted = true;
+
+        const outputSize = Math.min(
+          this.chunkSize,
+          this.buffer.length - this.minBufferSize
+        );
+
+        if (outputSize > 0) {
+          const outputText = this.buffer.slice(0, outputSize);
+          this.buffer = this.buffer.slice(outputSize);
+
+          try {
+            await this.onFlushCallback(outputText);
+          } catch (e) {
+            console.error('输出回调失败:', e);
+          }
+        }
+      }
+
+      this.outputTimer = setTimeout(outputLoop, this.outputInterval);
+    };
+
+    this.outputTimer = setTimeout(outputLoop, this.outputInterval);
+  }
+
+  add(data) {
+    this.buffer += data;
+  }
+
+  async end() {
+    this.isEnded = true;
+    this.stop();
+
+    if (this.buffer.length > 0 && this.onFlushCallback) {
+      await this.onFlushCallback(this.buffer);
+      this.buffer = '';
+    }
+  }
+
+  stop() {
+    if (this.outputTimer) {
+      clearTimeout(this.outputTimer);
+      this.outputTimer = null;
+    }
+  }
+}
 
 // ========== Marked.js + KaTeX 渲染（共享代码） ==========
 
@@ -146,6 +227,14 @@ function createResultPanel() {
       <div class="section-title">📄 原文</div>
       <div id="selection-original-text" class="original-text-content"></div>
     </div>
+    <!-- 思考模式区域 (可折叠) -->
+    <div id="selection-thinking-section">
+      <div id="selection-thinking-toggle">
+        <span>🤔 思考过程</span>
+        <span id="selection-thinking-arrow">▼</span>
+      </div>
+      <div id="selection-thinking-content"></div>
+    </div>
     <!-- 主回答区域容器 -->
     <div class="content-section">
       <div id="selection-result-text">正在处理中...</div>
@@ -167,6 +256,18 @@ function createResultPanel() {
   panel.querySelector('#selection-copy-original').addEventListener('click', copyOriginalText);
   panel.querySelector('#selection-copy-result').addEventListener('click', copyResult);
   panel.querySelector('#selection-add-favorites').addEventListener('click', addCurrentToFavorites);
+
+  // 绑定思考面板折叠功能
+  const thinkingToggle = panel.querySelector('#selection-thinking-toggle');
+  const thinkingContent = panel.querySelector('#selection-thinking-content');
+  const thinkingArrow = panel.querySelector('#selection-thinking-arrow');
+  let thinkingExpanded = false;
+
+  thinkingToggle?.addEventListener('click', () => {
+    thinkingExpanded = !thinkingExpanded;
+    thinkingContent.style.display = thinkingExpanded ? 'block' : 'none';
+    thinkingArrow.textContent = thinkingExpanded ? '▲' : '▼';
+  });
 
   // 绑定拖动功能
   setupDraggable(panel);
@@ -262,6 +363,10 @@ async function showResultPanel(originalText, resultText) {
     resultPanel = createResultPanel();
   }
 
+  // 隐藏思考区域（旧函数兼容）
+  const thinkingSection = document.getElementById('selection-thinking-section');
+  if (thinkingSection) thinkingSection.style.display = 'none';
+
   // 显示原文
   const originalTextElement = document.getElementById('selection-original-text');
   if (originalTextElement) {
@@ -271,8 +376,22 @@ async function showResultPanel(originalText, resultText) {
   // 渲染结果
   const resultTextElement = document.getElementById('selection-result-text');
   if (resultTextElement) {
-    const html = await renderMarkdown(resultText);
-    resultTextElement.innerHTML = html;
+    if (typeof resultText === 'string') {
+      const html = await renderMarkdown(resultText);
+      resultTextElement.innerHTML = html;
+    } else if (resultText && typeof resultText === 'object') {
+      // 支持传入对象格式 { mainContent, thinkingContent }
+      if (resultText.thinkingContent) {
+        const thinkingContent = document.getElementById('selection-thinking-content');
+        if (thinkingContent) {
+          const thinkingHtml = await renderMarkdown(resultText.thinkingContent);
+          thinkingContent.innerHTML = thinkingHtml;
+          thinkingSection.style.display = 'block';
+        }
+      }
+      const mainHtml = await renderMarkdown(resultText.mainContent || '');
+      resultTextElement.innerHTML = mainHtml;
+    }
   }
 
   resultPanel.style.visibility = 'visible';
@@ -316,23 +435,40 @@ async function callLLMNonStream(text, prompt) {
   // 替换提示词中的占位符
   const finalPrompt = prompt.replace('%s', text);
 
+  // 从存储中获取思考模式设置
+  const thinkingEnabled = await new Promise((resolve) => {
+    chrome.storage.local.get(['selectionSettings'], (result) => {
+      const selectionSettings = result.selectionSettings || {};
+      resolve(selectionSettings.thinkingEnabled || false);
+    });
+  });
+
   try {
+    const requestBody = {
+      model: API_CONFIG.model,
+      messages: [
+        {
+          role: 'user',
+          content: finalPrompt
+        }
+      ],
+      stream: false
+    };
+
+    // 只有启用思考模式时才添加 thinking 参数
+    if (thinkingEnabled) {
+      requestBody.thinking = {
+        type: 'enabled'
+      };
+    }
+
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${API_CONFIG.apiKey}`
       },
-      body: JSON.stringify({
-        model: API_CONFIG.model,
-        messages: [
-          {
-            role: 'user',
-            content: finalPrompt
-          }
-        ],
-        stream: false
-      })
+      body: JSON.stringify(requestBody)
     });
 
     if (!response.ok) {
@@ -342,18 +478,26 @@ async function callLLMNonStream(text, prompt) {
 
     const data = await response.json();
 
+    // 返回识别结果（分离思考内容和主回答）
     if (data.choices && data.choices[0] && data.choices[0].message) {
-      return data.choices[0].message.content || '无法获取结果';
+      const message = data.choices[0].message;
+      return {
+        mainContent: message.content || '无法获取结果',
+        thinkingContent: thinkingEnabled ? (message.reasoning_content || '') : ''
+      };
     }
 
-    return '无法获取结果';
+    return {
+      mainContent: '无法获取结果',
+      thinkingContent: ''
+    };
   } catch (error) {
     throw new Error('API 调用失败: ' + error.message);
   }
 }
 
 /**
- * 调用 LLM API 处理文本（流式）
+ * 调用 LLM API 处理文本（流式，使用 StreamFlowController）
  */
 async function callLLMStream(text, prompt) {
   const apiUrl = `${API_CONFIG.baseURL}/chat/completions`;
@@ -364,27 +508,112 @@ async function callLLMStream(text, prompt) {
   currentAbortController = new AbortController();
 
   const resultTextElement = document.getElementById('selection-result-text');
+  const thinkingSection = document.getElementById('selection-thinking-section');
+  const thinkingContent = document.getElementById('selection-thinking-content');
+
   if (!resultTextElement) return;
 
-  let fullText = '';
+  let fullMainText = '';
+  let fullThinkingText = '';
+  let hasThinkingContent = false;
+
+  // 从存储中获取设置
+  const settings = await new Promise((resolve) => {
+    chrome.storage.local.get(['selectionSettings'], (result) => {
+      const selectionSettings = result.selectionSettings || {};
+      resolve({
+        thinkingEnabled: selectionSettings.thinkingEnabled || false
+      });
+    });
+  });
+
+  const thinkingEnabled = settings.thinkingEnabled;
+
+  // 创建流速控制器
+  const mainFlowController = new StreamFlowController({
+    preloadThreshold: 80,
+    outputInterval: 35,
+    minBufferSize: 15,
+    chunkSize: 12
+  });
+
+  // 只有启用思考模式时才创建思考流控制器
+  const thinkingFlowController = thinkingEnabled ? new StreamFlowController({
+    preloadThreshold: 50,
+    outputInterval: 35,
+    minBufferSize: 10,
+    chunkSize: 6
+  }) : null;
+
+  /**
+   * 思考内容输出回调
+   */
+  const thinkingOutputCallback = (textChunk) => {
+    return new Promise((resolve) => {
+      requestAnimationFrame(async () => {
+        if (thinkingContent) {
+          fullThinkingText += textChunk;
+          const html = await renderMarkdown(fullThinkingText);
+          thinkingContent.innerHTML = html;
+        }
+        resolve();
+      });
+    });
+  };
+
+  /**
+   * 主回答输出回调
+   */
+  const mainOutputCallback = (textChunk) => {
+    return new Promise((resolve) => {
+      requestAnimationFrame(async () => {
+        if (!resultTextElement) {
+          resolve();
+          return;
+        }
+
+        fullMainText += textChunk;
+        const html = await renderMarkdown(fullMainText);
+        resultTextElement.innerHTML = html;
+
+        // 智能滚动
+        const isAtBottom = resultTextElement.scrollHeight - resultTextElement.scrollTop - resultTextElement.clientHeight < 50;
+
+        if (isAtBottom && !isUserScrolling) {
+          resultTextElement.scrollTop = resultTextElement.scrollHeight;
+        }
+
+        resolve();
+      });
+    });
+  };
 
   try {
+    const requestBody = {
+      model: API_CONFIG.model,
+      messages: [
+        {
+          role: 'user',
+          content: finalPrompt
+        }
+      ],
+      stream: true
+    };
+
+    // 只有启用思考模式时才添加 thinking 参数
+    if (thinkingEnabled) {
+      requestBody.thinking = {
+        type: 'enabled'
+      };
+    }
+
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${API_CONFIG.apiKey}`
       },
-      body: JSON.stringify({
-        model: API_CONFIG.model,
-        messages: [
-          {
-            role: 'user',
-            content: finalPrompt
-          }
-        ],
-        stream: true
-      }),
+      body: JSON.stringify(requestBody),
       signal: currentAbortController.signal
     });
 
@@ -395,6 +624,14 @@ async function callLLMStream(text, prompt) {
 
     // 清空加载状态
     resultTextElement.textContent = '';
+    if (thinkingContent) thinkingContent.textContent = '';
+    if (thinkingSection) thinkingSection.style.display = 'none';
+
+    // 启动输出定时器
+    if (thinkingFlowController) {
+      thinkingFlowController.startOutput(thinkingOutputCallback);
+    }
+    mainFlowController.startOutput(mainOutputCallback);
 
     // 读取流式响应
     const reader = response.body.getReader();
@@ -422,19 +659,17 @@ async function callLLMStream(text, prompt) {
             if (parsed.choices && parsed.choices[0] && parsed.choices[0].delta) {
               const delta = parsed.choices[0].delta;
 
-              if (delta.content) {
-                fullText += delta.content;
-
-                // 使用 Markdown 渲染
-                const html = await renderMarkdown(fullText);
-                resultTextElement.innerHTML = html;
-
-                // 智能滚动
-                const isAtBottom = resultTextElement.scrollHeight - resultTextElement.scrollTop - resultTextElement.clientHeight < 50;
-
-                if (isAtBottom && !isUserScrolling) {
-                  resultTextElement.scrollTop = resultTextElement.scrollHeight;
+              // 分离思考内容和主回答内容（仅当启用思考模式时）
+              if (thinkingEnabled && thinkingFlowController && delta.reasoning_content) {
+                if (!hasThinkingContent) {
+                  hasThinkingContent = true;
+                  if (thinkingSection) thinkingSection.style.display = 'block';
                 }
+                thinkingFlowController.add(delta.reasoning_content);
+              }
+
+              if (delta.content) {
+                mainFlowController.add(delta.content);
               }
             }
           } catch (e) {
@@ -444,10 +679,25 @@ async function callLLMStream(text, prompt) {
       }
     }
 
+    // 数据接收完毕，结束输出并刷新剩余数据
+    const endPromises = [mainFlowController.end()];
+    if (thinkingFlowController) {
+      endPromises.push(thinkingFlowController.end());
+    }
+    await Promise.all(endPromises);
+
   } catch (error) {
     if (error.name === 'AbortError') {
-      resultTextElement.innerHTML = fullText + '\n\n<p style="color:#999;">[请求已取消]</p>';
+      if (thinkingFlowController) {
+        thinkingFlowController.stop();
+      }
+      mainFlowController.stop();
+      resultTextElement.innerHTML = fullMainText + '\n\n<p style="color:#999;">[请求已取消]</p>';
     } else {
+      if (thinkingFlowController) {
+        thinkingFlowController.stop();
+      }
+      mainFlowController.stop();
       throw new Error('API 调用失败: ' + error.message);
     }
   } finally {
