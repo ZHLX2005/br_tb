@@ -21,8 +21,8 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content/content.js", "content/content-ocr.js"],
-      "css": ["content/content.css", "content/content-ocr.css"]
+      "js": ["content/lib/katex.min.js", "content/lib/marked.min.js", "content/content.js", "content/content-ocr.js"],
+      "css": ["content/content.css", "content/content-ocr.css", "content/lib/katex.min.css"]
     }
   ],
   "action": {

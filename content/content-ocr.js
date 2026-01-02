@@ -20,72 +20,120 @@ const API_CONFIG = {
   model: 'glm-4.5v'
 };
 
-// ========== Markdown 解析函数 ==========
+// ========== Marked.js + KaTeX 渲染 ==========
+
+// marked.js 和 katex 作为 content script 加载，全局可用
+let markedConfigured = false;
+let katexConfigured = false;
 
 /**
- * 简单的 Markdown 转 HTML 解析器
- * 支持基本的 Markdown 语法：标题、粗体、斜体、代码块、列表、链接
- * @param {string} markdown - Markdown 文本
- * @returns {string} HTML 字符串
+ * 配置 marked.js（只执行一次）
  */
-function parseMarkdown(markdown) {
-  if (!markdown) return '';
+function configureMarked() {
+  if (markedConfigured || typeof marked === 'undefined') return;
 
-  let html = markdown;
-
-  // 转义 HTML 特殊字符（防止 XSS）
-  html = html.replace(/&/g, '&amp;')
-             .replace(/</g, '&lt;')
-             .replace(/>/g, '&gt;');
-
-  // 代码块 (```code```)
-  html = html.replace(/```(\w*)([\s\S]*?)```/g, (match, lang, code) => {
-    return `<pre style="background:#f5f5f5;padding:12px;border-radius:6px;overflow-x:auto;"><code>${code.trim()}</code></pre>`;
+  // 配置 marked 选项
+  marked.setOptions({
+    breaks: true,      // 支持 GitHub 风格的换行
+    gfm: true,          // GitHub Flavored Markdown
+    headerIds: false,   // 不生成 header id
+    mangle: false       // 不转义邮箱地址
   });
 
-  // 行内代码 (`code`)
-  html = html.replace(/`([^`]+)`/g, '<code style="background:#f5f5f5;padding:2px 6px;border-radius:4px;color:#e83e8c;">$1</code>');
+  markedConfigured = true;
+}
 
-  // 标题 (# ## ### #### ##### ######)
-  html = html.replace(/^######\s+(.+)$/gm, '<h6 style="font-size:14px;font-weight:600;margin:12px 0 8px;">$1</h6>');
-  html = html.replace(/^#####\s+(.+)$/gm, '<h5 style="font-size:15px;font-weight:600;margin:12px 0 8px;">$1</h5>');
-  html = html.replace(/^####\s+(.+)$/gm, '<h4 style="font-size:16px;font-weight:600;margin:14px 0 10px;">$1</h4>');
-  html = html.replace(/^###\s+(.+)$/gm, '<h3 style="font-size:18px;font-weight:600;margin:16px 0 12px;">$1</h3>');
-  html = html.replace(/^##\s+(.+)$/gm, '<h2 style="font-size:20px;font-weight:600;margin:18px 0 14px;">$1</h2>');
-  html = html.replace(/^#\s+(.+)$/gm, '<h1 style="font-size:24px;font-weight:700;margin:20px 0 16px;">$1</h1>');
+/**
+ * 渲染 LaTeX 数学公式为 HTML
+ * @param {string} latex - LaTeX 公式
+ * @param {boolean} displayMode - 是否为显示模式（块级）
+ * @returns {string} HTML 字符串
+ */
+function renderLatex(latex, displayMode = false) {
+  if (typeof katex === 'undefined') {
+    console.error('KaTeX is not loaded');
+    return `<code>${latex}</code>`;
+  }
 
-  // 粗体 (**text** 或 __text__)
-  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-  html = html.replace(/__(.+?)__/g, '<strong>$1</strong>');
+  // 预处理：将 AI 输出的特殊格式转换为标准 LaTeX
+  let processedLatex = latex;
 
-  // 斜体 (*text* 或 _text_)
-  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
-  html = html.replace(/_(.+?)_/g, '<em>$1</em>');
+  // 将 \ `（反斜杠+空格）转换为 LaTeX 的间距命令
+  // 例如：010\ 111\ 011 -> 010\;111\;011
+  processedLatex = processedLatex.replace(/\\ /g, '\\;');
 
-  // 删除线 (~~text~~)
-  html = html.replace(/~~(.+?)~~/g, '<del>$1</del>');
+  try {
+    return katex.renderToString(processedLatex, {
+      displayMode: displayMode,
+      throwOnError: false,
+      strict: 'ignore',  // 宽松模式，忽略非标准语法错误
+      trust: false,
+      output: 'html'
+    });
+  } catch (error) {
+    console.warn('KaTeX rendering failed:', error, 'for latex:', latex);
+    // 失败时返回原始文本（转义 HTML）
+    return latex.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+}
 
-  // 无序列表 (- item 或 * item)
-  html = html.replace(/^[\-\*]\s+(.+)$/gm, '<li style="margin:4px 0;">$1</li>');
-  html = html.replace(/(<li.*<\/li>\n?)+/g, '<ul style="margin:8px 0;padding-left:20px;">$&</ul>');
+/**
+ * 使用 marked.js 渲染 Markdown，并渲染 KaTeX 数学公式
+ * @param {string} markdown - Markdown 文本
+ * @returns {Promise<string>} HTML 字符串
+ */
+async function renderMarkdown(markdown) {
+  if (!markdown) return '';
 
-  // 有序列表 (1. item)
-  html = html.replace(/^\d+\.\s+(.+)$/gm, '<li style="margin:4px 0;">$1</li>');
-  html = html.replace(/(<li.*<\/li>\n?)+/g, '<ol style="margin:8px 0;padding-left:20px;">$&</ol>');
+  try {
+    // 先渲染 Markdown
+    if (typeof marked === 'undefined') {
+      console.error('marked.js is not loaded');
+      // 降级到纯文本
+      return markdown.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
 
-  // 链接 ([text](url))
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color:#007bff;text-decoration:none;" target="_blank">$1</a>');
+    configureMarked();
+    let html = marked.parse(markdown);
 
-  // 图片 (![alt](url))
-  html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" style="max-width:100%;border-radius:6px;margin:8px 0;" />');
+    // 渲染 LaTeX 数学公式
+    // 需要先处理块级公式，再处理行内公式，避免冲突
 
-  // 引用 (> text)
-  html = html.replace(/^>\s+(.+)$/gm, '<blockquote style="border-left:4px solid #dee2e6;padding-left:12px;margin:8px 0;color:#6c757d;">$1</blockquote>');
+    // 1. 处理块级公式 \[...\] 和 $$...$$
+    html = html.replace(/\\\[([\s\S]*?)\\\]/g, (_, latex) => {
+      return renderLatex(latex.trim(), true);
+    });
 
-  // 换行转换（不在 pre 标签内的换行）
-  html = html.replace(/\n/g, '<br>');
+    html = html.replace(/\$\$([\s\S]*?)\$\$/g, (_, latex) => {
+      return renderLatex(latex.trim(), true);
+    });
 
-  return html;
+    // 2. 处理行内公式 \(...\) 和 $...$
+    html = html.replace(/\\\(([\s\S]*?)\\\)/g, (_, latex) => {
+      return renderLatex(latex.trim(), false);
+    });
+
+    html = html.replace(/\$([^\$\n]+?)\$/g, (_, latex) => {
+      return renderLatex(latex.trim(), false);
+    });
+
+    // 3. 处理括号内的 LaTeX 公式，如 (8 = 2^3)
+    // 检测包含数学符号的括号内容：下标 _、上标 ^、反斜杠 \、希腊字母等
+    html = html.replace(/\(([^)]+)\)/g, (match, content) => {
+      // 检查是否包含 LaTeX 数学符号
+      const hasMathSymbols = /[_^\\]|\\[a-zA-Z]|\\frac|\\sum|\\int|\\prod|[αβγδεζηθικλμνξπρστυφχψω]/.test(content);
+      if (hasMathSymbols) {
+        return '(' + renderLatex(content.trim(), false) + ')';
+      }
+      return match;
+    });
+
+    return html;
+  } catch (error) {
+    console.error('Markdown rendering failed:', error);
+    // 降级到纯文本
+    return markdown.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
 }
 
 // ========== 性能优化工具函数 ==========
@@ -459,7 +507,7 @@ function setupDraggable(panel) {
 }
 
 // 显示结果面板
-function showResultPanel(text, imageDataUrl = null) {
+async function showResultPanel(text, imageDataUrl = null) {
   if (!resultPanel) {
     resultPanel = createResultPanel();
   }
@@ -468,20 +516,23 @@ function showResultPanel(text, imageDataUrl = null) {
   const thinkingSection = document.getElementById('thinking-section');
   if (thinkingSection) thinkingSection.style.display = 'none';
 
-  // 使用原始文本输出
+  // 使用 Markdown 渲染
   const resultTextElement = document.getElementById('ocr-result-text');
   if (typeof text === 'string') {
-    resultTextElement.textContent = text;
+    const html = await renderMarkdown(text);
+    resultTextElement.innerHTML = html;
   } else if (text && typeof text === 'object') {
     // 支持传入对象格式 { mainContent, thinkingContent }
     if (text.thinkingContent) {
       const thinkingContent = document.getElementById('thinking-content');
       if (thinkingContent) {
-        thinkingContent.textContent = text.thinkingContent;
+        const thinkingHtml = await renderMarkdown(text.thinkingContent);
+        thinkingContent.innerHTML = thinkingHtml;
         thinkingSection.style.display = 'block';
       }
     }
-    resultTextElement.textContent = text.mainContent || '';
+    const mainHtml = await renderMarkdown(text.mainContent || '');
+    resultTextElement.innerHTML = mainHtml;
   }
 
   // 显示图片预览
@@ -503,7 +554,7 @@ function showResultPanel(text, imageDataUrl = null) {
 }
 
 // 显示结果面板（带图片和加载状态）
-function showResultPanelWithImage(imageDataUrl, text) {
+async function showResultPanelWithImage(imageDataUrl, text) {
   if (!resultPanel) {
     resultPanel = createResultPanel();
   }
@@ -519,10 +570,11 @@ function showResultPanelWithImage(imageDataUrl, text) {
     previewImg.style.display = 'block';
   }
 
-  // 设置加载文字
+  // 设置加载文字（使用 Markdown 渲染）
   const resultTextElement = document.getElementById('ocr-result-text');
   if (typeof text === 'string') {
-    resultTextElement.textContent = text;
+    const html = await renderMarkdown(text);
+    resultTextElement.innerHTML = html;
   }
 
   // 显示重新识别按钮
@@ -535,10 +587,11 @@ function showResultPanelWithImage(imageDataUrl, text) {
 }
 
 // 只更新结果文字
-function updateResultText(text) {
+async function updateResultText(text) {
   const resultTextElement = document.getElementById('ocr-result-text');
   if (resultTextElement) {
-    resultTextElement.textContent = text;
+    const html = await renderMarkdown(text);
+    resultTextElement.innerHTML = html;
   }
 }
 
@@ -788,7 +841,7 @@ async function performOCR(rect) {
       rect: rect
     }, async (response) => {
       if (chrome.runtime.lastError) {
-        showResultPanel('识别失败: ' + chrome.runtime.lastError.message);
+        await showResultPanel('识别失败: ' + chrome.runtime.lastError.message);
         return;
       }
 
@@ -799,7 +852,7 @@ async function performOCR(rect) {
           currentCroppedImage = croppedImage;
 
           // 先显示图片预览和加载状态
-          showResultPanelWithImage(croppedImage, '正在识别中，请稍候...');
+          await showResultPanelWithImage(croppedImage, '正在识别中，请稍候...');
 
           // 使用存储中的设置
           const prompt = ocrSettings.prompt;
@@ -810,13 +863,13 @@ async function performOCR(rect) {
             await callOCRApiStream(croppedImage, prompt);
           } else {
             const result = await callOCRApiNonStream(croppedImage, prompt);
-            updateResultText(result);
+            await updateResultText(result.mainContent || '');
           }
         } catch (error) {
-          showResultPanel('识别失败: ' + error.message);
+          await showResultPanel('识别失败: ' + error.message);
         }
       } else {
-        showResultPanel('识别失败: ' + (response?.error || '未知错误'));
+        await showResultPanel('识别失败: ' + (response?.error || '未知错误'));
       }
     });
   });
@@ -1005,10 +1058,11 @@ async function callOCRApiStream(imageBase64, prompt = '请识别图片中的所�
    */
   const thinkingOutputCallback = (textChunk) => {
     return new Promise((resolve) => {
-      requestAnimationFrame(() => {
+      requestAnimationFrame(async () => {
         if (thinkingContent) {
           fullThinkingText += textChunk;
-          thinkingContent.textContent = fullThinkingText;
+          const html = await renderMarkdown(fullThinkingText);
+          thinkingContent.innerHTML = html;
         }
         resolve();
       });
@@ -1020,15 +1074,16 @@ async function callOCRApiStream(imageBase64, prompt = '请识别图片中的所�
    */
   const mainOutputCallback = (textChunk) => {
     return new Promise((resolve) => {
-      requestAnimationFrame(() => {
+      requestAnimationFrame(async () => {
         if (!resultTextElement) {
           resolve();
           return;
         }
 
         fullMainText += textChunk;
-        // 使用原始文本输出
-        resultTextElement.textContent = fullMainText;
+        // 使用 Markdown 渲染
+        const html = await renderMarkdown(fullMainText);
+        resultTextElement.innerHTML = html;
 
         // 智能滚动
         const isAtBottom = resultTextElement.scrollHeight - resultTextElement.scrollTop - resultTextElement.clientHeight < 50;
@@ -1205,10 +1260,10 @@ async function restartOCR() {
         await callOCRApiStream(currentCroppedImage, prompt);
       } else {
         const result = await callOCRApiNonStream(currentCroppedImage, prompt);
-        showResultPanel(result, currentCroppedImage);
+        await showResultPanel(result, currentCroppedImage);
       }
     } catch (error) {
-      showResultPanel('识别失败: ' + error.message);
+      await showResultPanel('识别失败: ' + error.message);
     }
   });
 }

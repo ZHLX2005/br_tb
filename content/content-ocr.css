@@ -160,10 +160,180 @@
   color: #333;
   font-size: 14px;
   line-height: 1.8;
-  white-space: pre-wrap;
   word-wrap: break-word;
   /* 确保文本区域可以正确滚动 */
   overflow-y: visible;
+}
+
+/* ========== Markdown 渲染样式 ========== */
+#ocr-result-text h1,
+#ocr-result-text h2,
+#ocr-result-text h3,
+#ocr-result-text h4,
+#ocr-result-text h5,
+#ocr-result-text h6 {
+  font-weight: 600;
+  margin-top: 16px;
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+
+#ocr-result-text h1 { font-size: 24px; }
+#ocr-result-text h2 { font-size: 20px; }
+#ocr-result-text h3 { font-size: 18px; }
+#ocr-result-text h4 { font-size: 16px; }
+#ocr-result-text h5 { font-size: 15px; }
+#ocr-result-text h6 { font-size: 14px; }
+
+#ocr-result-text p {
+  margin: 8px 0;
+}
+
+#ocr-result-text ul,
+#ocr-result-text ol {
+  margin: 8px 0;
+  padding-left: 24px;
+}
+
+#ocr-result-text li {
+  margin: 4px 0;
+}
+
+#ocr-result-text code {
+  background: #f5f5f5;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 13px;
+}
+
+#ocr-result-text pre {
+  background: #f5f5f5;
+  padding: 12px;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 12px 0;
+}
+
+#ocr-result-text pre code {
+  background: none;
+  padding: 0;
+}
+
+#ocr-result-text blockquote {
+  border-left: 4px solid #dee2e6;
+  padding-left: 12px;
+  margin: 8px 0;
+  color: #6c757d;
+}
+
+#ocr-result-text a {
+  color: #007bff;
+  text-decoration: none;
+}
+
+#ocr-result-text a:hover {
+  text-decoration: underline;
+}
+
+#ocr-result-text img {
+  max-width: 100%;
+  border-radius: 6px;
+  margin: 8px 0;
+}
+
+#ocr-result-text table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 12px 0;
+}
+
+#ocr-result-text th,
+#ocr-result-text td {
+  border: 1px solid #dee2e6;
+  padding: 8px 12px;
+  text-align: left;
+}
+
+#ocr-result-text th {
+  background: #f8f9fa;
+  font-weight: 600;
+}
+
+#ocr-result-text hr {
+  border: none;
+  border-top: 1px solid #dee2e6;
+  margin: 16px 0;
+}
+
+/* ========== KaTeX 数学公式样式 ========== */
+/* KaTeX 显示模式（块级公式） */
+.katex-display {
+  margin: 16px 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+/* KaTeX 行内公式 */
+.katex {
+  font-size: 1.1em;
+}
+
+/* 确保公式不会溢出 */
+.katex-html {
+  max-width: 100%;
+}
+
+/* 思考模式区域也应用相同的 Markdown 样式 */
+#thinking-content {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #666;
+}
+
+#thinking-content h1,
+#thinking-content h2,
+#thinking-content h3,
+#thinking-content h4,
+#thinking-content h5,
+#thinking-content h6 {
+  font-weight: 600;
+  margin-top: 12px;
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+
+#thinking-content ul,
+#thinking-content ol {
+  margin: 6px 0;
+  padding-left: 20px;
+}
+
+#thinking-content code {
+  background: #f5f5f5;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 12px;
+}
+
+#thinking-content pre {
+  background: #f5f5f5;
+  padding: 8px;
+  border-radius: 4px;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
+/* 思考模式中的 KaTeX 公式样式 */
+#thinking-content .katex-display {
+  margin: 12px 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+#thinking-content .katex {
+  font-size: 1em;
 }
 
 /* ========== 底部按钮区域 ========== */
