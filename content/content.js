@@ -224,8 +224,19 @@ function createResultPanel() {
     </div>
     <!-- 原文区域 -->
     <div class="original-text-section">
-      <div class="section-title">📄 原文</div>
+      <div class="section-title">
+        <span>📄 原文</span>
+        <button id="selection-edit-original" class="edit-btn" title="编辑原文">✏️ 编辑</button>
+      </div>
       <div id="selection-original-text" class="original-text-content"></div>
+      <!-- 原文编辑区域 -->
+      <div id="selection-original-edit-container" style="display: none;">
+        <textarea id="selection-original-edit" class="original-edit-textarea"></textarea>
+        <div class="original-edit-buttons">
+          <button id="selection-save-original" class="save-edit-btn">✓ 保存并处理</button>
+          <button id="selection-cancel-original" class="cancel-edit-btn">✕ 取消</button>
+        </div>
+      </div>
     </div>
     <!-- 思考模式区域 (可折叠) -->
     <div id="selection-thinking-section">
@@ -256,6 +267,11 @@ function createResultPanel() {
   panel.querySelector('#selection-copy-original').addEventListener('click', copyOriginalText);
   panel.querySelector('#selection-copy-result').addEventListener('click', copyResult);
   panel.querySelector('#selection-add-favorites').addEventListener('click', addCurrentToFavorites);
+
+  // 绑定原文编辑功能
+  panel.querySelector('#selection-edit-original').addEventListener('click', startEditingOriginal);
+  panel.querySelector('#selection-save-original').addEventListener('click', saveAndProcessOriginal);
+  panel.querySelector('#selection-cancel-original').addEventListener('click', cancelEditingOriginal);
 
   // 绑定思考面板折叠功能
   const thinkingToggle = panel.querySelector('#selection-thinking-toggle');
@@ -866,6 +882,101 @@ function showFavoriteNotification(text) {
       }
     }, 300);
   }, 3000);
+}
+
+// ========== 原文编辑功能 ==========
+
+/**
+ * 开始编辑原文
+ */
+function startEditingOriginal() {
+  const originalTextElement = document.getElementById('selection-original-text');
+  const editContainer = document.getElementById('selection-original-edit-container');
+  const editTextarea = document.getElementById('selection-original-edit');
+
+  if (originalTextElement && editContainer && editTextarea) {
+    // 将当前原文填充到编辑框
+    editTextarea.value = originalTextElement.textContent;
+
+    // 隐藏原文显示，显示编辑框
+    originalTextElement.style.display = 'none';
+    editContainer.style.display = 'block';
+
+    // 聚焦编辑框
+    editTextarea.focus();
+  }
+}
+
+/**
+ * 取消编辑原文
+ */
+function cancelEditingOriginal() {
+  const originalTextElement = document.getElementById('selection-original-text');
+  const editContainer = document.getElementById('selection-original-edit-container');
+
+  if (originalTextElement && editContainer) {
+    // 隐藏编辑框，显示原文
+    editContainer.style.display = 'none';
+    originalTextElement.style.display = 'block';
+  }
+}
+
+/**
+ * 保存编辑后的原文并重新处理
+ */
+async function saveAndProcessOriginal() {
+  const editTextarea = document.getElementById('selection-original-edit');
+  const originalTextElement = document.getElementById('selection-original-text');
+  const editContainer = document.getElementById('selection-original-edit-container');
+
+  if (!editTextarea || !originalTextElement || !editContainer) return;
+
+  const editedText = editTextarea.value.trim();
+
+  if (!editedText) {
+    alert('请输入内容');
+    return;
+  }
+
+  // 更新原文显示
+  originalTextElement.textContent = editedText;
+
+  // 隐藏编辑框，显示原文
+  editContainer.style.display = 'none';
+  originalTextElement.style.display = 'block';
+
+  // 显示加载状态
+  const resultTextElement = document.getElementById('selection-result-text');
+  if (resultTextElement) {
+    resultTextElement.innerHTML = '正在处理中...';
+  }
+
+  // 获取提示词设置
+  chrome.storage.local.get(['selectionSettings'], async (result) => {
+    const selectionSettings = result.selectionSettings || {
+      prompt: '请解释 %s',
+      stream: true
+    };
+
+    const prompt = selectionSettings.prompt;
+    const useStream = selectionSettings.stream;
+
+    // 取消之前的请求
+    if (currentAbortController) {
+      currentAbortController.abort();
+    }
+
+    try {
+      if (useStream) {
+        await callLLMStream(editedText, prompt);
+      } else {
+        const apiResult = await callLLMNonStream(editedText, prompt);
+        await updateResultText(apiResult);
+      }
+    } catch (error) {
+      await showResultPanel(editedText, '处理失败: ' + error.message);
+    }
+  });
 }
 
 // ========== 收藏快捷键 ==========
