@@ -1,211 +1,574 @@
-// 创建翻译浮层元素
-let translationTooltip = null;
+/**
+ * 划词翻译/识别模块
+ * 使用与 OCR 相同的固定面板结构，支持 LLM 文本处理
+ */
+
+// 全局状态
+let resultPanel = null;
 let lastSelection = '';
-// 设置状态（默认值，会从 storage 加载实际值）
+let currentAbortController = null;
+let isUserScrolling = false;
+
+// API 配置（与 OCR 相同）
+const API_CONFIG = {
+  baseURL: 'https://open.bigmodel.cn/api/paas/v4',
+  apiKey: 'd237351671da318126fb5bd2f1372a08.EdkVfX8wE0JtcZpP',
+  model: 'glm-4-flash'  // 使用更快的模型用于文本处理
+};
+
+// 设置状态
 let settings = {
   autoTranslate: false,
-  showContextMenu: true
+  showContextMenu: true,
+  translatePrompt: '请解释 %s'  // 默认提示词
 };
-// 标记设置是否已从 storage 加载完成
+
+// 标记设置是否已加载
 let settingsInitialized = false;
 
-// 收藏快捷键（默认值：按下 Ctrl 键收藏）
+// 收藏快捷键
 let favoritesShortcut = null;
 let favoritesShortcutPressed = false;
 
-// 初始化翻译浮层
-function createTooltip() {
-  translationTooltip = document.createElement('div');
-  translationTooltip.id = 'translation-tooltip';
-  translationTooltip.className = 'translation-tooltip';
-  document.body.appendChild(translationTooltip);
+// ========== Marked.js + KaTeX 渲染（共享代码） ==========
+
+let markedConfigured = false;
+
+/**
+ * 配置 marked.js（只执行一次）
+ */
+function configureMarked() {
+  if (markedConfigured || typeof marked === 'undefined') return;
+
+  marked.setOptions({
+    breaks: true,
+    gfm: true,
+    headerIds: false,
+    mangle: false
+  });
+
+  markedConfigured = true;
 }
 
-// 显示翻译浮层
-function showTooltip(x, y, originalText, translatedText) {
-  if (!translationTooltip) {
-    createTooltip();
+/**
+ * 渲染 LaTeX 数学公式为 HTML
+ */
+function renderLatex(latex, displayMode = false) {
+  if (typeof katex === 'undefined') {
+    console.error('KaTeX is not loaded');
+    return `<code>${latex}</code>`;
   }
 
-  translationTooltip.innerHTML = `
-    <div class="tooltip-header">
-      <span class="tooltip-title">翻译结果</span>
-      <button class="tooltip-close" data-action="close">×</button>
+  let processedLatex = latex;
+  processedLatex = processedLatex.replace(/\\ /g, '\\;');
+
+  try {
+    return katex.renderToString(processedLatex, {
+      displayMode: displayMode,
+      throwOnError: false,
+      strict: 'ignore',
+      trust: false,
+      output: 'html'
+    });
+  } catch (error) {
+    console.warn('KaTeX rendering failed:', error, 'for latex:', latex);
+    return latex.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+}
+
+/**
+ * 使用 marked.js 渲染 Markdown，并渲染 KaTeX 数学公式
+ */
+async function renderMarkdown(markdown) {
+  if (!markdown) return '';
+
+  try {
+    if (typeof marked === 'undefined') {
+      console.error('marked.js is not loaded');
+      return markdown.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    configureMarked();
+    let html = marked.parse(markdown);
+
+    // 渲染 LaTeX 数学公式
+    html = html.replace(/\\\[([\s\S]*?)\\\]/g, (_, latex) => {
+      return renderLatex(latex.trim(), true);
+    });
+
+    html = html.replace(/\$\$([\s\S]*?)\$\$/g, (_, latex) => {
+      return renderLatex(latex.trim(), true);
+    });
+
+    html = html.replace(/\\\(([\s\S]*?)\\\)/g, (_, latex) => {
+      return renderLatex(latex.trim(), false);
+    });
+
+    html = html.replace(/\$([^\$\n]+?)\$/g, (_, latex) => {
+      return renderLatex(latex.trim(), false);
+    });
+
+    // 处理括号内的 LaTeX 公式
+    html = html.replace(/\(([^)]+)\)/g, (match, content) => {
+      const hasMathSymbols = /[_^\\]|\\[a-zA-Z]|\\frac|\\sum|\\int|\\prod|[αβγδεζηθικλμνξπρστυφχψω]/.test(content);
+      if (hasMathSymbols) {
+        return '(' + renderLatex(content.trim(), false) + ')';
+      }
+      return match;
+    });
+
+    return html;
+  } catch (error) {
+    console.error('Markdown rendering failed:', error);
+    return markdown.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+}
+
+// ========== 面板管理 ==========
+
+/**
+ * 创建结果面板（与 OCR 相同的结构）
+ */
+function createResultPanel() {
+  const panel = document.createElement('div');
+  panel.id = 'selection-result-panel';
+  panel.className = 'selection-result-panel';
+  panel.style.display = 'flex';
+  panel.style.visibility = 'hidden';
+
+  panel.innerHTML = `
+    <div class="panel-header">
+      <span>📝 划词识别</span>
+      <button id="selection-close-result">&times;</button>
     </div>
-    <div class="tooltip-content">
-      <div class="original-text">${originalText}</div>
-      <div class="arrow">↓</div>
-      <div class="translated-text">${translatedText}</div>
+    <!-- 原文区域 -->
+    <div class="original-text-section">
+      <div class="section-title">📄 原文</div>
+      <div id="selection-original-text" class="original-text-content"></div>
     </div>
-    <div class="tooltip-footer">
-      <button class="copy-btn" data-action="copy" data-text="${translatedText.replace(/"/g, '&quot;')}">复制</button>
-      <button class="history-btn" data-action="favorites">收藏列表</button>
+    <!-- 主回答区域容器 -->
+    <div class="content-section">
+      <div id="selection-result-text">正在处理中...</div>
+    </div>
+    <!-- 底部按钮区域 -->
+    <div class="footer-section">
+      <button id="selection-copy-original">📋 复制原文</button>
+      <button id="selection-copy-result">📋 复制结果</button>
+      <button id="selection-add-favorites">⭐ 收藏</button>
+      <button id="selection-close-panel">关闭</button>
     </div>
   `;
 
-  // 定位浮层
-  translationTooltip.style.left = x + 'px';
-  translationTooltip.style.top = y + 'px';
-  translationTooltip.style.display = 'block';
+  document.body.appendChild(panel);
 
-  // 绑定事件监听器
-  bindTooltipEvents(translatedText);
+  // 绑定按钮事件
+  panel.querySelector('#selection-close-result').addEventListener('click', hideResultPanel);
+  panel.querySelector('#selection-close-panel').addEventListener('click', hideResultPanel);
+  panel.querySelector('#selection-copy-original').addEventListener('click', copyOriginalText);
+  panel.querySelector('#selection-copy-result').addEventListener('click', copyResult);
+  panel.querySelector('#selection-add-favorites').addEventListener('click', addCurrentToFavorites);
 
-  // 调整位置以确保不超出视窗
-  adjustTooltipPosition();
+  // 绑定拖动功能
+  setupDraggable(panel);
+
+  // 绑定滚动行为
+  setupScrollBehavior(panel);
+
+  return panel;
 }
 
-// 调整浮层位置
-function adjustTooltipPosition() {
-  const rect = translationTooltip.getBoundingClientRect();
-  const viewportWidth = window.innerWidth;
-  const viewportHeight = window.innerHeight;
+/**
+ * 设置面板拖动功能
+ */
+function setupDraggable(panel) {
+  const header = panel.querySelector('.panel-header');
+  if (!header) return;
 
-  // 水平位置调整
-  if (rect.right > viewportWidth) {
-    translationTooltip.style.left = (viewportWidth - rect.width - 10) + 'px';
-  }
+  let isDragging = false;
+  let startX, startY, initialX, initialY;
 
-  // 垂直位置调整
-  if (rect.bottom > viewportHeight) {
-    translationTooltip.style.top = (viewportHeight - rect.height - 10) + 'px';
-  }
+  header.addEventListener('mousedown', (e) => {
+    if (e.target.id === 'selection-close-result') return;
 
-  // 确保不会超出左上角
-  if (rect.left < 0) {
-    translationTooltip.style.left = '10px';
-  }
-  if (rect.top < 0) {
-    translationTooltip.style.top = '10px';
-  }
-}
+    isDragging = true;
+    startX = e.clientX;
+    startY = e.clientY;
 
-// 隐藏翻译浮层
-function hideTooltip() {
-  if (translationTooltip) {
-    translationTooltip.style.display = 'none';
-  }
-}
+    const rect = panel.getBoundingClientRect();
+    initialX = rect.left;
+    initialY = rect.top;
 
-// 绑定浮层事件
-function bindTooltipEvents(translatedText) {
-  // 移除之前的事件监听器（如果有）
-  const existingHandler = translationTooltip._tooltipHandler;
-  if (existingHandler) {
-    translationTooltip.removeEventListener('click', existingHandler);
-  }
+    header.style.cursor = 'grabbing';
+    e.preventDefault();
+  });
 
-  // 创建新的事件处理函数并保存引用
-  const handler = (e) => {
-    const action = e.target.dataset.action;
+  document.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
 
-    switch (action) {
-      case 'close':
-        hideTooltip();
-        break;
-      case 'copy':
-        const textToCopy = e.target.dataset.text || translatedText;
-        copyText(textToCopy);
-        break;
-      case 'favorites':
-        showFavorites();
-        break;
-    }
-  };
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
 
-  // 使用事件委托处理所有按钮点击
-  translationTooltip.addEventListener('click', handler);
-  translationTooltip._tooltipHandler = handler;
-}
+    let newX = initialX + dx;
+    let newY = initialY + dy;
 
-// 复制文本到剪贴板
-function copyText(text) {
-  navigator.clipboard.writeText(text).then(() => {
-    // 显示复制成功提示
-    const copyBtn = document.querySelector('.copy-btn');
-    if (copyBtn) {
-      const originalText = copyBtn.textContent;
-      copyBtn.textContent = '已复制';
-      setTimeout(() => {
-        copyBtn.textContent = originalText;
-      }, 1000);
+    const maxX = window.innerWidth - panel.offsetWidth;
+    const maxY = window.innerHeight - panel.offsetHeight;
+
+    newX = Math.max(0, Math.min(newX, maxX));
+    newY = Math.max(0, Math.min(newY, maxY));
+
+    requestAnimationFrame(() => {
+      panel.style.left = newX + 'px';
+      panel.style.top = newY + 'px';
+      panel.style.right = 'auto';
+    });
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (isDragging) {
+      isDragging = false;
+      header.style.cursor = 'move';
     }
   });
 }
 
-// 显示收藏列表
-function showFavorites() {
-  chrome.runtime.sendMessage({ action: 'openFavorites' });
-  hideTooltip();
+/**
+ * 设置面板滚动行为
+ */
+function setupScrollBehavior(panel) {
+  const resultTextElement = panel.querySelector('#selection-result-text');
+  if (!resultTextElement) return;
+
+  let scrollTimeout = null;
+
+  resultTextElement.addEventListener('scroll', () => {
+    isUserScrolling = true;
+
+    if (scrollTimeout) {
+      clearTimeout(scrollTimeout);
+    }
+
+    scrollTimeout = setTimeout(() => {
+      isUserScrolling = false;
+    }, 2000);
+  });
 }
 
-// 检查快捷键是否匹配
-function checkFavoritesShortcut(e) {
-  // 如果没有设置自定义快捷键，使用默认行为（Ctrl键）
-  if (!favoritesShortcut) {
-    return e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey && e.key === 'Control';
+/**
+ * 显示结果面板
+ */
+async function showResultPanel(originalText, resultText) {
+  if (!resultPanel) {
+    resultPanel = createResultPanel();
   }
 
-  // 检查自定义快捷键是否匹配
-  return (
-    e.ctrlKey === favoritesShortcut.ctrlKey &&
-    e.altKey === favoritesShortcut.altKey &&
-    e.shiftKey === favoritesShortcut.shiftKey &&
-    e.metaKey === favoritesShortcut.metaKey &&
-    e.key.toLowerCase() === favoritesShortcut.key.toLowerCase()
-  );
-}
-
-// 获取快捷键的主键（用于 keyup 检测）
-function getShortcutMainKey() {
-  if (!favoritesShortcut) {
-    return 'Control';
+  // 显示原文
+  const originalTextElement = document.getElementById('selection-original-text');
+  if (originalTextElement) {
+    originalTextElement.textContent = originalText;
   }
-  return favoritesShortcut.key;
+
+  // 渲染结果
+  const resultTextElement = document.getElementById('selection-result-text');
+  if (resultTextElement) {
+    const html = await renderMarkdown(resultText);
+    resultTextElement.innerHTML = html;
+  }
+
+  resultPanel.style.visibility = 'visible';
 }
 
-// 监听键盘事件（用于收藏快捷键）
-document.addEventListener('keydown', (e) => {
-  // 检查是否按下收藏快捷键
-  if (checkFavoritesShortcut(e)) {
-    // 避免重复触发
-    if (favoritesShortcutPressed) return;
-    favoritesShortcutPressed = true;
+/**
+ * 更新结果面板（用于流式输出）
+ */
+async function updateResultText(text) {
+  const resultTextElement = document.getElementById('selection-result-text');
+  if (resultTextElement) {
+    const html = await renderMarkdown(text);
+    resultTextElement.innerHTML = html;
 
-    // 检查是否有选中文本
-    const selection = window.getSelection();
-    const selectedText = selection.toString().trim();
+    // 智能滚动
+    const isAtBottom = resultTextElement.scrollHeight - resultTextElement.scrollTop - resultTextElement.clientHeight < 50;
 
-    if (selectedText) {
-      // 收藏选中的文本
-      addToFavorites(selectedText, window.location.href);
-
-      // 显示收藏成功提示
-      showFavoriteNotification(selectedText);
+    if (isAtBottom && !isUserScrolling) {
+      resultTextElement.scrollTop = resultTextElement.scrollHeight;
     }
   }
-});
+}
 
-// 监听键盘抬起事件
-document.addEventListener('keyup', (e) => {
-  if (e.key.toLowerCase() === getShortcutMainKey().toLowerCase()) {
-    favoritesShortcutPressed = false;
+/**
+ * 隐藏结果面板
+ */
+function hideResultPanel() {
+  if (resultPanel) {
+    resultPanel.style.visibility = 'hidden';
   }
-});
+}
 
-// 监听文本选择变化（支持鼠标选择后按快捷键收藏）
-document.addEventListener('selectionchange', () => {
-  const selection = window.getSelection();
-  const selectedText = selection.toString().trim();
+// ========== API 调用 ==========
 
-  // 如果有选中文本且快捷键被按下
-  if (selectedText && favoritesShortcutPressed) {
-    addToFavorites(selectedText, window.location.href);
-    showFavoriteNotification(selectedText);
+/**
+ * 调用 LLM API 处理文本（非流式）
+ */
+async function callLLMNonStream(text, prompt) {
+  const apiUrl = `${API_CONFIG.baseURL}/chat/completions`;
+
+  // 替换提示词中的占位符
+  const finalPrompt = prompt.replace('%s', text);
+
+  try {
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${API_CONFIG.apiKey}`
+      },
+      body: JSON.stringify({
+        model: API_CONFIG.model,
+        messages: [
+          {
+            role: 'user',
+            content: finalPrompt
+          }
+        ],
+        stream: false
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`API 请求失败: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+
+    if (data.choices && data.choices[0] && data.choices[0].message) {
+      return data.choices[0].message.content || '无法获取结果';
+    }
+
+    return '无法获取结果';
+  } catch (error) {
+    throw new Error('API 调用失败: ' + error.message);
   }
-});
+}
 
-// 收藏文本到本地存储
+/**
+ * 调用 LLM API 处理文本（流式）
+ */
+async function callLLMStream(text, prompt) {
+  const apiUrl = `${API_CONFIG.baseURL}/chat/completions`;
+
+  // 替换提示词中的占位符
+  const finalPrompt = prompt.replace('%s', text);
+
+  currentAbortController = new AbortController();
+
+  const resultTextElement = document.getElementById('selection-result-text');
+  if (!resultTextElement) return;
+
+  let fullText = '';
+
+  try {
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${API_CONFIG.apiKey}`
+      },
+      body: JSON.stringify({
+        model: API_CONFIG.model,
+        messages: [
+          {
+            role: 'user',
+            content: finalPrompt
+          }
+        ],
+        stream: true
+      }),
+      signal: currentAbortController.signal
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`API 请求失败: ${response.status} - ${errorText}`);
+    }
+
+    // 清空加载状态
+    resultTextElement.textContent = '';
+
+    // 读取流式响应
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+      const lines = chunk.split('\n');
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6);
+
+          if (data === '[DONE]') {
+            break;
+          }
+
+          try {
+            const parsed = JSON.parse(data);
+
+            if (parsed.choices && parsed.choices[0] && parsed.choices[0].delta) {
+              const delta = parsed.choices[0].delta;
+
+              if (delta.content) {
+                fullText += delta.content;
+
+                // 使用 Markdown 渲染
+                const html = await renderMarkdown(fullText);
+                resultTextElement.innerHTML = html;
+
+                // 智能滚动
+                const isAtBottom = resultTextElement.scrollHeight - resultTextElement.scrollTop - resultTextElement.clientHeight < 50;
+
+                if (isAtBottom && !isUserScrolling) {
+                  resultTextElement.scrollTop = resultTextElement.scrollHeight;
+                }
+              }
+            }
+          } catch (e) {
+            // 忽略解析错误
+          }
+        }
+      }
+    }
+
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      resultTextElement.innerHTML = fullText + '\n\n<p style="color:#999;">[请求已取消]</p>';
+    } else {
+      throw new Error('API 调用失败: ' + error.message);
+    }
+  } finally {
+    currentAbortController = null;
+  }
+}
+
+// ========== 处理选中文本 ==========
+
+/**
+ * 处理选中的文本
+ */
+async function processSelectedText(selectedText) {
+  if (!selectedText || selectedText === lastSelection) return;
+
+  lastSelection = selectedText;
+
+  // 显示面板和加载状态
+  if (!resultPanel) {
+    resultPanel = createResultPanel();
+  }
+
+  // 显示原文
+  const originalTextElement = document.getElementById('selection-original-text');
+  if (originalTextElement) {
+    originalTextElement.textContent = selectedText;
+  }
+
+  // 显示加载状态
+  const resultTextElement = document.getElementById('selection-result-text');
+  if (resultTextElement) {
+    resultTextElement.textContent = '正在处理中...';
+  }
+
+  resultPanel.style.visibility = 'visible';
+
+  // 获取提示词设置
+  chrome.storage.local.get(['selectionSettings'], async (result) => {
+    const selectionSettings = result.selectionSettings || {
+      prompt: '请解释 %s',
+      stream: true
+    };
+
+    const prompt = selectionSettings.prompt;
+    const useStream = selectionSettings.stream;
+
+    // 取消之前的请求
+    if (currentAbortController) {
+      currentAbortController.abort();
+    }
+
+    try {
+      if (useStream) {
+        await callLLMStream(selectedText, prompt);
+      } else {
+        const apiResult = await callLLMNonStream(selectedText, prompt);
+        await updateResultText(apiResult);
+      }
+    } catch (error) {
+      await showResultPanel(selectedText, '处理失败: ' + error.message);
+    }
+  });
+}
+
+// ========== 按钮功能 ==========
+
+/**
+ * 复制原文
+ */
+function copyOriginalText() {
+  const originalTextElement = document.getElementById('selection-original-text');
+  if (originalTextElement) {
+    const text = originalTextElement.textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.getElementById('selection-copy-original');
+      const originalText = btn.textContent;
+      btn.textContent = '✓ 已复制';
+      setTimeout(() => {
+        btn.textContent = originalText;
+      }, 1500);
+    }).catch(err => {
+      console.error('复制失败:', err);
+    });
+  }
+}
+
+/**
+ * 复制结果
+ */
+function copyResult() {
+  const resultTextElement = document.getElementById('selection-result-text');
+  if (resultTextElement) {
+    const text = resultTextElement.textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.getElementById('selection-copy-result');
+      const originalText = btn.textContent;
+      btn.textContent = '✓ 已复制';
+      setTimeout(() => {
+        btn.textContent = originalText;
+      }, 1500);
+    }).catch(err => {
+      console.error('复制失败:', err);
+    });
+  }
+}
+
+/**
+ * 添加当前文本到收藏
+ */
+function addCurrentToFavorites() {
+  const originalTextElement = document.getElementById('selection-original-text');
+  if (originalTextElement) {
+    const text = originalTextElement.textContent;
+    addToFavorites(text, window.location.href);
+    showFavoriteNotification(text);
+  }
+}
+
+/**
+ * 收藏文本到本地存储
+ */
 function addToFavorites(text, url) {
   chrome.runtime.sendMessage({
     action: 'addToFavorites',
@@ -215,9 +578,10 @@ function addToFavorites(text, url) {
   });
 }
 
-// 显示收藏成功提示
+/**
+ * 显示收藏成功提示
+ */
 function showFavoriteNotification(text) {
-  // 创建提示元素
   const notification = document.createElement('div');
   notification.style.cssText = `
     position: fixed;
@@ -228,13 +592,12 @@ function showFavoriteNotification(text) {
     padding: 12px 20px;
     border-radius: 4px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-    z-index: 10001;
+    z-index: 2147483647;
     font-size: 14px;
     animation: slideIn 0.3s ease-out;
   `;
   notification.textContent = `已收藏: "${text.length > 30 ? text.substring(0, 30) + '...' : text}"`;
 
-  // 添加动画样式
   const style = document.createElement('style');
   style.textContent = `
     @keyframes slideIn {
@@ -246,7 +609,6 @@ function showFavoriteNotification(text) {
 
   document.body.appendChild(notification);
 
-  // 3秒后自动移除
   setTimeout(() => {
     notification.style.animation = 'slideOut 0.3s ease-in';
     setTimeout(() => {
@@ -260,212 +622,214 @@ function showFavoriteNotification(text) {
   }, 3000);
 }
 
-// 监听文本选择事件
+// ========== 收藏快捷键 ==========
+
+/**
+ * 检查快捷键是否匹配
+ */
+function checkFavoritesShortcut(e) {
+  if (!favoritesShortcut) {
+    return e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey && e.key === 'Control';
+  }
+
+  return (
+    e.ctrlKey === favoritesShortcut.ctrlKey &&
+    e.altKey === favoritesShortcut.altKey &&
+    e.shiftKey === favoritesShortcut.shiftKey &&
+    e.metaKey === favoritesShortcut.metaKey &&
+    e.key.toLowerCase() === favoritesShortcut.key.toLowerCase()
+  );
+}
+
+/**
+ * 获取快捷键的主键
+ */
+function getShortcutMainKey() {
+  if (!favoritesShortcut) {
+    return 'Control';
+  }
+  return favoritesShortcut.key;
+}
+
+// 监听键盘事件（用于收藏快捷键）
+document.addEventListener('keydown', (e) => {
+  if (checkFavoritesShortcut(e)) {
+    if (favoritesShortcutPressed) return;
+    favoritesShortcutPressed = true;
+
+    const selection = window.getSelection();
+    const selectedText = selection.toString().trim();
+
+    if (selectedText) {
+      addToFavorites(selectedText, window.location.href);
+      showFavoriteNotification(selectedText);
+    }
+  }
+});
+
+document.addEventListener('keyup', (e) => {
+  if (e.key.toLowerCase() === getShortcutMainKey().toLowerCase()) {
+    favoritesShortcutPressed = false;
+  }
+});
+
+document.addEventListener('selectionchange', () => {
+  const selection = window.getSelection();
+  const selectedText = selection.toString().trim();
+
+  if (selectedText && favoritesShortcutPressed) {
+    addToFavorites(selectedText, window.location.href);
+    showFavoriteNotification(selectedText);
+  }
+});
+
+// ========== 文本选择监听 ==========
+
 document.addEventListener('mouseup', (e) => {
   // 检查设置是否已初始化，以及是否启用了自动翻译
   if (!settingsInitialized) {
-    console.log('[自动翻译] 设置尚未初始化，跳过');
     return;
   }
 
   if (!settings.autoTranslate) {
-    console.log('[自动翻译] 自动翻译未开启，跳过');
     return;
   }
-
-  console.log('[自动翻译] 触发 mouseup 事件，开始处理...');
 
   // 延迟一小段时间确保选择完成
   setTimeout(() => {
     const selection = window.getSelection();
     const selectedText = selection.toString().trim();
 
-    console.log('[自动翻译] 选中的文本:', selectedText);
-
     // 如果有选中文本且与上次不同
     if (selectedText && selectedText !== lastSelection) {
-      lastSelection = selectedText;
-
-      // 获取选中文本的位置
-      const range = selection.getRangeAt(0);
-      const rect = range.getBoundingClientRect();
-
-      console.log('[自动翻译] 发送翻译请求:', selectedText);
-
-      // 发送翻译请求到后台
-      chrome.runtime.sendMessage({
-        action: 'translate',
-        text: selectedText
-      }, (response) => {
-        if (response && response.success) {
-          console.log('[自动翻译] 收到翻译结果:', response.translatedText);
-
-          // 在选中文本下方显示翻译结果
-          showTooltip(
-            rect.left,
-            rect.bottom + window.scrollY + 5,
-            response.originalText,
-            response.translatedText
-          );
-        } else {
-          console.error('[自动翻译] 翻译失败:', response);
-        }
-      });
+      processSelectedText(selectedText);
     } else if (!selectedText) {
-      // 没有选中文本时隐藏浮层
-      hideTooltip();
+      // 没有选中文本时不隐藏面板，让用户手动关闭
       lastSelection = '';
     }
   }, 100);
 });
 
-// 监听来自后台的消息
+// ========== 监听来自后台的消息 ==========
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'updateSettings') {
-    console.log('[消息] 收到 updateSettings 消息:', request.settings);
-
-    // 更新设置
     settings = { ...settings, ...request.settings };
-
-    console.log('[消息] 更新后的设置:', settings);
-
+    sendResponse({ success: true });
+  } else if (request.action === 'updateSelectionSettings') {
+    // 更新划词翻译设置
+    if (request.selectionSettings) {
+      if (request.selectionSettings.prompt) {
+        settings.translatePrompt = request.selectionSettings.prompt;
+      }
+    }
     sendResponse({ success: true });
   } else if (request.action === 'showTranslation') {
-    // 获取当前选择的位置
+    // 兼容旧的消息格式
     const selection = window.getSelection();
-    if (selection.rangeCount > 0) {
-      const range = selection.getRangeAt(0);
-      const rect = range.getBoundingClientRect();
-
-      showTooltip(
-        rect.left,
-        rect.bottom + window.scrollY + 5,
-        request.originalText,
-        request.translatedText
-      );
+    const selectedText = selection.toString().trim();
+    if (selectedText) {
+      processSelectedText(selectedText);
     }
   } else if (request.action === 'updateFavoritesShortcut') {
-    // 更新收藏快捷键
     favoritesShortcut = request.shortcut;
-    console.log('[收藏快捷键] 收到更新消息:', favoritesShortcut);
     sendResponse({ success: true });
   } else if (request.action === 'clearFavoritesShortcut') {
-    // 清除收藏快捷键（恢复默认）
     favoritesShortcut = null;
-    console.log('[收藏快捷键] 快捷键已清除，恢复默认（Ctrl键）');
     sendResponse({ success: true });
+  } else if (request.action === 'processSelection') {
+    // 新增：处理选中文本的消息
+    if (request.text) {
+      processSelectedText(request.text);
+      sendResponse({ success: true });
+    }
   }
 });
 
-// 点击页面其他地方时隐藏浮层
+// ========== 点击页面其他地方时的事件 ==========
+
 document.addEventListener('click', (e) => {
-  if (translationTooltip && !translationTooltip.contains(e.target)) {
-    hideTooltip();
+  // 如果点击的不是面板内部，也不是在选择文本，则隐藏面板
+  if (resultPanel && !resultPanel.contains(e.target)) {
+    // 不自动隐藏，让用户手动关闭
   }
 });
 
-// 防止选中文本时立即隐藏浮层
-document.addEventListener('selectionchange', () => {
-  const selection = window.getSelection().toString().trim();
-  if (!selection && translationTooltip) {
-    // 延迟隐藏，给用户查看翻译结果的时间
-    setTimeout(() => {
-      const currentSelection = window.getSelection().toString().trim();
-      if (!currentSelection) {
-        hideTooltip();
-      }
-    }, 2000);
-  }
-});
+// ========== 监听 ESC 键 ==========
 
-// 监听ESC键隐藏浮层
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
-    hideTooltip();
+    hideResultPanel();
   }
 });
 
-// 页面加载完成后的初始化
-document.addEventListener('DOMContentLoaded', () => {
-  createTooltip();
-});
+// ========== 初始化 ==========
 
-// 立即加载设置（不等待 DOMContentLoaded）
-// 使用 Promise 确保设置在用户操作前已加载
-loadSettings().then(() => {
-  console.log('[初始化] 设置加载完成，当前状态:', settings);
-}).catch(err => {
-  console.error('[初始化] 设置加载失败:', err);
-});
-
-// 立即加载收藏快捷键
-loadFavoritesShortcut();
-
-// 加载设置
+/**
+ * 加载设置
+ */
 function loadSettings() {
   return new Promise((resolve) => {
-    chrome.storage.local.get(['settings'], (result) => {
-      // 如果没有存储的设置，使用默认值
+    chrome.storage.local.get(['settings', 'selectionSettings'], (result) => {
       const defaultSettings = {
         autoTranslate: false,
         showContextMenu: true
       };
 
       if (result.settings) {
-        // 合并存储的设置和默认值（存储的设置优先）
         settings = { ...defaultSettings, ...result.settings };
       } else {
-        // 使用默认值
         settings = { ...defaultSettings };
       }
 
-      // 标记设置已初始化
-      settingsInitialized = true;
+      // 加载划词设置
+      if (result.selectionSettings) {
+        settings.translatePrompt = result.selectionSettings.prompt || '请解释 %s';
+      }
 
-      console.log('[初始化] 设置已加载:', settings);
-      console.log('[初始化] settingsInitialized 已设置为 true');
+      settingsInitialized = true;
       resolve(settings);
     });
   });
 }
 
-// 加载收藏快捷键
+/**
+ * 加载收藏快捷键
+ */
 function loadFavoritesShortcut() {
   chrome.storage.local.get(['favoritesShortcut'], (result) => {
     if (result.favoritesShortcut) {
       favoritesShortcut = result.favoritesShortcut;
-      console.log('[收藏快捷键] 快捷键已加载:', favoritesShortcut);
     } else {
-      // 默认快捷键：仅按 Ctrl 键
       favoritesShortcut = null;
-      console.log('[收藏快捷键] 使用默认快捷键（Ctrl键）');
     }
   });
 }
 
-// 监听storage变化（当popup修改设置时自动同步）
+// 监听 storage 变化
 chrome.storage.onChanged.addListener((changes, areaName) => {
-  if (areaName === 'local' && changes.settings) {
-    const oldSettings = changes.settings.oldValue;
-    const newSettings = changes.settings.newValue;
+  if (areaName === 'local') {
+    if (changes.settings) {
+      settings = { ...settings, ...changes.settings.newValue };
+      settingsInitialized = true;
+    }
 
-    console.log('[设置变化] 检测到设置更新');
-    console.log('[设置变化] 旧设置:', oldSettings);
-    console.log('[设置变化] 新设置:', newSettings);
+    if (changes.favoritesShortcut) {
+      favoritesShortcut = changes.favoritesShortcut.newValue;
+    }
 
-    settings = { ...settings, ...newSettings };
-
-    // 确保设置初始化标志已设置
-    settingsInitialized = true;
-
-    console.log('[设置变化] 当前设置:', settings);
-    console.log('[设置变化] settingsInitialized 已设置为 true');
-  }
-
-  // 监听收藏快捷键变化
-  if (areaName === 'local' && changes.favoritesShortcut) {
-    const newShortcut = changes.favoritesShortcut.newValue;
-    favoritesShortcut = newShortcut;
-    console.log('[收藏快捷键] 快捷键已更新:', favoritesShortcut);
+    if (changes.selectionSettings) {
+      const newSettings = changes.selectionSettings.newValue;
+      if (newSettings.prompt) {
+        settings.translatePrompt = newSettings.prompt;
+      }
+    }
   }
 });
+
+// 立即加载设置
+loadSettings().then(() => {
+  console.log('[划词] 设置加载完成');
+});
+
+loadFavoritesShortcut();

@@ -58,6 +58,29 @@
         </label>
       </div>
 
+      <!-- 划词翻译设置 -->
+      <div class="ocr-section">
+        <div class="section-title">
+          <span>📝 划词翻译设置</span>
+        </div>
+        <div class="ocr-setting-item">
+          <label class="setting-label">提示词模板</label>
+          <textarea
+            id="selectionPromptInput"
+            class="ocr-textarea"
+            placeholder="请输入提示词，使用 %s 作为选中文本的占位符..."
+            rows="2"
+          >请解释 %s</textarea>
+          <small style="color: #6c757d; font-size: 12px; margin-top: 4px; display: block;">
+            使用 %s 代表选中的文本，例如："请翻译 %s"、"请解释 %s 的含义"
+          </small>
+        </div>
+        <label class="setting-item" style="margin-top: 12px;">
+          <input type="checkbox" id="selectionStreamToggle" class="toggle" checked>
+          <span class="toggle-label">流式输出（实时显示处理结果）</span>
+        </label>
+      </div>
+
       <!-- 收藏设置 -->
       <div class="ocr-section">
         <div class="section-title">

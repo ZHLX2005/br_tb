@@ -8,13 +8,13 @@ let selectionBox = null;
 let isSelecting = false;
 let startX = 0;
 let startY = 0;
-let resultPanel = null;
+let ocrResultPanel = null;
 let currentCroppedImage = null;
-let currentAbortController = null;
-let isUserScrolling = false;  // 标记用户是否正在滚动
+let ocrAbortController = null;
+let ocrIsUserScrolling = false;  // 标记用户是否正在滚动
 
 // API 配置
-const API_CONFIG = {
+const OCR_API_CONFIG = {
   baseURL: 'https://open.bigmodel.cn/api/paas/v4',
   apiKey: 'd237351671da318126fb5bd2f1372a08.EdkVfX8wE0JtcZpP',
   model: 'glm-4.5v'
@@ -23,14 +23,14 @@ const API_CONFIG = {
 // ========== Marked.js + KaTeX 渲染 ==========
 
 // marked.js 和 katex 作为 content script 加载，全局可用
-let markedConfigured = false;
-let katexConfigured = false;
+let ocrMarkedConfigured = false;
+let ocrKatexConfigured = false;
 
 /**
  * 配置 marked.js（只执行一次）
  */
-function configureMarked() {
-  if (markedConfigured || typeof marked === 'undefined') return;
+function ocrConfigureMarked() {
+  if (ocrMarkedConfigured || typeof marked === 'undefined') return;
 
   // 配置 marked 选项
   marked.setOptions({
@@ -40,7 +40,7 @@ function configureMarked() {
     mangle: false       // 不转义邮箱地址
   });
 
-  markedConfigured = true;
+  ocrMarkedConfigured = true;
 }
 
 /**
@@ -49,7 +49,7 @@ function configureMarked() {
  * @param {boolean} displayMode - 是否为显示模式（块级）
  * @returns {string} HTML 字符串
  */
-function renderLatex(latex, displayMode = false) {
+function ocrRenderLatex(latex, displayMode = false) {
   if (typeof katex === 'undefined') {
     console.error('KaTeX is not loaded');
     return `<code>${latex}</code>`;
@@ -82,7 +82,7 @@ function renderLatex(latex, displayMode = false) {
  * @param {string} markdown - Markdown 文本
  * @returns {Promise<string>} HTML 字符串
  */
-async function renderMarkdown(markdown) {
+async function ocrRenderMarkdown(markdown) {
   if (!markdown) return '';
 
   try {
@@ -93,7 +93,7 @@ async function renderMarkdown(markdown) {
       return markdown.replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
-    configureMarked();
+    ocrConfigureMarked();
     let html = marked.parse(markdown);
 
     // 渲染 LaTeX 数学公式
@@ -101,20 +101,20 @@ async function renderMarkdown(markdown) {
 
     // 1. 处理块级公式 \[...\] 和 $$...$$
     html = html.replace(/\\\[([\s\S]*?)\\\]/g, (_, latex) => {
-      return renderLatex(latex.trim(), true);
+      return ocrRenderLatex(latex.trim(), true);
     });
 
     html = html.replace(/\$\$([\s\S]*?)\$\$/g, (_, latex) => {
-      return renderLatex(latex.trim(), true);
+      return ocrRenderLatex(latex.trim(), true);
     });
 
     // 2. 处理行内公式 \(...\) 和 $...$
     html = html.replace(/\\\(([\s\S]*?)\\\)/g, (_, latex) => {
-      return renderLatex(latex.trim(), false);
+      return ocrRenderLatex(latex.trim(), false);
     });
 
     html = html.replace(/\$([^\$\n]+?)\$/g, (_, latex) => {
-      return renderLatex(latex.trim(), false);
+      return ocrRenderLatex(latex.trim(), false);
     });
 
     // 3. 处理括号内的 LaTeX 公式，如 (8 = 2^3)
@@ -123,7 +123,7 @@ async function renderMarkdown(markdown) {
       // 检查是否包含 LaTeX 数学符号
       const hasMathSymbols = /[_^\\]|\\[a-zA-Z]|\\frac|\\sum|\\int|\\prod|[αβγδεζηθικλμνξπρστυφχψω]/.test(content);
       if (hasMathSymbols) {
-        return '(' + renderLatex(content.trim(), false) + ')';
+        return '(' + ocrRenderLatex(content.trim(), false) + ')';
       }
       return match;
     });
@@ -349,7 +349,7 @@ function createInstruction() {
 }
 
 // 创建结果面板
-function createResultPanel() {
+function ocrCreateResultPanel() {
   const panel = document.createElement('div');
   panel.id = 'ocr-result-panel';
   panel.style.display = 'flex';
@@ -387,9 +387,9 @@ function createResultPanel() {
   document.body.appendChild(panel);
 
   // 绑定按钮事件
-  panel.querySelector('#ocr-close-result').addEventListener('click', hideResultPanel);
-  panel.querySelector('#ocr-close-panel').addEventListener('click', hideResultPanel);
-  panel.querySelector('#ocr-copy-result').addEventListener('click', copyResult);
+  panel.querySelector('#ocr-close-result').addEventListener('click', ocrHideResultPanel);
+  panel.querySelector('#ocr-close-panel').addEventListener('click', ocrHideResultPanel);
+  panel.querySelector('#ocr-copy-result').addEventListener('click', ocrCopyResult);
   panel.querySelector('#ocr-restart-btn').addEventListener('click', restartOCR);
 
   // 绑定思考面板折叠功能
@@ -405,10 +405,10 @@ function createResultPanel() {
   });
 
   // 绑定拖动功能
-  setupDraggable(panel);
+  ocrSetupDraggable(panel);
 
   // 绑定滚动行为
-  setupScrollBehavior(panel);
+  ocrSetupScrollBehavior(panel);
 
   return panel;
 }
@@ -416,7 +416,7 @@ function createResultPanel() {
 /**
  * 设置面板滚动行为
  */
-function setupScrollBehavior(panel) {
+function ocrSetupScrollBehavior(panel) {
   const resultTextElement = panel.querySelector('#ocr-result-text');
   if (!resultTextElement) return;
 
@@ -425,7 +425,7 @@ function setupScrollBehavior(panel) {
   // 监听滚动事件
   resultTextElement.addEventListener('scroll', () => {
     // 标记用户正在滚动
-    isUserScrolling = true;
+    ocrIsUserScrolling = true;
 
     // 清除之前的定时器
     if (scrollTimeout) {
@@ -434,7 +434,7 @@ function setupScrollBehavior(panel) {
 
     // 2秒后重置标志（假设用户2秒没有滚动就是停止了）
     scrollTimeout = setTimeout(() => {
-      isUserScrolling = false;
+      ocrIsUserScrolling = false;
     }, 2000);
   });
 }
@@ -442,7 +442,7 @@ function setupScrollBehavior(panel) {
 /**
  * 设置面板拖动功能
  */
-function setupDraggable(panel) {
+function ocrSetupDraggable(panel) {
   const header = panel.querySelector('#ocr-panel-header');
   if (!header) return;
 
@@ -507,9 +507,9 @@ function setupDraggable(panel) {
 }
 
 // 显示结果面板
-async function showResultPanel(text, imageDataUrl = null) {
-  if (!resultPanel) {
-    resultPanel = createResultPanel();
+async function ocrShowResultPanel(text, imageDataUrl = null) {
+  if (!ocrResultPanel) {
+    ocrResultPanel = ocrCreateResultPanel();
   }
 
   // 隐藏思考区域（旧函数兼容）
@@ -519,19 +519,19 @@ async function showResultPanel(text, imageDataUrl = null) {
   // 使用 Markdown 渲染
   const resultTextElement = document.getElementById('ocr-result-text');
   if (typeof text === 'string') {
-    const html = await renderMarkdown(text);
+    const html = await ocrRenderMarkdown(text);
     resultTextElement.innerHTML = html;
   } else if (text && typeof text === 'object') {
     // 支持传入对象格式 { mainContent, thinkingContent }
     if (text.thinkingContent) {
       const thinkingContent = document.getElementById('thinking-content');
       if (thinkingContent) {
-        const thinkingHtml = await renderMarkdown(text.thinkingContent);
+        const thinkingHtml = await ocrRenderMarkdown(text.thinkingContent);
         thinkingContent.innerHTML = thinkingHtml;
         thinkingSection.style.display = 'block';
       }
     }
-    const mainHtml = await renderMarkdown(text.mainContent || '');
+    const mainHtml = await ocrRenderMarkdown(text.mainContent || '');
     resultTextElement.innerHTML = mainHtml;
   }
 
@@ -550,13 +550,13 @@ async function showResultPanel(text, imageDataUrl = null) {
     restartBtn.style.display = 'block';
   }
 
-  resultPanel.style.visibility = 'visible';
+  ocrResultPanel.style.visibility = 'visible';
 }
 
 // 显示结果面板（带图片和加载状态）
-async function showResultPanelWithImage(imageDataUrl, text) {
-  if (!resultPanel) {
-    resultPanel = createResultPanel();
+async function ocrShowResultPanelWithImage(imageDataUrl, text) {
+  if (!ocrResultPanel) {
+    ocrResultPanel = ocrCreateResultPanel();
   }
 
   // 隐藏思考区域
@@ -573,7 +573,7 @@ async function showResultPanelWithImage(imageDataUrl, text) {
   // 设置加载文字（使用 Markdown 渲染）
   const resultTextElement = document.getElementById('ocr-result-text');
   if (typeof text === 'string') {
-    const html = await renderMarkdown(text);
+    const html = await ocrRenderMarkdown(text);
     resultTextElement.innerHTML = html;
   }
 
@@ -583,27 +583,27 @@ async function showResultPanelWithImage(imageDataUrl, text) {
     restartBtn.style.display = 'block';
   }
 
-  resultPanel.style.visibility = 'visible';
+  ocrResultPanel.style.visibility = 'visible';
 }
 
 // 只更新结果文字
-async function updateResultText(text) {
+async function ocrUpdateResultText(text) {
   const resultTextElement = document.getElementById('ocr-result-text');
   if (resultTextElement) {
-    const html = await renderMarkdown(text);
+    const html = await ocrRenderMarkdown(text);
     resultTextElement.innerHTML = html;
   }
 }
 
 // 隐藏结果面板
-function hideResultPanel() {
-  if (resultPanel) {
-    resultPanel.style.visibility = 'hidden';
+function ocrHideResultPanel() {
+  if (ocrResultPanel) {
+    ocrResultPanel.style.visibility = 'hidden';
   }
 }
 
 // 复制结果
-function copyResult() {
+function ocrCopyResult() {
   const text = document.getElementById('ocr-result-text').textContent;
   navigator.clipboard.writeText(text).then(() => {
     const btn = document.getElementById('ocr-copy-result');
@@ -841,7 +841,7 @@ async function performOCR(rect) {
       rect: rect
     }, async (response) => {
       if (chrome.runtime.lastError) {
-        await showResultPanel('识别失败: ' + chrome.runtime.lastError.message);
+        await ocrShowResultPanel('识别失败: ' + chrome.runtime.lastError.message);
         return;
       }
 
@@ -852,7 +852,7 @@ async function performOCR(rect) {
           currentCroppedImage = croppedImage;
 
           // 先显示图片预览和加载状态
-          await showResultPanelWithImage(croppedImage, '正在识别中，请稍候...');
+          await ocrShowResultPanelWithImage(croppedImage, '正在识别中，请稍候...');
 
           // 使用存储中的设置
           const prompt = ocrSettings.prompt;
@@ -863,13 +863,13 @@ async function performOCR(rect) {
             await callOCRApiStream(croppedImage, prompt);
           } else {
             const result = await callOCRApiNonStream(croppedImage, prompt);
-            await updateResultText(result.mainContent || '');
+            await ocrUpdateResultText(result.mainContent || '');
           }
         } catch (error) {
-          await showResultPanel('识别失败: ' + error.message);
+          await ocrShowResultPanel('识别失败: ' + error.message);
         }
       } else {
-        await showResultPanel('识别失败: ' + (response?.error || '未知错误'));
+        await ocrShowResultPanel('识别失败: ' + (response?.error || '未知错误'));
       }
     });
   });
@@ -918,7 +918,7 @@ async function callOCRApiNonStream(imageBase64, prompt = '请识别图片中的�
   // 移除 data:image/png;base64, 前缀
   const base64Data = imageBase64.split(',')[1];
 
-  const apiUrl = `${API_CONFIG.baseURL}/chat/completions`;
+  const apiUrl = `${OCR_API_CONFIG.baseURL}/chat/completions`;
 
   // 从存储中获取思考模式设置
   const thinkingEnabled = await new Promise((resolve) => {
@@ -931,7 +931,7 @@ async function callOCRApiNonStream(imageBase64, prompt = '请识别图片中的�
   try {
     // 构建 API 请求体
     const requestBody = {
-      model: API_CONFIG.model,
+      model: OCR_API_CONFIG.model,
       messages: [
         {
           role: 'user',
@@ -963,7 +963,7 @@ async function callOCRApiNonStream(imageBase64, prompt = '请识别图片中的�
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${API_CONFIG.apiKey}`
+        'Authorization': `Bearer ${OCR_API_CONFIG.apiKey}`
       },
       body: JSON.stringify(requestBody)
     });
@@ -1002,10 +1002,10 @@ async function callOCRApiStream(imageBase64, prompt = '请识别图片中的所�
   // 移除 data:image/png;base64, 前缀
   const base64Data = imageBase64.split(',')[1];
 
-  const apiUrl = `${API_CONFIG.baseURL}/chat/completions`;
+  const apiUrl = `${OCR_API_CONFIG.baseURL}/chat/completions`;
 
   // 创建 AbortController 用于取消请求
-  currentAbortController = new AbortController();
+  ocrAbortController = new AbortController();
 
   const resultTextElement = document.getElementById('ocr-result-text');
   const thinkingSection = document.getElementById('thinking-section');
@@ -1061,7 +1061,7 @@ async function callOCRApiStream(imageBase64, prompt = '请识别图片中的所�
       requestAnimationFrame(async () => {
         if (thinkingContent) {
           fullThinkingText += textChunk;
-          const html = await renderMarkdown(fullThinkingText);
+          const html = await ocrRenderMarkdown(fullThinkingText);
           thinkingContent.innerHTML = html;
         }
         resolve();
@@ -1082,13 +1082,13 @@ async function callOCRApiStream(imageBase64, prompt = '请识别图片中的所�
 
         fullMainText += textChunk;
         // 使用 Markdown 渲染
-        const html = await renderMarkdown(fullMainText);
+        const html = await ocrRenderMarkdown(fullMainText);
         resultTextElement.innerHTML = html;
 
         // 智能滚动
         const isAtBottom = resultTextElement.scrollHeight - resultTextElement.scrollTop - resultTextElement.clientHeight < 50;
 
-        if (isAtBottom && !isUserScrolling) {
+        if (isAtBottom && !ocrIsUserScrolling) {
           resultTextElement.scrollTop = resultTextElement.scrollHeight;
         }
 
@@ -1100,7 +1100,7 @@ async function callOCRApiStream(imageBase64, prompt = '请识别图片中的所�
   try {
     // 构建 API 请求体
     const requestBody = {
-      model: API_CONFIG.model,
+      model: OCR_API_CONFIG.model,
       messages: [
         {
           role: 'user',
@@ -1132,10 +1132,10 @@ async function callOCRApiStream(imageBase64, prompt = '请识别图片中的所�
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${API_CONFIG.apiKey}`
+        'Authorization': `Bearer ${OCR_API_CONFIG.apiKey}`
       },
       body: JSON.stringify(requestBody),
-      signal: currentAbortController.signal
+      signal: ocrAbortController.signal
     });
 
     if (!response.ok) {
@@ -1226,7 +1226,7 @@ async function callOCRApiStream(imageBase64, prompt = '请识别图片中的所�
       throw new Error('API 调用失败: ' + error.message);
     }
   } finally {
-    currentAbortController = null;
+    ocrAbortController = null;
   }
 }
 
@@ -1250,8 +1250,8 @@ async function restartOCR() {
     const useStream = ocrSettings.stream;
 
     // 取消之前的请求
-    if (currentAbortController) {
-      currentAbortController.abort();
+    if (ocrAbortController) {
+      ocrAbortController.abort();
     }
 
     try {
@@ -1260,10 +1260,10 @@ async function restartOCR() {
         await callOCRApiStream(currentCroppedImage, prompt);
       } else {
         const result = await callOCRApiNonStream(currentCroppedImage, prompt);
-        await showResultPanel(result, currentCroppedImage);
+        await ocrShowResultPanel(result, currentCroppedImage);
       }
     } catch (error) {
-      await showResultPanel('识别失败: ' + error.message);
+      await ocrShowResultPanel('识别失败: ' + error.message);
     }
   });
 }
@@ -1271,9 +1271,9 @@ async function restartOCR() {
 // 清理
 function cleanup() {
   // 取消进行中的 API 请求
-  if (currentAbortController) {
-    currentAbortController.abort();
-    currentAbortController = null;
+  if (ocrAbortController) {
+    ocrAbortController.abort();
+    ocrAbortController = null;
   }
 
   const overlay = document.getElementById('ocr-overlay');
@@ -1297,7 +1297,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     startSelection();
     sendResponse({ success: true });
   } else if (request.action === 'closeOCRResult') {
-    hideResultPanel();
+    ocrHideResultPanel();
     sendResponse({ success: true });
   } else if (request.action === 'updateShortcut') {
     // 更新快捷键

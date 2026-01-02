@@ -8,6 +8,8 @@ const todayCountEl = document.getElementById('todayCount');
 const totalCountEl = document.getElementById('totalCount');
 const autoTranslateToggle = document.getElementById('autoTranslate');
 const showContextMenuToggle = document.getElementById('showContextMenu');
+const selectionPromptInput = document.getElementById('selectionPromptInput');
+const selectionStreamToggle = document.getElementById('selectionStreamToggle');
 const ocrPromptInput = document.getElementById('ocrPromptInput');
 const ocrStreamToggle = document.getElementById('ocrStreamToggle');
 const ocrThinkingToggle = document.getElementById('ocrThinkingToggle');
@@ -37,6 +39,7 @@ const FLOW_RATE_PRESETS = {
 // 初始化
 document.addEventListener('DOMContentLoaded', () => {
   loadSettings();
+  loadSelectionSettings();
   loadStatistics();
   loadShortcut();
   loadFavoritesShortcut();
@@ -63,6 +66,8 @@ function bindEvents() {
   // 设置项变化
   autoTranslateToggle.addEventListener('change', saveSettings);
   showContextMenuToggle.addEventListener('change', saveSettings);
+  selectionPromptInput.addEventListener('input', saveSelectionSettings);
+  selectionStreamToggle.addEventListener('change', saveSelectionSettings);
   ocrPromptInput.addEventListener('input', saveOCRSettings);
   ocrStreamToggle.addEventListener('change', () => {
     saveOCRSettings();
@@ -206,6 +211,41 @@ function saveSettings() {
   chrome.runtime.sendMessage({
     action: 'updateSettings',
     settings
+  });
+}
+
+// 加载划词翻译设置
+function loadSelectionSettings() {
+  chrome.storage.local.get(['selectionSettings'], (result) => {
+    const selectionSettings = result.selectionSettings || {
+      prompt: '请解释 %s',
+      stream: true
+    };
+
+    selectionPromptInput.value = selectionSettings.prompt;
+    selectionStreamToggle.checked = selectionSettings.stream;
+  });
+}
+
+// 保存划词翻译设置
+function saveSelectionSettings() {
+  const selectionSettings = {
+    prompt: selectionPromptInput.value,
+    stream: selectionStreamToggle.checked
+  };
+
+  chrome.storage.local.set({ selectionSettings });
+
+  // 通知所有标签页设置已更改
+  chrome.tabs.query({}, (tabs) => {
+    tabs.forEach(tab => {
+      chrome.tabs.sendMessage(tab.id, {
+        action: 'updateSelectionSettings',
+        selectionSettings
+      }).catch(() => {
+        // 忽略无法发送消息的标签页
+      });
+    });
   });
 }
 
