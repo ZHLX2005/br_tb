@@ -720,10 +720,29 @@ async function callLLMStream(text, prompt) {
 // ========== 处理选中文本 ==========
 
 /**
+ * 检查选中的文本是否在面板内部
+ */
+function isSelectionInsidePanel(panel) {
+  const selection = window.getSelection();
+  if (!selection.rangeCount) return false;
+
+  const range = selection.getRangeAt(0);
+  const container = range.commonAncestorContainer;
+
+  // 检查选中的文本或其父节点是否在面板内
+  return panel.contains(container.nodeType === Node.TEXT_NODE ? container.parentNode : container);
+}
+
+/**
  * 处理选中的文本
  */
 async function processSelectedText(selectedText) {
   if (!selectedText || selectedText === lastSelection) return;
+
+  // 检查选中的文本是否来自面板内部，如果是则不处理
+  if (resultPanel && isSelectionInsidePanel(resultPanel)) {
+    return;
+  }
 
   lastSelection = selectedText;
 
@@ -1017,7 +1036,8 @@ document.addEventListener('keydown', (e) => {
     const selection = window.getSelection();
     const selectedText = selection.toString().trim();
 
-    if (selectedText) {
+    // 检查是否在面板内部选中，如果是则不处理
+    if (selectedText && (!resultPanel || !isSelectionInsidePanel(resultPanel))) {
       addToFavorites(selectedText, window.location.href);
       showFavoriteNotification(selectedText);
     }
@@ -1035,8 +1055,11 @@ document.addEventListener('selectionchange', () => {
   const selectedText = selection.toString().trim();
 
   if (selectedText && favoritesShortcutPressed) {
-    addToFavorites(selectedText, window.location.href);
-    showFavoriteNotification(selectedText);
+    // 检查是否在面板内部选中，如果是则不处理
+    if (!resultPanel || !isSelectionInsidePanel(resultPanel)) {
+      addToFavorites(selectedText, window.location.href);
+      showFavoriteNotification(selectedText);
+    }
   }
 });
 
@@ -1059,6 +1082,10 @@ document.addEventListener('mouseup', (e) => {
 
     // 如果有选中文本且与上次不同
     if (selectedText && selectedText !== lastSelection) {
+      // 检查是否在面板内部选中，如果是则不处理
+      if (resultPanel && isSelectionInsidePanel(resultPanel)) {
+        return;
+      }
       processSelectedText(selectedText);
     } else if (!selectedText) {
       // 没有选中文本时不隐藏面板，让用户手动关闭
