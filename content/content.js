@@ -30,13 +30,13 @@ let settingsInitialized = false;
 let favoritesShortcut = null;
 let favoritesShortcutPressed = false;
 
-// ========== StreamFlowController 流速控制类 ==========
+// ========== SelectionStreamFlowController 流速控制类 ==========
 
 /**
  * 流速控制类 - 使用预加载缓冲机制实现平滑输出
  * 解决服务器推送不均导致的文字卡顿问题
  */
-class StreamFlowController {
+class SelectionStreamFlowController {
   constructor(options = {}) {
     this.preloadThreshold = options.preloadThreshold ?? 80;
     this.outputInterval = options.outputInterval ?? 35;
@@ -455,12 +455,10 @@ async function callLLMNonStream(text, prompt) {
       stream: false
     };
 
-    // 只有启用思考模式时才添加 thinking 参数
-    if (thinkingEnabled) {
-      requestBody.thinking = {
-        type: 'enabled'
-      };
-    }
+    // 构建 thinking 参数（始终传递，默认是 enabled）
+    requestBody.thinking = {
+      type: thinkingEnabled ? 'enabled' : 'disabled'
+    };
 
     const response = await fetch(apiUrl, {
       method: 'POST',
@@ -530,7 +528,7 @@ async function callLLMStream(text, prompt) {
   const thinkingEnabled = settings.thinkingEnabled;
 
   // 创建流速控制器
-  const mainFlowController = new StreamFlowController({
+  const mainFlowController = new SelectionStreamFlowController({
     preloadThreshold: 80,
     outputInterval: 35,
     minBufferSize: 15,
@@ -538,7 +536,7 @@ async function callLLMStream(text, prompt) {
   });
 
   // 只有启用思考模式时才创建思考流控制器
-  const thinkingFlowController = thinkingEnabled ? new StreamFlowController({
+  const thinkingFlowController = thinkingEnabled ? new SelectionStreamFlowController({
     preloadThreshold: 50,
     outputInterval: 35,
     minBufferSize: 10,
@@ -600,12 +598,10 @@ async function callLLMStream(text, prompt) {
       stream: true
     };
 
-    // 只有启用思考模式时才添加 thinking 参数
-    if (thinkingEnabled) {
-      requestBody.thinking = {
-        type: 'enabled'
-      };
-    }
+    // 构建 thinking 参数（始终传递，默认是 enabled）
+    requestBody.thinking = {
+      type: thinkingEnabled ? 'enabled' : 'disabled'
+    };
 
     const response = await fetch(apiUrl, {
       method: 'POST',

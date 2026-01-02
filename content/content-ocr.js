@@ -952,12 +952,10 @@ async function callOCRApiNonStream(imageBase64, prompt = '请识别图片中的�
       stream: false
     };
 
-    // 只有启用思考模式时才添加 thinking 参数
-    if (thinkingEnabled) {
-      requestBody.thinking = {
-        type: 'enabled'
-      };
-    }
+    // 构建 thinking 参数（始终传递，默认是 enabled）
+    requestBody.thinking = {
+      type: thinkingEnabled ? 'enabled' : 'disabled'
+    };
 
     const response = await fetch(apiUrl, {
       method: 'POST',
@@ -1121,12 +1119,10 @@ async function callOCRApiStream(imageBase64, prompt = '请识别图片中的所�
       stream: true
     };
 
-    // 只有启用思考模式时才添加 thinking 参数
-    if (thinkingEnabled) {
-      requestBody.thinking = {
-        type: 'enabled'
-      };
-    }
+    // 构建 thinking 参数（始终传递，默认是 enabled）
+    requestBody.thinking = {
+      type: thinkingEnabled ? 'enabled' : 'disabled'
+    };
 
     const response = await fetch(apiUrl, {
       method: 'POST',
