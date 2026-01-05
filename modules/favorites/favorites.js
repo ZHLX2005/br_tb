@@ -23,6 +23,10 @@ function displayFavorites(favorites) {
         <div class="favorite-header">
           <div class="favorite-content">
             <div class="favorite-text">${escapeHtml(item.text)}</div>
+            ${item.result ? `
+              <div class="favorite-result-label">📝 识别结果</div>
+              <div class="favorite-result">${escapeHtml(item.result)}</div>
+            ` : ''}
             <div class="favorite-url" data-url="${escapeHtml(item.url)}" title="点击访问来源页面">${getDomain(item.url)}</div>
             <div class="timestamp">${new Date(item.timestamp).toLocaleString('zh-CN')}</div>
           </div>
@@ -107,7 +111,12 @@ function exportFavorites() {
 
     // 创建导出文本
     const exportText = favorites.map(item => {
-      return `收藏内容: ${item.text}\n来源页面: ${item.url}\n收藏时间: ${new Date(item.timestamp).toLocaleString('zh-CN')}\n${'-'.repeat(50)}`;
+      let text = `收藏内容: ${item.text}\n来源页面: ${item.url}\n收藏时间: ${new Date(item.timestamp).toLocaleString('zh-CN')}`;
+      if (item.result) {
+        text += `\n识别结果: ${item.result}`;
+      }
+      text += `\n${'-'.repeat(50)}`;
+      return text;
     }).join('\n\n');
 
     // 创建Blob并下载

@@ -36,6 +36,7 @@ function handleAddToFavorites(request) {
         favorites.unshift({
           text: request.text,
           url: request.url,
+          result: request.result || '',
           timestamp: request.timestamp || new Date().toISOString()
         });
 

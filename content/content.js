@@ -8,6 +8,7 @@ let resultPanel = null;
 let lastSelection = '';
 let currentAbortController = null;
 let isUserScrolling = false;
+let currentResult = ''; // 保存当前处理的结果
 
 // API 配置（与 OCR 相同）
 const API_CONFIG = {
@@ -495,16 +496,21 @@ async function callLLMNonStream(text, prompt) {
     // 返回识别结果（分离思考内容和主回答）
     if (data.choices && data.choices[0] && data.choices[0].message) {
       const message = data.choices[0].message;
-      return {
+      const result = {
         mainContent: message.content || '无法获取结果',
         thinkingContent: thinkingEnabled ? (message.reasoning_content || '') : ''
       };
+      // 保存结果内容（用于收藏）
+      currentResult = result.mainContent;
+      return result;
     }
 
-    return {
+    const result = {
       mainContent: '无法获取结果',
       thinkingContent: ''
     };
+    currentResult = result.mainContent;
+    return result;
   } catch (error) {
     throw new Error('API 调用失败: ' + error.message);
   }
@@ -698,6 +704,9 @@ async function callLLMStream(text, prompt) {
     }
     await Promise.all(endPromises);
 
+    // 保存结果内容（用于收藏）
+    currentResult = fullMainText;
+
   } catch (error) {
     if (error.name === 'AbortError') {
       if (thinkingFlowController) {
@@ -850,11 +859,12 @@ function addCurrentToFavorites() {
 /**
  * 收藏文本到本地存储
  */
-function addToFavorites(text, url) {
+function addToFavorites(text, url, result = '') {
   chrome.runtime.sendMessage({
     action: 'addToFavorites',
     text: text,
     url: url,
+    result: result || currentResult,
     timestamp: new Date().toISOString()
   });
 }
