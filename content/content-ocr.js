@@ -361,8 +361,13 @@ function ocrCreateResultPanel() {
       <button id="ocr-close-result">&times;</button>
     </div>
     <div class="ocr-preview-section">
-      <div>📷 截图预览</div>
-      <img id="ocr-image-preview" alt="截图预览">
+      <div class="ocr-preview-header">
+        <div>📷 截图预览</div>
+        <span class="ocr-preview-arrow">▼</span>
+      </div>
+      <div class="ocr-preview-content">
+        <img id="ocr-image-preview" alt="截图预览">
+      </div>
     </div>
     <!-- 思考模式区域 (可折叠) -->
     <div id="thinking-section">
@@ -391,6 +396,30 @@ function ocrCreateResultPanel() {
   panel.querySelector('#ocr-close-panel').addEventListener('click', ocrHideResultPanel);
   panel.querySelector('#ocr-copy-result').addEventListener('click', ocrCopyResult);
   panel.querySelector('#ocr-restart-btn').addEventListener('click', restartOCR);
+
+  // 绑定图片预览折叠功能
+  const previewHeader = panel.querySelector('.ocr-preview-header');
+  const previewContent = panel.querySelector('.ocr-preview-content');
+  const previewArrow = panel.querySelector('.ocr-preview-arrow');
+  let previewExpanded = true;
+
+  previewHeader?.addEventListener('click', () => {
+    previewExpanded = !previewExpanded;
+    if (previewExpanded) {
+      previewContent.classList.remove('collapsed');
+      previewArrow.classList.remove('collapsed');
+      previewArrow.textContent = '▼';
+      // 恢复显示图片（如果之前已加载）
+      const img = previewContent.querySelector('#ocr-image-preview');
+      if (img && img.src && img.style.display === 'none') {
+        img.style.display = 'block';
+      }
+    } else {
+      previewContent.classList.add('collapsed');
+      previewArrow.classList.add('collapsed');
+      previewArrow.textContent = '▶';
+    }
+  });
 
   // 绑定思考面板折叠功能
   const thinkingToggle = panel.querySelector('#thinking-toggle');
@@ -827,52 +856,65 @@ const onScroll = throttle(() => {
 
 // 执行 OCR
 async function performOCR(rect) {
-  // 从存储中获取 OCR 设置
-  chrome.storage.local.get(['ocrSettings'], async (settingsResult) => {
-    const ocrSettings = settingsResult.ocrSettings || {
-      prompt: '请识别图片中的所有文字内容',
-      stream: false
-    };
+  try {
+    // 检查扩展上下文是否有效
+    if (!chrome.runtime || !chrome.runtime.id) {
+      await ocrShowResultPanel('❌ 扩展已重新加载\n\n请刷新页面后重试（按 F5 或 Ctrl+R）');
+      cleanup();
+      return;
+    }
 
-    // 发送消息给 background script 获取截图
-    // background script 会从 sender.tab.id 获取当前标签页 ID
-    chrome.runtime.sendMessage({
-      action: 'performOCR',
-      rect: rect
-    }, async (response) => {
-      if (chrome.runtime.lastError) {
-        await ocrShowResultPanel('识别失败: ' + chrome.runtime.lastError.message);
-        return;
-      }
+    // 从存储中获取 OCR 设置
+    chrome.storage.local.get(['ocrSettings'], async (settingsResult) => {
+      const ocrSettings = settingsResult.ocrSettings || {
+        prompt: '请识别图片中的所有文字内容',
+        stream: false
+      };
 
-      if (response && response.success && response.dataUrl) {
-        try {
-          // 在 content script 中裁剪图片
-          const croppedImage = await cropImage(response.dataUrl, response.rect);
-          currentCroppedImage = croppedImage;
-
-          // 先显示图片预览和加载状态
-          await ocrShowResultPanelWithImage(croppedImage, '正在识别中，请稍候...');
-
-          // 使用存储中的设置
-          const prompt = ocrSettings.prompt;
-          const useStream = ocrSettings.stream;
-
-          // 调用真实 OCR API
-          if (useStream) {
-            await callOCRApiStream(croppedImage, prompt);
-          } else {
-            const result = await callOCRApiNonStream(croppedImage, prompt);
-            await ocrUpdateResultText(result.mainContent || '');
-          }
-        } catch (error) {
-          await ocrShowResultPanel('识别失败: ' + error.message);
+      // 发送消息给 background script 获取截图
+      // background script 会从 sender.tab.id 获取当前标签页 ID
+      chrome.runtime.sendMessage({
+        action: 'performOCR',
+        rect: rect
+      }, async (response) => {
+        if (chrome.runtime.lastError) {
+          await ocrShowResultPanel('识别失败: ' + chrome.runtime.lastError.message);
+          return;
         }
-      } else {
-        await ocrShowResultPanel('识别失败: ' + (response?.error || '未知错误'));
-      }
+
+        if (response && response.success && response.dataUrl) {
+          try {
+            // 在 content script 中裁剪图片
+            const croppedImage = await cropImage(response.dataUrl, response.rect);
+            currentCroppedImage = croppedImage;
+
+            // 先显示图片预览和加载状态
+            await ocrShowResultPanelWithImage(croppedImage, '正在识别中，请稍候...');
+
+            // 使用存储中的设置
+            const prompt = ocrSettings.prompt;
+            const useStream = ocrSettings.stream;
+
+            // 调用真实 OCR API
+            if (useStream) {
+              await callOCRApiStream(croppedImage, prompt);
+            } else {
+              const result = await callOCRApiNonStream(croppedImage, prompt);
+              await ocrUpdateResultText(result.mainContent || '');
+            }
+          } catch (error) {
+            await ocrShowResultPanel('识别失败: ' + error.message);
+          }
+        } else {
+          await ocrShowResultPanel('识别失败: ' + (response?.error || '未知错误'));
+        }
+      });
     });
-  });
+  } catch (error) {
+    // 捕获扩展上下文失效等错误
+    await ocrShowResultPanel('❌ 扩展已重新加载\n\n请刷新页面后重试（按 F5 或 Ctrl+R）');
+    cleanup();
+  }
 }
 
 /**

@@ -94,11 +94,41 @@
   border-bottom: 1px solid #e9ecef;
 }
 
-.ocr-preview-section > div:first-child {
+/* 预览区域标题栏 - 可点击折叠 */
+.ocr-preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+  margin-bottom: 10px;
+}
+
+.ocr-preview-header > div:first-child {
   font-size: 13px;
   font-weight: 600;
   color: #495057;
-  margin-bottom: 10px;
+}
+
+.ocr-preview-arrow {
+  font-size: 12px;
+  color: #6c757d;
+  transition: transform 0.2s;
+}
+
+.ocr-preview-arrow.collapsed {
+  transform: rotate(-90deg);
+}
+
+/* 预览内容容器 */
+.ocr-preview-content {
+  overflow: hidden;
+  transition: max-height 0.3s ease, opacity 0.2s ease;
+}
+
+.ocr-preview-content.collapsed {
+  max-height: 0 !important;
+  opacity: 0;
 }
 
 #ocr-image-preview {
