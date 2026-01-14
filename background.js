@@ -41,7 +41,16 @@ async function initializeDefaultData() {
       settings: {
         closeAfterCollect: false,
         closeAfterRestore: false,
-        excludeEdgeUrls: false
+        excludeEdgeUrls: false,
+        lastView: 'timeline'
+      }
+    });
+  } else if (result.settings.lastView === undefined) {
+    // 为已有设置添加 lastView 字段
+    await chrome.storage.local.set({
+      settings: {
+        ...result.settings,
+        lastView: 'timeline'
       }
     });
   }
@@ -108,11 +117,17 @@ async function addCurrentTabToDefaultGroup() {
       action: 'showToast',
       type: 'error',
       title: '添加失败',
-      message: '没有找到默认分组',
+      message: '没有找到目标分组',
       duration: 2000
     }).catch(() => {});
     return;
   }
+
+  // 获取分组名称用于显示
+  const groupsResult = await chrome.storage.local.get(['groups']);
+  const groups = groupsResult.groups || [];
+  const targetGroup = groups.find(g => g.id === defaultGroupId);
+  const groupName = targetGroup?.name || '目标分组';
 
   const added = await addTabToGroup(tab, defaultGroupId);
 
@@ -121,7 +136,7 @@ async function addCurrentTabToDefaultGroup() {
       action: 'showToast',
       type: 'success',
       title: '已添加',
-      message: '已保存到默认分组',
+      message: `已保存到「${groupName}」`,
       duration: 2000,
       showOpenButton: true
     }).catch(() => {});
@@ -130,7 +145,7 @@ async function addCurrentTabToDefaultGroup() {
       action: 'showToast',
       type: 'info',
       title: '标签已存在',
-      message: '该标签已在分组中',
+      message: `该标签已在「${groupName}」中`,
       duration: 2000
     }).catch(() => {});
   }

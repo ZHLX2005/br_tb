@@ -486,9 +486,9 @@ body {
 /* Timeline View Styles - 快照模式 */
 .view-container {
   flex: 1;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
+  min-height: 0;
 }
 
 .timeline-list {

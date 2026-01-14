@@ -9,20 +9,25 @@ let tabs = [];
 let timelineSnapshots = [];
 let currentView = 'timeline'; // 'timeline' or 'group'
 let boardActionsObserver = null; // 管理 MutationObserver
+let settings = {}; // 保存设置
 
 // 初始化
 async function init() {
   await loadData();
+  // 使用保存的视图状态，如果没有则默认为 timeline
+  currentView = settings.lastView || 'timeline';
+  updateViewUI();
   renderCurrentView();
   setupEventListeners();
 }
 
 // 加载数据
 async function loadData() {
-  const [groupsResponse, tabsResponse, timelineResponse] = await Promise.all([
+  const [groupsResponse, tabsResponse, timelineResponse, settingsResponse] = await Promise.all([
     chrome.runtime.sendMessage({ action: 'getGroups' }),
     chrome.storage.local.get(['tabs']),
-    chrome.runtime.sendMessage({ action: 'getTimelineTabs' })
+    chrome.runtime.sendMessage({ action: 'getTimelineTabs' }),
+    chrome.runtime.sendMessage({ action: 'getSettings' })
   ]);
 
   if (groupsResponse.success) {
@@ -36,6 +41,10 @@ async function loadData() {
   if (timelineResponse.success) {
     timelineSnapshots = timelineResponse.snapshots;
   }
+
+  if (settingsResponse.success) {
+    settings = settingsResponse.settings || {};
+  }
 }
 
 // 渲染当前视图
@@ -47,24 +56,44 @@ function renderCurrentView() {
   }
 }
 
+// 更新视图UI显示（按钮状态和可见性）
+function updateViewUI() {
+  if (currentView === 'timeline') {
+    document.getElementById('timelineViewBtn').classList.add('active');
+    document.getElementById('groupViewBtn').classList.remove('active');
+    document.getElementById('timelineView').style.display = 'block';
+    document.getElementById('groupView').style.display = 'none';
+  } else {
+    document.getElementById('timelineViewBtn').classList.remove('active');
+    document.getElementById('groupViewBtn').classList.add('active');
+    document.getElementById('timelineView').style.display = 'none';
+    document.getElementById('groupView').style.display = 'block';
+  }
+}
+
+// 保存视图状态到存储
+async function saveViewState(view) {
+  await chrome.runtime.sendMessage({
+    action: 'updateSettings',
+    settings: { lastView: view }
+  });
+  settings.lastView = view;
+}
+
 // 切换到时序视图
 function switchToTimelineView() {
   currentView = 'timeline';
-  document.getElementById('timelineViewBtn').classList.add('active');
-  document.getElementById('groupViewBtn').classList.remove('active');
-  document.getElementById('timelineView').style.display = 'block';
-  document.getElementById('groupView').style.display = 'none';
+  updateViewUI();
   renderTimelineView();
+  saveViewState('timeline');
 }
 
 // 切换到分组视图
 function switchToGroupView() {
   currentView = 'group';
-  document.getElementById('timelineViewBtn').classList.remove('active');
-  document.getElementById('groupViewBtn').classList.add('active');
-  document.getElementById('timelineView').style.display = 'none';
-  document.getElementById('groupView').style.display = 'block';
+  updateViewUI();
   renderBoard();
+  saveViewState('group');
 }
 
 // 渲染时序视图 - 按快照分组显示

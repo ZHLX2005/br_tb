@@ -27,9 +27,9 @@ async function loadGroups() {
     <div class="group-item" style="border-left-color: ${group.color}">
       <div class="group-color" style="background: ${group.color}"></div>
       <div class="group-name">${escapeHtml(group.name)}</div>
-      ${group.isDefault ? '<span class="group-default-badge">默认</span>' : ''}
+      ${group.isDefault ? '<span class="group-default-badge">目标</span>' : ''}
       <div class="group-actions-buttons">
-        ${!group.isDefault ? `<button class="set-default" data-id="${group.id}">设为默认</button>` : ''}
+        ${!group.isDefault ? `<button class="set-default" data-id="${group.id}">设为目标</button>` : ''}
         <button class="delete" data-id="${group.id}">删除</button>
       </div>
     </div>
@@ -56,7 +56,7 @@ async function loadSettings() {
   document.getElementById('excludeEdgeUrls').checked = settings.excludeEdgeUrls || false;
 }
 
-// 设置默认分组
+// 设置目标分组（快捷键添加标签时的默认目标）
 async function setDefaultGroup(groupId) {
   await chrome.runtime.sendMessage({ action: 'setDefaultGroup', groupId });
   await loadGroups();

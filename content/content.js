@@ -32,6 +32,7 @@ style.textContent = `
   .tabboard-toast.show {
     opacity: 1;
     transform: translateX(0);
+    pointer-events: auto;
   }
 
   .tabboard-toast.success {
