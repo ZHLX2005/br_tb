@@ -118,10 +118,14 @@ function renderColorPicker() {
 }
 
 // 打开看板
-function openTabboard() {
-  chrome.tabs.create({
-    url: chrome.runtime.getURL('modules/tabboard/tabboard.html')
-  });
+async function openTabboard() {
+  await chrome.runtime.sendMessage({ action: 'openTabboard' });
+  window.close();
+}
+
+// 收集并打开看板
+async function collectAndOpen() {
+  await chrome.runtime.sendMessage({ action: 'collectAndOpenTabboard' });
   window.close();
 }
 
@@ -153,6 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('cancelAddGroup').addEventListener('click', closeAddGroupDialog);
   document.getElementById('confirmAddGroup').addEventListener('click', addGroup);
   document.getElementById('openTabboardBtn').addEventListener('click', openTabboard);
+  document.getElementById('collectAndOpenBtn').addEventListener('click', collectAndOpen);
 
   document.getElementById('closeAfterCollect').addEventListener('change', saveSettings);
   document.getElementById('closeAfterRestore').addEventListener('change', saveSettings);

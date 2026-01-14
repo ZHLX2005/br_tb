@@ -181,9 +181,31 @@ async function collectCurrentWindowTabs() {
 
 // 打开标签页管理看板
 async function openTabboard() {
-  await chrome.tabs.create({
-    url: chrome.runtime.getURL('modules/tabboard/tabboard.html')
-  });
+  // 检查是否已经打开了看板
+  const tabs = await chrome.tabs.query({});
+  const existingTab = tabs.find(tab => tab.url?.includes('modules/tabboard/tabboard.html'));
+
+  if (existingTab) {
+    // 如果已存在，激活它并确保固定
+    await chrome.tabs.update(existingTab.id, { active: true });
+    if (!existingTab.pinned) {
+      await chrome.tabs.update(existingTab.id, { pinned: true });
+    }
+  } else {
+    // 创建新的固定标签页
+    await chrome.tabs.create({
+      url: chrome.runtime.getURL('modules/tabboard/tabboard.html'),
+      pinned: true
+    });
+  }
+}
+
+// 收集并打开看板
+async function collectAndOpenTabboard() {
+  // 先收集当前窗口所有标签
+  await collectCurrentWindowTabs();
+  // 然后打开看板
+  await openTabboard();
 }
 
 // 快捷键命令处理
@@ -324,6 +346,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           const currentSettings = await chrome.storage.local.get(['settings']);
           const newSettings = { ...currentSettings.settings, ...request.settings };
           await chrome.storage.local.set({ settings: newSettings });
+          sendResponse({ success: true });
+          break;
+
+        case 'openTabboard':
+          await openTabboard();
+          sendResponse({ success: true });
+          break;
+
+        case 'collectAndOpenTabboard':
+          await collectAndOpenTabboard();
           sendResponse({ success: true });
           break;
 

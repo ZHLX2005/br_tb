@@ -6,11 +6,12 @@
 let kanban = null;
 let groups = [];
 let tabs = [];
+let currentView = 'timeline'; // 'timeline' or 'group'
 
 // 初始化
 async function init() {
   await loadData();
-  renderBoard();
+  renderCurrentView();
   setupEventListeners();
 }
 
@@ -28,6 +29,170 @@ async function loadData() {
   if (tabsResponse.tabs) {
     tabs = tabsResponse.tabs;
   }
+}
+
+// 渲染当前视图
+function renderCurrentView() {
+  if (currentView === 'timeline') {
+    renderTimelineView();
+  } else {
+    renderBoard();
+  }
+}
+
+// 切换到时序视图
+function switchToTimelineView() {
+  currentView = 'timeline';
+  document.getElementById('timelineViewBtn').classList.add('active');
+  document.getElementById('groupViewBtn').classList.remove('active');
+  document.getElementById('timelineView').style.display = 'block';
+  document.getElementById('groupView').style.display = 'none';
+  renderTimelineView();
+}
+
+// 切换到分组视图
+function switchToGroupView() {
+  currentView = 'group';
+  document.getElementById('timelineViewBtn').classList.remove('active');
+  document.getElementById('groupViewBtn').classList.add('active');
+  document.getElementById('timelineView').style.display = 'none';
+  document.getElementById('groupView').style.display = 'block';
+  renderBoard();
+}
+
+// 渲染时序视图
+function renderTimelineView() {
+  const emptyState = document.getElementById('emptyState');
+  const stats = document.getElementById('stats');
+  const timelineList = document.getElementById('timelineList');
+
+  // 计算总标签数
+  const totalTabs = Object.values(tabs).flat().length;
+  stats.textContent = `${totalTabs} 个标签页 · ${groups.length} 个分组`;
+
+  // 收集所有标签页并按时间排序
+  const allTabs = [];
+  for (const groupId in tabs) {
+    const group = groups.find(g => g.id === groupId);
+    if (group) {
+      tabs[groupId].forEach(tab => {
+        allTabs.push({
+          ...tab,
+          groupId,
+          groupName: group.name,
+          groupColor: group.color
+        });
+      });
+    }
+  }
+
+  // 按时间戳降序排序
+  allTabs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+  if (allTabs.length === 0) {
+    timelineList.innerHTML = '';
+    emptyState.style.display = 'flex';
+    return;
+  }
+
+  emptyState.style.display = 'none';
+
+  // 按日期分组
+  const groupedByDate = groupTabsByDate(allTabs);
+
+  // 渲染时序列表
+  timelineList.innerHTML = Object.entries(groupedByDate).map(([dateLabel, dateTabs]) => `
+    <div class="timeline-date-group">
+      <div class="timeline-date-header">${dateLabel}</div>
+      <div class="timeline-items">
+        ${dateTabs.map(tab => `
+          <div class="timeline-item" data-tab-id="${tab.id}" data-group-id="${tab.groupId}">
+            <div class="timeline-item-favicon">
+              <img src="${escapeHtml(tab.favicon || '')}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22%23999%22><rect width=%2224%22 height=%2224%22 rx=%224%22/></svg>'">
+            </div>
+            <div class="timeline-item-content">
+              <div class="timeline-item-title">${escapeHtml(tab.title)}</div>
+              <div class="timeline-item-url">${escapeHtml(tab.url)}</div>
+              <div class="timeline-item-meta">
+                <span class="timeline-item-group" style="background: ${tab.groupColor}">${escapeHtml(tab.groupName)}</span>
+                <span class="timeline-item-time">${formatTime(tab.timestamp)}</span>
+              </div>
+            </div>
+            <button class="timeline-item-delete" data-id="${tab.id}" data-group-id="${tab.groupId}" title="删除">×</button>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `).join('');
+
+  // 绑定时序视图事件
+  setupTimelineEventListeners();
+}
+
+// 按日期分组标签页
+function groupTabsByDate(allTabs) {
+  const grouped = {};
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  allTabs.forEach(tab => {
+    const tabDate = new Date(tab.timestamp);
+    const tabDay = new Date(tabDate.getFullYear(), tabDate.getMonth(), tabDate.getDate());
+
+    let dateLabel;
+    if (tabDay.getTime() === today.getTime()) {
+      dateLabel = '今天';
+    } else if (tabDay.getTime() === yesterday.getTime()) {
+      dateLabel = '昨天';
+    } else if (now - tabDate < 7 * 24 * 60 * 60 * 1000) {
+      const days = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+      dateLabel = days[tabDate.getDay()];
+    } else {
+      dateLabel = tabDate.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' });
+    }
+
+    if (!grouped[dateLabel]) {
+      grouped[dateLabel] = [];
+    }
+    grouped[dateLabel].push(tab);
+  });
+
+  return grouped;
+}
+
+// 设置时序视图事件监听器
+function setupTimelineEventListeners() {
+  // 点击打开标签页
+  document.querySelectorAll('.timeline-item').forEach(item => {
+    item.addEventListener('click', (e) => {
+      if (e.target.classList.contains('timeline-item-delete')) return;
+      const tabId = item.dataset.tabId;
+      const tab = findTab(tabId);
+      if (tab) {
+        chrome.runtime.sendMessage({ action: 'openTab', url: tab.url });
+      }
+    });
+  });
+
+  // 删除按钮
+  document.querySelectorAll('.timeline-item-delete').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const tabId = btn.dataset.id;
+      const groupId = btn.dataset.groupId;
+
+      await chrome.runtime.sendMessage({
+        action: 'deleteTab',
+        tabId,
+        groupId
+      });
+
+      await loadData();
+      renderTimelineView();
+    });
+  });
 }
 
 // 转换数据为 jKanban 格式
@@ -218,7 +383,7 @@ async function handleDeleteButtonClick(e) {
     });
 
     await loadData();
-    renderBoard();
+    renderCurrentView();
   }
 }
 
@@ -242,10 +407,14 @@ function formatTime(timestamp) {
 
 // 设置事件监听器
 function setupEventListeners() {
+  // 视图切换按钮
+  document.getElementById('timelineViewBtn').addEventListener('click', switchToTimelineView);
+  document.getElementById('groupViewBtn').addEventListener('click', switchToGroupView);
+
   // 刷新按钮
   document.getElementById('refreshBtn').addEventListener('click', async () => {
     await loadData();
-    renderBoard();
+    renderCurrentView();
   });
 
   // 设置按钮
@@ -328,7 +497,7 @@ async function handleClearGroup(e) {
   }
 
   await loadData();
-  renderBoard();
+  renderCurrentView();
 }
 
 // HTML转义
@@ -342,7 +511,7 @@ function escapeHtml(text) {
 chrome.storage.onChanged.addListener(async (changes, namespace) => {
   if (namespace === 'local') {
     await loadData();
-    renderBoard();
+    renderCurrentView();
   }
 });
 
