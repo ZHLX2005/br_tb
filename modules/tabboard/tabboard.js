@@ -8,6 +8,7 @@ let groups = [];
 let tabs = [];
 let timelineTabs = [];
 let currentView = 'timeline'; // 'timeline' or 'group'
+let boardActionsObserver = null; // 管理 MutationObserver
 
 // 初始化
 async function init() {
@@ -299,15 +300,15 @@ function renderBoard() {
       }
     });
   }
+
+  // 每次渲染后重新设置看板操作按钮和删除按钮
+  setupBoardActions();
 }
 
 // 处理项目点击
 function handleItemClick(el) {
-  // 如果点击的是删除按钮，不处理
-  const deleteBtn = el.querySelector('.kanban-item-delete');
-  if (deleteBtn && (window.event.target === deleteBtn || deleteBtn.contains(window.event.target))) {
-    return;
-  }
+  // 删除按钮的点击由事件委托处理，这里不需要检查
+  // 因为 stopImmediatePropagation 会阻止事件到达这里
 
   const itemEl = el.querySelector('.kanban-item-content');
   if (!itemEl) return;
@@ -387,30 +388,37 @@ function setupDeleteButtons() {
   const container = document.getElementById('tabboard');
   // 移除旧的监听器（如果存在）
   container.removeEventListener('click', handleDeleteButtonClick, true);
+  container.removeEventListener('click', handleDeleteButtonClick, false);
   // 在捕获阶段添加监听器，确保在 jKanban 之前执行
   container.addEventListener('click', handleDeleteButtonClick, true);
 }
 
 // 处理删除按钮点击
 async function handleDeleteButtonClick(e) {
-  if (e.target.classList.contains('kanban-item-delete')) {
+  // 检查是否点击了删除按钮或其子元素
+  const deleteBtn = e.target.closest('.kanban-item-delete');
+  if (deleteBtn) {
     e.stopPropagation();
     e.preventDefault();
+    e.stopImmediatePropagation();
 
-    const btn = e.target;
+    const btn = deleteBtn;
     const tabId = btn.dataset.id;
     const itemEl = btn.closest('.kanban-item');
-    const boardEl = itemEl.closest('.kanban-board');
-    const groupId = boardEl.getAttribute('data-id');
+    const boardEl = itemEl?.closest('.kanban-board');
+    const groupId = boardEl?.getAttribute('data-id');
 
-    await chrome.runtime.sendMessage({
-      action: 'deleteTab',
-      tabId,
-      groupId
-    });
+    if (tabId && groupId) {
+      await chrome.runtime.sendMessage({
+        action: 'deleteTab',
+        tabId,
+        groupId
+      });
 
-    await loadData();
-    renderCurrentView();
+      await loadData();
+      renderCurrentView();
+    }
+    return false;
   }
 }
 
@@ -455,43 +463,66 @@ function setupEventListeners() {
 
 // 设置看板操作按钮
 function setupBoardActions() {
-  const observer = new MutationObserver(() => {
-    document.querySelectorAll('.kanban-board').forEach(board => {
-      const header = board.querySelector('.kanban-title-board');
-      if (header && !header.querySelector('.board-actions')) {
-        const boardId = board.getAttribute('data-id');
-        const actions = document.createElement('div');
-        actions.className = 'board-actions';
-        actions.innerHTML = `
-          <button class="board-action-btn open-all" data-board-id="${boardId}" title="打开所有">📂</button>
-          <button class="board-action-btn clear-group" data-board-id="${boardId}" title="清空分组">🗑️</button>
-        `;
-        header.appendChild(actions);
-      }
-    });
+  // 断开旧的 observer
+  if (boardActionsObserver) {
+    boardActionsObserver.disconnect();
+  }
 
-    // 绑定按钮事件
-    document.querySelectorAll('.open-all').forEach(btn => {
-      btn.removeEventListener('click', handleOpenAll);
-      btn.addEventListener('click', handleOpenAll);
-    });
+  // 立即添加一次按钮
+  addBoardActionButtons();
 
-    document.querySelectorAll('.clear-group').forEach(btn => {
-      btn.removeEventListener('click', handleClearGroup);
-      btn.addEventListener('click', handleClearGroup);
-    });
+  // 创建新的 observer 监听 DOM 变化
+  boardActionsObserver = new MutationObserver((mutations) => {
+    // 检查是否有新的 kanban-board 元素添加
+    const hasNewBoards = mutations.some(mutation =>
+      Array.from(mutation.addedNodes).some(node =>
+        node.nodeType === 1 && (
+          node.classList?.contains('kanban-board') ||
+          node.querySelector?.('.kanban-board')
+        )
+      )
+    );
 
-    // 每次DOM变化时重新绑定删除按钮
-    setupDeleteButtons();
+    if (hasNewBoards) {
+      addBoardActionButtons();
+    }
   });
 
-  observer.observe(document.getElementById('tabboard'), {
+  boardActionsObserver.observe(document.getElementById('tabboard'), {
     childList: true,
     subtree: true
   });
 
-  // 初始设置删除按钮的事件委托
+  // 设置删除按钮的事件委托
   setupDeleteButtons();
+}
+
+// 添加看板操作按钮
+function addBoardActionButtons() {
+  document.querySelectorAll('.kanban-board').forEach(board => {
+    const header = board.querySelector('.kanban-title-board');
+    if (header && !header.querySelector('.board-actions')) {
+      const boardId = board.getAttribute('data-id');
+      const actions = document.createElement('div');
+      actions.className = 'board-actions';
+      actions.innerHTML = `
+        <button class="board-action-btn open-all" data-board-id="${boardId}" title="打开所有">📂</button>
+        <button class="board-action-btn clear-group" data-board-id="${boardId}" title="清空分组">🗑️</button>
+      `;
+      header.appendChild(actions);
+    }
+  });
+
+  // 绑定按钮事件
+  document.querySelectorAll('.open-all').forEach(btn => {
+    btn.removeEventListener('click', handleOpenAll);
+    btn.addEventListener('click', handleOpenAll);
+  });
+
+  document.querySelectorAll('.clear-group').forEach(btn => {
+    btn.removeEventListener('click', handleClearGroup);
+    btn.addEventListener('click', handleClearGroup);
+  });
 }
 
 // 处理打开所有按钮
