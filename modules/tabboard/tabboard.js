@@ -115,9 +115,6 @@ function renderBoard() {
       }
     });
   }
-
-  // 设置删除按钮事件
-  setupDeleteButtons();
 }
 
 // 处理项目点击
@@ -195,27 +192,34 @@ function findTabInGroup(tabId, groupId) {
   return tabs[groupId]?.find(t => t.id === tabId);
 }
 
-// 设置删除按钮事件
+// 设置删除按钮事件 - 使用事件委托
 function setupDeleteButtons() {
-  document.querySelectorAll('.kanban-item-delete').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      e.stopPropagation();
+  const container = document.getElementById('tabboard');
+  container.removeEventListener('click', handleDeleteButtonClick, true);
+  container.addEventListener('click', handleDeleteButtonClick, true);
+}
 
-      const tabId = btn.dataset.id;
-      const itemEl = btn.closest('.kanban-item');
-      const boardEl = itemEl.closest('.kanban-board');
-      const groupId = boardEl.getAttribute('data-id');
+// 处理删除按钮点击
+async function handleDeleteButtonClick(e) {
+  if (e.target.classList.contains('kanban-item-delete')) {
+    e.stopPropagation();
+    e.preventDefault();
 
-      await chrome.runtime.sendMessage({
-        action: 'deleteTab',
-        tabId,
-        groupId
-      });
+    const btn = e.target;
+    const tabId = btn.dataset.id;
+    const itemEl = btn.closest('.kanban-item');
+    const boardEl = itemEl.closest('.kanban-board');
+    const groupId = boardEl.getAttribute('data-id');
 
-      await loadData();
-      renderBoard();
+    await chrome.runtime.sendMessage({
+      action: 'deleteTab',
+      tabId,
+      groupId
     });
-  });
+
+    await loadData();
+    renderBoard();
+  }
 }
 
 // 格式化时间
@@ -272,48 +276,59 @@ function setupBoardActions() {
 
     // 绑定按钮事件
     document.querySelectorAll('.open-all').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const groupId = btn.dataset.boardId;
-        await chrome.runtime.sendMessage({ action: 'openGroup', groupId });
-        await loadData();
-        renderBoard();
-      });
+      btn.removeEventListener('click', handleOpenAll);
+      btn.addEventListener('click', handleOpenAll);
     });
 
     document.querySelectorAll('.clear-group').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const groupId = btn.dataset.boardId;
-        const groupTabs = tabs[groupId] || [];
-
-        if (groupTabs.length === 0) return;
-
-        const groupName = groups.find(g => g.id === groupId)?.name;
-        if (!confirm(`确定要清空 "${groupName}" 分组吗？`)) {
-          return;
-        }
-
-        for (const tab of groupTabs) {
-          await chrome.runtime.sendMessage({
-            action: 'deleteTab',
-            tabId: tab.id,
-            groupId
-          });
-        }
-
-        await loadData();
-        renderBoard();
-      });
+      btn.removeEventListener('click', handleClearGroup);
+      btn.addEventListener('click', handleClearGroup);
     });
-
-    setupDeleteButtons();
   });
 
   observer.observe(document.getElementById('tabboard'), {
     childList: true,
     subtree: true
   });
+
+  // 设置删除按钮的事件委托（只需设置一次）
+  setupDeleteButtons();
+}
+
+// 处理打开所有按钮
+async function handleOpenAll(e) {
+  e.stopPropagation();
+  const btn = e.currentTarget;
+  const groupId = btn.dataset.boardId;
+  await chrome.runtime.sendMessage({ action: 'openGroup', groupId });
+  await loadData();
+  renderBoard();
+}
+
+// 处理清空分组按钮
+async function handleClearGroup(e) {
+  e.stopPropagation();
+  const btn = e.currentTarget;
+  const groupId = btn.dataset.boardId;
+  const groupTabs = tabs[groupId] || [];
+
+  if (groupTabs.length === 0) return;
+
+  const groupName = groups.find(g => g.id === groupId)?.name;
+  if (!confirm(`确定要清空 "${groupName}" 分组吗？`)) {
+    return;
+  }
+
+  for (const tab of groupTabs) {
+    await chrome.runtime.sendMessage({
+      action: 'deleteTab',
+      tabId: tab.id,
+      groupId
+    });
+  }
+
+  await loadData();
+  renderBoard();
 }
 
 // HTML转义
