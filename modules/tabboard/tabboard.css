@@ -483,7 +483,7 @@ body {
   }
 }
 
-/* Timeline View Styles - OneTab 风格 */
+/* Timeline View Styles - 快照模式 */
 .view-container {
   flex: 1;
   overflow: hidden;
@@ -521,13 +521,78 @@ body {
   color: white;
 }
 
-.timeline-tabs-list {
+/* 快照列表 */
+.timeline-snapshots-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.timeline-snapshot {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.snapshot-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: var(--primary-light);
+  border-bottom: 1px solid var(--border);
+}
+
+.snapshot-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.snapshot-time {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--primary-dark);
+}
+
+.snapshot-count {
+  font-size: 11px;
+  color: var(--text-light);
+  background: white;
+  padding: 2px 6px;
+  border-radius: 10px;
+}
+
+.snapshot-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.snapshot-action-btn {
+  padding: 4px 8px;
+  font-size: 11px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: white;
+  color: var(--text);
+}
+
+.snapshot-action-btn:hover {
+  background: var(--primary);
+  color: white;
+}
+
+.snapshot-tabs {
+  padding: 8px;
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-.timeline-tab-row {
+.snapshot-tab-row {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -537,72 +602,43 @@ body {
   border-radius: 4px;
 }
 
-.timeline-tab-row:hover {
+.snapshot-tab-row:hover {
   background: var(--bg);
 }
 
-.timeline-tab-favicon {
-  width: 16px;
-  height: 16px;
+.snapshot-tab-favicon {
+  width: 14px;
+  height: 14px;
   flex-shrink: 0;
   border-radius: 2px;
 }
 
-.timeline-tab-info {
+.snapshot-tab-title {
   flex: 1;
   min-width: 0;
-}
-
-.timeline-tab-title {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  margin-bottom: 2px;
 }
 
-.timeline-tab-url {
-  font-size: 11px;
-  color: var(--text-light);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  margin-bottom: 2px;
-}
-
-.timeline-tab-time {
-  font-size: 10px;
-  color: #999;
-}
-
-.timeline-tab-delete {
-  width: 18px;
-  height: 18px;
+.snapshot-more-btn {
+  width: 100%;
+  padding: 6px;
+  margin-top: 4px;
   border: none;
-  background: transparent;
+  background: #f8f9fa;
   color: var(--text-light);
-  font-size: 16px;
+  font-size: 11px;
   cursor: pointer;
   border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
   transition: all 0.2s;
-  padding: 0;
-  line-height: 1;
-  flex-shrink: 0;
 }
 
-.timeline-tab-row:hover .timeline-tab-delete {
-  opacity: 0.5;
-}
-
-.timeline-tab-delete:hover {
-  opacity: 1;
-  background: var(--danger);
-  color: white;
+.snapshot-more-btn:hover {
+  background: var(--primary-light);
+  color: var(--primary-dark);
 }
 
 /* Timeline scrollbar */
@@ -629,7 +665,15 @@ body {
     padding: 12px;
   }
 
-  .timeline-tab-row {
-    padding: 6px;
+  .timeline-snapshots-list {
+    gap: 12px;
+  }
+
+  .snapshot-header {
+    padding: 8px 10px;
+  }
+
+  .snapshot-tab-row {
+    padding: 5px 6px;
   }
 }

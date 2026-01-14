@@ -6,7 +6,7 @@
 let kanban = null;
 let groups = [];
 let tabs = [];
-let timelineTabs = [];
+let timelineSnapshots = [];
 let currentView = 'timeline'; // 'timeline' or 'group'
 let boardActionsObserver = null; // 管理 MutationObserver
 
@@ -34,7 +34,7 @@ async function loadData() {
   }
 
   if (timelineResponse.success) {
-    timelineTabs = timelineResponse.tabs;
+    timelineSnapshots = timelineResponse.snapshots;
   }
 }
 
@@ -67,17 +67,18 @@ function switchToGroupView() {
   renderBoard();
 }
 
-// 渲染时序视图 - 按时间戳排序的简单列表
+// 渲染时序视图 - 按快照分组显示
 function renderTimelineView() {
   const emptyState = document.getElementById('emptyState');
   const stats = document.getElementById('stats');
   const timelineList = document.getElementById('timelineList');
 
-  // 计算总标签数
-  const totalTabs = timelineTabs.length;
-  stats.textContent = `${totalTabs} 个标签页 · 时序视图`;
+  // 计算总快照数和标签数
+  const totalSnapshots = timelineSnapshots.length;
+  const totalTabs = timelineSnapshots.reduce((sum, s) => sum + s.tabs.length, 0);
+  stats.textContent = `${totalSnapshots} 个快照 · ${totalTabs} 个标签页`;
 
-  if (timelineTabs.length === 0) {
+  if (timelineSnapshots.length === 0) {
     timelineList.innerHTML = '';
     emptyState.style.display = 'flex';
     return;
@@ -85,29 +86,14 @@ function renderTimelineView() {
 
   emptyState.style.display = 'none';
 
-  // 按时间戳排序（最新的在前）
-  const sortedTabs = [...timelineTabs].sort((a, b) =>
-    new Date(b.timestamp) - new Date(a.timestamp)
-  );
-
-  // 渲染时序列表 - OneTab 风格的简洁列表
+  // 渲染快照列表
   timelineList.innerHTML = `
     <div class="timeline-actions-header">
-      <button class="timeline-action-btn restore-all-btn" title="恢复所有标签">📂 恢复所有</button>
-      <button class="timeline-action-btn clear-all-btn" title="清空时序">🗑️ 清空时序</button>
+      <button class="timeline-action-btn restore-all-btn" title="恢复所有快照">📂 恢复所有</button>
+      <button class="timeline-action-btn clear-all-btn" title="清空所有快照">🗑️ 清空时序</button>
     </div>
-    <div class="timeline-tabs-list">
-      ${sortedTabs.map(tab => `
-        <div class="timeline-tab-row" data-tab-id="${tab.id}">
-          <img class="timeline-tab-favicon" src="${escapeHtml(tab.favicon || '')}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22 fill=%22%23999%22><rect width=%2216%22 height=%2216%22 rx=%223%22/></svg>'">
-          <div class="timeline-tab-info">
-            <div class="timeline-tab-title">${escapeHtml(tab.title)}</div>
-            <div class="timeline-tab-url">${escapeHtml(tab.url)}</div>
-            <div class="timeline-tab-time">${formatTime(tab.timestamp)}</div>
-          </div>
-          <button class="timeline-tab-delete" data-id="${tab.id}" title="删除">×</button>
-        </div>
-      `).join('')}
+    <div class="timeline-snapshots-list">
+      ${timelineSnapshots.map(snapshot => renderSnapshot(snapshot)).join('')}
     </div>
   `;
 
@@ -115,55 +101,133 @@ function renderTimelineView() {
   setupTimelineEventListeners();
 }
 
+// 渲染单个快照
+function renderSnapshot(snapshot) {
+  const displayTabs = snapshot.tabs.slice(0, 3);
+  const hasMore = snapshot.tabs.length > 3;
+  const moreCount = snapshot.tabs.length - 3;
+
+  return `
+    <div class="timeline-snapshot" data-snapshot-id="${snapshot.id}">
+      <div class="snapshot-header">
+        <div class="snapshot-info">
+          <span class="snapshot-time">${formatSnapshotTime(snapshot.timestamp)}</span>
+          <span class="snapshot-count">${snapshot.tabs.length} 个标签</span>
+        </div>
+        <div class="snapshot-actions">
+          <button class="snapshot-action-btn restore-snapshot" data-id="${snapshot.id}" title="恢复此快照">📂 恢复</button>
+          <button class="snapshot-action-btn delete-snapshot" data-id="${snapshot.id}" title="删除快照">🗑️</button>
+        </div>
+      </div>
+      <div class="snapshot-tabs">
+        ${displayTabs.map(tab => `
+          <div class="snapshot-tab-row" data-url="${escapeHtml(tab.url)}">
+            <img class="snapshot-tab-favicon" src="${escapeHtml(tab.favicon || '')}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22 fill=%22%23999%22><rect width=%2216%22 height=%2216%22 rx=%223%22/></svg>'">
+            <span class="snapshot-tab-title">${escapeHtml(tab.title)}</span>
+          </div>
+        `).join('')}
+        ${hasMore ? `
+          <button class="snapshot-more-btn" data-snapshot-id="${snapshot.id}">
+            还有 ${moreCount} 个标签... ▼
+          </button>
+        ` : ''}
+      </div>
+    </div>
+  `;
+}
+
 // 设置时序视图事件监听器
 function setupTimelineEventListeners() {
-  // 点击标签行打开标签页
-  document.querySelectorAll('.timeline-tab-row').forEach(row => {
-    row.addEventListener('click', (e) => {
-      if (e.target.classList.contains('timeline-tab-delete')) return;
-      const tabId = row.dataset.tabId;
-      const tab = timelineTabs.find(t => t.id === tabId);
-      if (tab) {
-        chrome.runtime.sendMessage({ action: 'openTab', url: tab.url });
+  // 点击快照中的标签行打开标签页
+  document.querySelectorAll('.snapshot-tab-row').forEach(row => {
+    row.addEventListener('click', () => {
+      const url = row.dataset.url;
+      if (url) {
+        chrome.runtime.sendMessage({ action: 'openTab', url });
       }
     });
   });
 
-  // 删除单个标签
-  document.querySelectorAll('.timeline-tab-delete').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
+  // "更多"按钮 - 展开显示所有标签
+  document.querySelectorAll('.snapshot-more-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      const tabId = btn.dataset.id;
-
-      await chrome.runtime.sendMessage({
-        action: 'deleteTimelineTab',
-        tabId
-      });
-
-      await loadData();
-      renderTimelineView();
+      const snapshotId = btn.dataset.snapshotId;
+      const snapshot = timelineSnapshots.find(s => s.id === snapshotId);
+      if (snapshot) {
+        const tabsContainer = btn.parentElement;
+        // 移除"更多"按钮
+        btn.remove();
+        // 添加所有标签
+        const remainingTabs = snapshot.tabs.slice(3);
+        remainingTabs.forEach(tab => {
+          const tabRow = document.createElement('div');
+          tabRow.className = 'snapshot-tab-row';
+          tabRow.dataset.url = tab.url;
+          tabRow.innerHTML = `
+            <img class="snapshot-tab-favicon" src="${escapeHtml(tab.favicon || '')}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22 fill=%22%23999%22><rect width=%2216%22 height=%2216%22 rx=%223%22/></svg>'">
+            <span class="snapshot-tab-title">${escapeHtml(tab.title)}</span>
+          `;
+          tabRow.addEventListener('click', () => {
+            chrome.runtime.sendMessage({ action: 'openTab', url: tab.url });
+          });
+          tabsContainer.appendChild(tabRow);
+        });
+      }
     });
   });
 
-  // 恢复所有标签按钮
+  // 恢复单个快照
+  document.querySelectorAll('.restore-snapshot').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const snapshotId = btn.dataset.id;
+      await chrome.runtime.sendMessage({
+        action: 'restoreSnapshot',
+        snapshotId
+      });
+    });
+  });
+
+  // 删除单个快照
+  document.querySelectorAll('.delete-snapshot').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const snapshotId = btn.dataset.id;
+      if (confirm('确定要删除这个快照吗？')) {
+        await chrome.runtime.sendMessage({
+          action: 'deleteTimelineSnapshot',
+          snapshotId
+        });
+        await loadData();
+        renderTimelineView();
+      }
+    });
+  });
+
+  // 恢复所有快照按钮
   const restoreAllBtn = document.querySelector('.restore-all-btn');
   if (restoreAllBtn) {
     restoreAllBtn.addEventListener('click', async () => {
-      for (const tab of timelineTabs) {
-        await chrome.runtime.sendMessage({ action: 'openTab', url: tab.url });
+      if (confirm(`确定要恢复所有 ${timelineSnapshots.length} 个快照吗？这将打开 ${timelineSnapshots.reduce((sum, s) => sum + s.tabs.length, 0)} 个标签页。`)) {
+        for (const snapshot of timelineSnapshots) {
+          for (const tab of snapshot.tabs) {
+            await chrome.runtime.sendMessage({ action: 'openTab', url: tab.url });
+          }
+        }
       }
     });
   }
 
-  // 清空时序按钮
+  // 清空所有快照按钮
   const clearAllBtn = document.querySelector('.clear-all-btn');
   if (clearAllBtn) {
     clearAllBtn.addEventListener('click', async () => {
-      if (confirm(`确定要清空时序中的所有 ${timelineTabs.length} 个标签吗？`)) {
-        for (const tab of timelineTabs) {
+      if (confirm(`确定要清空所有 ${timelineSnapshots.length} 个快照吗？`)) {
+        for (const snapshot of timelineSnapshots) {
           await chrome.runtime.sendMessage({
-            action: 'deleteTimelineTab',
-            tabId: tab.id
+            action: 'deleteTimelineSnapshot',
+            snapshotId: snapshot.id
           });
         }
         await loadData();
@@ -396,6 +460,29 @@ function formatTime(timestamp) {
   if (days < 7) return `${days} 天前`;
 
   return date.toLocaleDateString('zh-CN');
+}
+
+// 格式化快照时间
+function formatSnapshotTime(timestamp) {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diff = now - date;
+
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+
+  if (minutes < 1) return '刚刚';
+  if (minutes < 60) return `${minutes} 分钟前`;
+  if (hours < 24) return `${hours} 小时前`;
+  if (days < 7) return `${days} 天前`;
+
+  // 超过7天显示完整日期时间
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  const hour = date.getHours().toString().padStart(2, '0');
+  const minute = date.getMinutes().toString().padStart(2, '0');
+  return `${month}月${day}日 ${hour}:${minute}`;
 }
 
 // 设置事件监听器

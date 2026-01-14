@@ -31,9 +31,9 @@ async function initializeDefaultData() {
     await chrome.storage.local.set({ tabs: {} });
   }
 
-  // Timeline 存储 - 独立的标签快照存储
-  if (!result.timelineTabs) {
-    await chrome.storage.local.set({ timelineTabs: [] });
+  // Timeline 存储 - 快照列表
+  if (!result.timelineSnapshots) {
+    await chrome.storage.local.set({ timelineSnapshots: [] });
   }
 
   if (!result.settings) {
@@ -136,17 +136,18 @@ async function addCurrentTabToDefaultGroup() {
   }
 }
 
-// 收集当前窗口所有标签页到 Timeline
+// 收集当前窗口所有标签页到 Timeline（创建快照）
 async function collectCurrentWindowTabs() {
   const tabs = await chrome.tabs.query({ currentWindow: true });
   const settings = await chrome.storage.local.get(['settings']);
   const closeAfterCollect = settings.settings?.closeAfterCollect || false;
   const excludeEdgeUrls = settings.settings?.excludeEdgeUrls || false;
 
-  const result = await chrome.storage.local.get(['timelineTabs']);
-  const timelineTabs = result.timelineTabs || [];
+  const result = await chrome.storage.local.get(['timelineSnapshots']);
+  const timelineSnapshots = result.timelineSnapshots || [];
 
-  let addedCount = 0;
+  // 收集所有有效标签页
+  const collectedTabs = [];
   for (const tab of tabs) {
     // 跳过扩展页面和特殊页面
     if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) {
@@ -158,29 +159,48 @@ async function collectCurrentWindowTabs() {
       continue;
     }
 
-    // 检查是否已存在
-    const exists = timelineTabs.some(t => t.url === tab.url);
-    if (!exists) {
-      timelineTabs.unshift({
-        id: generateId(),
-        title: tab.title,
-        url: tab.url,
-        favicon: tab.favIconUrl || '',
-        timestamp: new Date().toISOString()
-      });
-      addedCount++;
+    collectedTabs.push({
+      id: generateId(),
+      title: tab.title,
+      url: tab.url,
+      favicon: tab.favIconUrl || ''
+    });
+  }
+
+  // 如果没有收集到任何标签，不创建快照
+  if (collectedTabs.length === 0) {
+    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (activeTab) {
+      chrome.tabs.sendMessage(activeTab.id, {
+        action: 'showToast',
+        type: 'info',
+        title: '没有可收集的标签',
+        message: '当前窗口没有可收集的标签页',
+        duration: 2000
+      }).catch(() => {});
     }
+    return;
   }
 
-  // 限制最多 500 个标签
-  if (timelineTabs.length > 500) {
-    timelineTabs.length = 500;
+  // 创建新快照
+  const newSnapshot = {
+    id: generateId(),
+    timestamp: new Date().toISOString(),
+    tabs: collectedTabs
+  };
+
+  // 添加到快照列表开头
+  timelineSnapshots.unshift(newSnapshot);
+
+  // 限制最多 50 个快照
+  if (timelineSnapshots.length > 50) {
+    timelineSnapshots.length = 50;
   }
 
-  await chrome.storage.local.set({ timelineTabs });
+  await chrome.storage.local.set({ timelineSnapshots });
 
   // 如果设置为收集后关闭
-  if (closeAfterCollect && addedCount > 0) {
+  if (closeAfterCollect) {
     const tabsToClose = await chrome.tabs.query({ currentWindow: true });
     for (const tab of tabsToClose) {
       if (!tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-extension://')) {
@@ -194,24 +214,14 @@ async function collectCurrentWindowTabs() {
 
   // 显示提示
   if (activeTab) {
-    if (addedCount > 0) {
-      chrome.tabs.sendMessage(activeTab.id, {
-        action: 'showToast',
-        type: 'success',
-        title: '收集完成',
-        message: `已收集 ${addedCount} 个标签页`,
-        duration: 2000,
-        showOpenButton: true
-      }).catch(() => {});
-    } else {
-      chrome.tabs.sendMessage(activeTab.id, {
-        action: 'showToast',
-        type: 'info',
-        title: '没有新标签',
-        message: '所有标签已在时序中',
-        duration: 2000
-      }).catch(() => {});
-    }
+    chrome.tabs.sendMessage(activeTab.id, {
+      action: 'showToast',
+      type: 'success',
+      title: '收集完成',
+      message: `已收集 ${collectedTabs.length} 个标签页`,
+      duration: 2000,
+      showOpenButton: true
+    }).catch(() => {});
   }
 }
 
@@ -272,15 +282,27 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           break;
 
         case 'getTimelineTabs':
-          const timelineResult = await chrome.storage.local.get(['timelineTabs']);
-          sendResponse({ success: true, tabs: timelineResult.timelineTabs || [] });
+          const timelineResult = await chrome.storage.local.get(['timelineSnapshots']);
+          sendResponse({ success: true, snapshots: timelineResult.timelineSnapshots || [] });
           break;
 
-        case 'deleteTimelineTab':
-          const deleteTimelineResult = await chrome.storage.local.get(['timelineTabs']);
-          const timelineTabs2 = deleteTimelineResult.timelineTabs || [];
-          const newTimelineTabs = timelineTabs2.filter(t => t.id !== request.tabId);
-          await chrome.storage.local.set({ timelineTabs: newTimelineTabs });
+        case 'deleteTimelineSnapshot':
+          const deleteSnapshotResult = await chrome.storage.local.get(['timelineSnapshots']);
+          const snapshots = deleteSnapshotResult.timelineSnapshots || [];
+          const newSnapshots = snapshots.filter(s => s.id !== request.snapshotId);
+          await chrome.storage.local.set({ timelineSnapshots: newSnapshots });
+          sendResponse({ success: true });
+          break;
+
+        case 'restoreSnapshot':
+          const restoreResult = await chrome.storage.local.get(['timelineSnapshots']);
+          const allSnapshots = restoreResult.timelineSnapshots || [];
+          const snapshot = allSnapshots.find(s => s.id === request.snapshotId);
+          if (snapshot) {
+            for (const tab of snapshot.tabs) {
+              await chrome.tabs.create({ url: tab.url });
+            }
+          }
           sendResponse({ success: true });
           break;
 
