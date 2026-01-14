@@ -67,7 +67,7 @@ function switchToGroupView() {
   renderBoard();
 }
 
-// 渲染时序视图 - OneTab 风格，按域名分组
+// 渲染时序视图 - 按时间戳排序的简单列表
 function renderTimelineView() {
   const emptyState = document.getElementById('emptyState');
   const stats = document.getElementById('stats');
@@ -85,67 +85,34 @@ function renderTimelineView() {
 
   emptyState.style.display = 'none';
 
-  // 按域名分组
-  const groupedByDomain = groupTabsByDomain(timelineTabs);
+  // 按时间戳排序（最新的在前）
+  const sortedTabs = [...timelineTabs].sort((a, b) =>
+    new Date(b.timestamp) - new Date(a.timestamp)
+  );
 
-  // 渲染时序列表 - OneTab 风格
-  timelineList.innerHTML = Object.entries(groupedByDomain).map(([domain, domainTabs]) => `
-    <div class="timeline-domain-group" data-domain="${escapeHtml(domain)}">
-      <div class="timeline-domain-header">
-        <span class="timeline-domain-title">${escapeHtml(domain)}</span>
-        <span class="timeline-domain-count">${domainTabs.length} 标签</span>
-      </div>
-      <div class="timeline-domain-actions">
-        <button class="timeline-action-btn" data-action="restore-all" title="恢复所有">恢复所有</button>
-        <button class="timeline-action-btn" data-action="delete-all" title="删除所有">删除所有</button>
-      </div>
-      <div class="timeline-tabs-list">
-        ${domainTabs.map(tab => `
-          <div class="timeline-tab-row" data-tab-id="${tab.id}">
-            <img class="timeline-tab-favicon" src="${escapeHtml(tab.favicon || '')}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22 fill=%22%23999%22><rect width=%2216%22 height=%2216%22 rx=%223%22/></svg>'">
-            <div class="timeline-tab-info">
-              <div class="timeline-tab-title">${escapeHtml(tab.title)}</div>
-              <div class="timeline-tab-url">${escapeHtml(tab.url)}</div>
-            </div>
-            <button class="timeline-tab-delete" data-id="${tab.id}" title="删除">×</button>
-          </div>
-        `).join('')}
-      </div>
+  // 渲染时序列表 - OneTab 风格的简洁列表
+  timelineList.innerHTML = `
+    <div class="timeline-actions-header">
+      <button class="timeline-action-btn restore-all-btn" title="恢复所有标签">📂 恢复所有</button>
+      <button class="timeline-action-btn clear-all-btn" title="清空时序">🗑️ 清空时序</button>
     </div>
-  `).join('');
+    <div class="timeline-tabs-list">
+      ${sortedTabs.map(tab => `
+        <div class="timeline-tab-row" data-tab-id="${tab.id}">
+          <img class="timeline-tab-favicon" src="${escapeHtml(tab.favicon || '')}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22 fill=%22%23999%22><rect width=%2216%22 height=%2216%22 rx=%223%22/></svg>'">
+          <div class="timeline-tab-info">
+            <div class="timeline-tab-title">${escapeHtml(tab.title)}</div>
+            <div class="timeline-tab-url">${escapeHtml(tab.url)}</div>
+            <div class="timeline-tab-time">${formatTime(tab.timestamp)}</div>
+          </div>
+          <button class="timeline-tab-delete" data-id="${tab.id}" title="删除">×</button>
+        </div>
+      `).join('')}
+    </div>
+  `;
 
   // 绑定时序视图事件
   setupTimelineEventListeners();
-}
-
-// 按域名分组标签页
-function groupTabsByDomain(allTabs) {
-  const grouped = {};
-
-  allTabs.forEach(tab => {
-    let domain = '其他';
-    try {
-      const url = new URL(tab.url);
-      domain = url.hostname || '其他';
-    } catch {
-      // URL 解析失败，使用默认分组
-    }
-
-    if (!grouped[domain]) {
-      grouped[domain] = [];
-    }
-    grouped[domain].push(tab);
-  });
-
-  // 按每个分组内的标签数量排序（多的在前）
-  const sorted = {};
-  Object.keys(grouped)
-    .sort((a, b) => grouped[b].length - grouped[a].length)
-    .forEach(domain => {
-      sorted[domain] = grouped[domain];
-    });
-
-  return sorted;
 }
 
 // 设置时序视图事件监听器
@@ -178,41 +145,32 @@ function setupTimelineEventListeners() {
     });
   });
 
-  // 域名组操作按钮
-  document.querySelectorAll('.timeline-action-btn').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      const action = btn.dataset.action;
-      const group = btn.closest('.timeline-domain-group');
-      const domain = group.dataset.domain;
-
-      // 获取该域名下的所有标签
-      const tabIds = Array.from(group.querySelectorAll('.timeline-tab-row'))
-        .map(row => row.dataset.tabId);
-
-      if (action === 'restore-all') {
-        // 恢复该域名下的所有标签
-        for (const tabId of tabIds) {
-          const tab = timelineTabs.find(t => t.id === tabId);
-          if (tab) {
-            await chrome.runtime.sendMessage({ action: 'openTab', url: tab.url });
-          }
-        }
-      } else if (action === 'delete-all') {
-        // 删除该域名下的所有标签
-        if (confirm(`确定要删除 ${domain} 下的所有标签吗？`)) {
-          for (const tabId of tabIds) {
-            await chrome.runtime.sendMessage({
-              action: 'deleteTimelineTab',
-              tabId
-            });
-          }
-          await loadData();
-          renderTimelineView();
-        }
+  // 恢复所有标签按钮
+  const restoreAllBtn = document.querySelector('.restore-all-btn');
+  if (restoreAllBtn) {
+    restoreAllBtn.addEventListener('click', async () => {
+      for (const tab of timelineTabs) {
+        await chrome.runtime.sendMessage({ action: 'openTab', url: tab.url });
       }
     });
-  });
+  }
+
+  // 清空时序按钮
+  const clearAllBtn = document.querySelector('.clear-all-btn');
+  if (clearAllBtn) {
+    clearAllBtn.addEventListener('click', async () => {
+      if (confirm(`确定要清空时序中的所有 ${timelineTabs.length} 个标签吗？`)) {
+        for (const tab of timelineTabs) {
+          await chrome.runtime.sendMessage({
+            action: 'deleteTimelineTab',
+            tabId: tab.id
+          });
+        }
+        await loadData();
+        renderTimelineView();
+      }
+    });
+  }
 }
 
 // 转换数据为 jKanban 格式

@@ -497,41 +497,12 @@ body {
   padding: 16px;
 }
 
-.timeline-domain-group {
-  margin-bottom: 20px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid var(--border);
-}
-
-.timeline-domain-group:last-child {
-  border-bottom: none;
-}
-
-.timeline-domain-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-
-.timeline-domain-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.timeline-domain-count {
-  font-size: 12px;
-  color: var(--text-light);
-  background: var(--primary-light);
-  padding: 2px 8px;
-  border-radius: 10px;
-}
-
-.timeline-domain-actions {
+.timeline-actions-header {
   display: flex;
   gap: 8px;
-  margin-bottom: 8px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
 }
 
 .timeline-action-btn {
@@ -597,6 +568,12 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  margin-bottom: 2px;
+}
+
+.timeline-tab-time {
+  font-size: 10px;
+  color: #999;
 }
 
 .timeline-tab-delete {

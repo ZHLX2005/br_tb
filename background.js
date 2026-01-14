@@ -85,64 +85,55 @@ async function addTabToGroup(tab, groupId) {
   return false;
 }
 
-// 获取当前标签页并添加到 Timeline
-async function addCurrentTabToTimeline() {
+// 获取当前标签页并添加到默认分组
+async function addCurrentTabToDefaultGroup() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab) return;
 
   // 跳过扩展页面和特殊页面
-  if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) {
+  if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('edge://')) {
     chrome.tabs.sendMessage(tab.id, {
       action: 'showToast',
       type: 'info',
       title: '无法添加',
-      message: '无法添加扩展页面',
+      message: '无法添加特殊页面',
       duration: 2000
     }).catch(() => {});
     return;
   }
 
-  const result = await chrome.storage.local.get(['timelineTabs']);
-  const timelineTabs = result.timelineTabs || [];
+  const defaultGroupId = await getDefaultGroupId();
+  if (!defaultGroupId) {
+    chrome.tabs.sendMessage(tab.id, {
+      action: 'showToast',
+      type: 'error',
+      title: '添加失败',
+      message: '没有找到默认分组',
+      duration: 2000
+    }).catch(() => {});
+    return;
+  }
 
-  // 检查是否已存在
-  const exists = timelineTabs.some(t => t.url === tab.url);
-  if (exists) {
+  const added = await addTabToGroup(tab, defaultGroupId);
+
+  if (added) {
+    chrome.tabs.sendMessage(tab.id, {
+      action: 'showToast',
+      type: 'success',
+      title: '已添加',
+      message: '已保存到默认分组',
+      duration: 2000,
+      showOpenButton: true
+    }).catch(() => {});
+  } else {
     chrome.tabs.sendMessage(tab.id, {
       action: 'showToast',
       type: 'info',
       title: '标签已存在',
-      message: '该标签已在时序中',
+      message: '该标签已在分组中',
       duration: 2000
     }).catch(() => {});
-    return;
   }
-
-  // 添加到 Timeline
-  timelineTabs.unshift({
-    id: generateId(),
-    title: tab.title,
-    url: tab.url,
-    favicon: tab.favIconUrl || '',
-    timestamp: new Date().toISOString()
-  });
-
-  // 限制最多 500 个标签
-  if (timelineTabs.length > 500) {
-    timelineTabs.length = 500;
-  }
-
-  await chrome.storage.local.set({ timelineTabs });
-
-  // 发送消息到当前标签页显示提示
-  chrome.tabs.sendMessage(tab.id, {
-    action: 'showToast',
-    type: 'success',
-    title: '已添加',
-    message: '已保存到时序',
-    duration: 2000,
-    showOpenButton: true
-  }).catch(() => {});
 }
 
 // 收集当前窗口所有标签页到 Timeline
@@ -257,7 +248,7 @@ async function collectAndOpenTabboard() {
 chrome.commands.onCommand.addListener((command) => {
   switch (command) {
     case 'add-current-tab':
-      addCurrentTabToTimeline();
+      addCurrentTabToDefaultGroup();
       break;
     case 'collect-all-tabs':
       collectCurrentWindowTabs();
