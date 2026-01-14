@@ -90,14 +90,31 @@ async function addCurrentTabToDefaultGroup() {
     return;
   }
 
+  const groups = await chrome.storage.local.get(['groups']);
+  const groupName = groups.groups?.find(g => g.id === defaultGroupId)?.name || '默认分组';
+
   const added = await addTabToGroup(tab, defaultGroupId);
   if (added) {
-    // 显示通知
-    chrome.notifications?.create({
-      type: 'basic',
-      iconUrl: 'icon/icon48.png',
-      title: 'TabBoard',
-      message: '已添加到默认分组'
+    // 发送消息到当前标签页显示提示
+    chrome.tabs.sendMessage(tab.id, {
+      action: 'showToast',
+      type: 'success',
+      title: '已添加到分组',
+      message: `已保存到「${groupName}」`,
+      duration: 2000
+    }).catch(() => {
+      // 如果页面无法接收消息（如 chrome:// 页面），忽略错误
+    });
+  } else {
+    // 标签已存在的提示
+    chrome.tabs.sendMessage(tab.id, {
+      action: 'showToast',
+      type: 'info',
+      title: '标签已存在',
+      message: `该标签已在「${groupName}」中`,
+      duration: 2000
+    }).catch(() => {
+      // 如果页面无法接收消息（如 chrome:// 页面），忽略错误
     });
   }
 }
@@ -113,6 +130,9 @@ async function collectCurrentWindowTabs() {
     console.error('No default group found');
     return;
   }
+
+  const groups = await chrome.storage.local.get(['groups']);
+  const groupName = groups.groups?.find(g => g.id === defaultGroupId)?.name || '默认分组';
 
   let addedCount = 0;
   for (const tab of tabs) {
@@ -134,13 +154,29 @@ async function collectCurrentWindowTabs() {
     }
   }
 
-  // 显示通知
-  chrome.notifications?.create({
-    type: 'basic',
-    iconUrl: 'icon/icon48.png',
-    title: 'TabBoard',
-    message: `已收集 ${addedCount} 个标签页`
-  });
+  // 获取当前活动标签页用于显示提示
+  const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+  // 显示提示
+  if (activeTab) {
+    if (addedCount > 0) {
+      chrome.tabs.sendMessage(activeTab.id, {
+        action: 'showToast',
+        type: 'success',
+        title: '收集完成',
+        message: `已收集 ${addedCount} 个标签页到「${groupName}」`,
+        duration: 2000
+      }).catch(() => {});
+    } else {
+      chrome.tabs.sendMessage(activeTab.id, {
+        action: 'showToast',
+        type: 'info',
+        title: '没有新标签',
+        message: '所有标签已在分组中',
+        duration: 2000
+      }).catch(() => {});
+    }
+  }
 }
 
 // 打开标签页管理看板
