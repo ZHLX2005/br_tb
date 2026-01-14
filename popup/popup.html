@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TabBoard 设置</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <h1>📋 TabBoard</h1>
+      <p class="subtitle">标签页分组管理</p>
+    </header>
+
+    <!-- 快捷键说明 -->
+    <section class="section">
+      <h2>⌨️ 快捷键</h2>
+      <div class="shortcuts">
+        <div class="shortcut-item">
+          <span class="shortcut-key">Alt+Shift+A</span>
+          <span class="shortcut-desc">添加当前标签到默认分组</span>
+        </div>
+        <div class="shortcut-item">
+          <span class="shortcut-key">Alt+Shift+C</span>
+          <span class="shortcut-desc">收集当前窗口所有标签</span>
+        </div>
+        <div class="shortcut-item">
+          <span class="shortcut-key">Alt+Shift+O</span>
+          <span class="shortcut-desc">打开标签管理看板</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 分组管理 -->
+    <section class="section">
+      <h2>📁 分组管理</h2>
+      <div class="group-actions">
+        <button id="addGroupBtn" class="btn btn-primary">+ 新建分组</button>
+      </div>
+      <div id="groupsList" class="groups-list">
+        <!-- 分组列表动态生成 -->
+      </div>
+    </section>
+
+    <!-- 设置 -->
+    <section class="section">
+      <h2>⚙️ 设置</h2>
+      <div class="settings">
+        <label class="setting-item">
+          <input type="checkbox" id="closeAfterCollect">
+          <span>收集后关闭原标签页</span>
+        </label>
+        <label class="setting-item">
+          <input type="checkbox" id="closeAfterRestore">
+          <span>恢复后删除已打开的标签</span>
+        </label>
+      </div>
+    </section>
+
+    <!-- 操作按钮 -->
+    <footer class="footer">
+      <button id="openTabboardBtn" class="btn btn-large btn-primary">打开看板</button>
+    </footer>
+  </div>
+
+  <!-- 添加分组对话框 -->
+  <div id="addGroupDialog" class="dialog">
+    <div class="dialog-content">
+      <h3>新建分组</h3>
+      <div class="form-group">
+        <label>分组名称</label>
+        <input type="text" id="newGroupName" class="input" placeholder="输入分组名称">
+      </div>
+      <div class="form-group">
+        <label>分组颜色</label>
+        <div id="colorPicker" class="color-picker">
+          <!-- 颜色选项动态生成 -->
+        </div>
+      </div>
+      <div class="dialog-actions">
+        <button id="cancelAddGroup" class="btn btn-secondary">取消</button>
+        <button id="confirmAddGroup" class="btn btn-primary">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

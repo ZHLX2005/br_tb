@@ -1,48 +1,50 @@
 {
   "manifest_version": 3,
-  "name": "浏览器插件的案例demo",
+  "name": "TabBoard - 标签页分组管理",
   "version": "1.0",
-  "description": "浏览器插件的案例demo",
+  "description": "类似 OneTab 的标签页分组管理工具，支持快捷键快速收集和分组管理",
   "permissions": [
-    "contextMenus",
     "storage",
-    "activeTab",
-    "tabs",
-    "bookmarks",
-    "debugger"
-  ],
-  "host_permissions": [
-    "<all_urls>"
+    "tabs"
   ],
   "background": {
-    "service_worker": "background.js",
-    "type": "module"
+    "service_worker": "background.js"
   },
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": ["content/lib/katex.min.js", "content/lib/marked.min.js", "content/content.js", "content/content-ocr.js"],
-      "css": ["content/content.css", "content/content-ocr.css", "content/lib/katex.min.css"]
-    }
-  ],
   "action": {
     "default_popup": "popup/popup.html",
-    "default_title": "划词翻译"
+    "default_title": "TabBoard - 标签页管理"
+  },
+  "commands": {
+    "add-current-tab": {
+      "description": "添加当前标签页到默认分组",
+      "suggested_key": {
+        "default": "Alt+Shift+A"
+      }
+    },
+    "collect-all-tabs": {
+      "description": "收集当前窗口所有标签页",
+      "suggested_key": {
+        "default": "Alt+Shift+C"
+      }
+    },
+    "open-tabboard": {
+      "description": "打开标签页管理看板",
+      "suggested_key": {
+        "default": "Alt+Shift+O"
+      }
+    }
   },
   "web_accessible_resources": [
     {
       "resources": [
-        "modules/favorites/favorites.html",
-        "modules/favorites/favorites.js",
-        "modules/browser-bookmarks/browser-bookmarks.html",
-        "modules/browser-bookmarks/browser-bookmarks.js"
+        "modules/tabboard/tabboard.html"
       ],
       "matches": ["<all_urls>"]
     }
   ],
   "icons": {
-    "16": "icon16.png",
-    "48": "icon48.png",
-    "128": "icon128.png"
+    "16": "icon/icon16.png",
+    "48": "icon/icon48.png",
+    "128": "icon/icon128.png"
   }
 }
