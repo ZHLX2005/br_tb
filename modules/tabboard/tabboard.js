@@ -66,7 +66,7 @@ function switchToGroupView() {
   renderBoard();
 }
 
-// 渲染时序视图
+// 渲染时序视图 - OneTab 风格，按域名分组
 function renderTimelineView() {
   const emptyState = document.getElementById('emptyState');
   const stats = document.getElementById('stats');
@@ -84,25 +84,29 @@ function renderTimelineView() {
 
   emptyState.style.display = 'none';
 
-  // 按日期分组
-  const groupedByDate = groupTabsByDate(timelineTabs);
+  // 按域名分组
+  const groupedByDomain = groupTabsByDomain(timelineTabs);
 
-  // 渲染时序列表 - 密集信息显示
-  timelineList.innerHTML = Object.entries(groupedByDate).map(([dateLabel, dateTabs]) => `
-    <div class="timeline-date-group">
-      <div class="timeline-date-header">${dateLabel}</div>
-      <div class="timeline-items">
-        ${dateTabs.map(tab => `
-          <div class="timeline-item" data-tab-id="${tab.id}">
-            <div class="timeline-item-favicon">
-              <img src="${escapeHtml(tab.favicon || '')}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22%23999%22><rect width=%2224%22 height=%2224%22 rx=%224%22/></svg>'">
+  // 渲染时序列表 - OneTab 风格
+  timelineList.innerHTML = Object.entries(groupedByDomain).map(([domain, domainTabs]) => `
+    <div class="timeline-domain-group" data-domain="${escapeHtml(domain)}">
+      <div class="timeline-domain-header">
+        <span class="timeline-domain-title">${escapeHtml(domain)}</span>
+        <span class="timeline-domain-count">${domainTabs.length} 标签</span>
+      </div>
+      <div class="timeline-domain-actions">
+        <button class="timeline-action-btn" data-action="restore-all" title="恢复所有">恢复所有</button>
+        <button class="timeline-action-btn" data-action="delete-all" title="删除所有">删除所有</button>
+      </div>
+      <div class="timeline-tabs-list">
+        ${domainTabs.map(tab => `
+          <div class="timeline-tab-row" data-tab-id="${tab.id}">
+            <img class="timeline-tab-favicon" src="${escapeHtml(tab.favicon || '')}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22 fill=%22%23999%22><rect width=%2216%22 height=%2216%22 rx=%223%22/></svg>'">
+            <div class="timeline-tab-info">
+              <div class="timeline-tab-title">${escapeHtml(tab.title)}</div>
+              <div class="timeline-tab-url">${escapeHtml(tab.url)}</div>
             </div>
-            <div class="timeline-item-content">
-              <div class="timeline-item-title">${escapeHtml(tab.title)}</div>
-              <div class="timeline-item-url">${escapeHtml(tab.url)}</div>
-              <div class="timeline-item-time">${formatTime(tab.timestamp)}</div>
-            </div>
-            <button class="timeline-item-delete" data-id="${tab.id}" title="删除">×</button>
+            <button class="timeline-tab-delete" data-id="${tab.id}" title="删除">×</button>
           </div>
         `).join('')}
       </div>
@@ -113,46 +117,43 @@ function renderTimelineView() {
   setupTimelineEventListeners();
 }
 
-// 按日期分组标签页
-function groupTabsByDate(allTabs) {
+// 按域名分组标签页
+function groupTabsByDomain(allTabs) {
   const grouped = {};
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
 
   allTabs.forEach(tab => {
-    const tabDate = new Date(tab.timestamp);
-    const tabDay = new Date(tabDate.getFullYear(), tabDate.getMonth(), tabDate.getDate());
-
-    let dateLabel;
-    if (tabDay.getTime() === today.getTime()) {
-      dateLabel = '今天';
-    } else if (tabDay.getTime() === yesterday.getTime()) {
-      dateLabel = '昨天';
-    } else if (now - tabDate < 7 * 24 * 60 * 60 * 1000) {
-      const days = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-      dateLabel = days[tabDate.getDay()];
-    } else {
-      dateLabel = tabDate.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' });
+    let domain = '其他';
+    try {
+      const url = new URL(tab.url);
+      domain = url.hostname || '其他';
+    } catch {
+      // URL 解析失败，使用默认分组
     }
 
-    if (!grouped[dateLabel]) {
-      grouped[dateLabel] = [];
+    if (!grouped[domain]) {
+      grouped[domain] = [];
     }
-    grouped[dateLabel].push(tab);
+    grouped[domain].push(tab);
   });
 
-  return grouped;
+  // 按每个分组内的标签数量排序（多的在前）
+  const sorted = {};
+  Object.keys(grouped)
+    .sort((a, b) => grouped[b].length - grouped[a].length)
+    .forEach(domain => {
+      sorted[domain] = grouped[domain];
+    });
+
+  return sorted;
 }
 
 // 设置时序视图事件监听器
 function setupTimelineEventListeners() {
-  // 点击打开标签页
-  document.querySelectorAll('.timeline-item').forEach(item => {
-    item.addEventListener('click', (e) => {
-      if (e.target.classList.contains('timeline-item-delete')) return;
-      const tabId = item.dataset.tabId;
+  // 点击标签行打开标签页
+  document.querySelectorAll('.timeline-tab-row').forEach(row => {
+    row.addEventListener('click', (e) => {
+      if (e.target.classList.contains('timeline-tab-delete')) return;
+      const tabId = row.dataset.tabId;
       const tab = timelineTabs.find(t => t.id === tabId);
       if (tab) {
         chrome.runtime.sendMessage({ action: 'openTab', url: tab.url });
@@ -160,8 +161,8 @@ function setupTimelineEventListeners() {
     });
   });
 
-  // 删除按钮
-  document.querySelectorAll('.timeline-item-delete').forEach(btn => {
+  // 删除单个标签
+  document.querySelectorAll('.timeline-tab-delete').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
       const tabId = btn.dataset.id;
@@ -173,6 +174,42 @@ function setupTimelineEventListeners() {
 
       await loadData();
       renderTimelineView();
+    });
+  });
+
+  // 域名组操作按钮
+  document.querySelectorAll('.timeline-action-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const action = btn.dataset.action;
+      const group = btn.closest('.timeline-domain-group');
+      const domain = group.dataset.domain;
+
+      // 获取该域名下的所有标签
+      const tabIds = Array.from(group.querySelectorAll('.timeline-tab-row'))
+        .map(row => row.dataset.tabId);
+
+      if (action === 'restore-all') {
+        // 恢复该域名下的所有标签
+        for (const tabId of tabIds) {
+          const tab = timelineTabs.find(t => t.id === tabId);
+          if (tab) {
+            await chrome.runtime.sendMessage({ action: 'openTab', url: tab.url });
+          }
+        }
+      } else if (action === 'delete-all') {
+        // 删除该域名下的所有标签
+        if (confirm(`确定要删除 ${domain} 下的所有标签吗？`)) {
+          for (const tabId of tabIds) {
+            await chrome.runtime.sendMessage({
+              action: 'deleteTimelineTab',
+              tabId
+            });
+          }
+          await loadData();
+          renderTimelineView();
+        }
+      }
     });
   });
 }
@@ -266,6 +303,12 @@ function renderBoard() {
 
 // 处理项目点击
 function handleItemClick(el) {
+  // 如果点击的是删除按钮，不处理
+  const deleteBtn = el.querySelector('.kanban-item-delete');
+  if (deleteBtn && (window.event.target === deleteBtn || deleteBtn.contains(window.event.target))) {
+    return;
+  }
+
   const itemEl = el.querySelector('.kanban-item-content');
   if (!itemEl) return;
 
@@ -342,7 +385,9 @@ function findTabInGroup(tabId, groupId) {
 // 设置删除按钮事件 - 使用事件委托
 function setupDeleteButtons() {
   const container = document.getElementById('tabboard');
+  // 移除旧的监听器（如果存在）
   container.removeEventListener('click', handleDeleteButtonClick, true);
+  // 在捕获阶段添加监听器，确保在 jKanban 之前执行
   container.addEventListener('click', handleDeleteButtonClick, true);
 }
 
@@ -435,6 +480,9 @@ function setupBoardActions() {
       btn.removeEventListener('click', handleClearGroup);
       btn.addEventListener('click', handleClearGroup);
     });
+
+    // 每次DOM变化时重新绑定删除按钮
+    setupDeleteButtons();
   });
 
   observer.observe(document.getElementById('tabboard'), {
@@ -442,7 +490,7 @@ function setupBoardActions() {
     subtree: true
   });
 
-  // 设置删除按钮的事件委托（只需设置一次）
+  // 初始设置删除按钮的事件委托
   setupDeleteButtons();
 }
 

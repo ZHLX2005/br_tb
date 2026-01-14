@@ -150,6 +150,7 @@ async function collectCurrentWindowTabs() {
   const tabs = await chrome.tabs.query({ currentWindow: true });
   const settings = await chrome.storage.local.get(['settings']);
   const closeAfterCollect = settings.settings?.closeAfterCollect || false;
+  const excludeEdgeUrls = settings.settings?.excludeEdgeUrls || false;
 
   const result = await chrome.storage.local.get(['timelineTabs']);
   const timelineTabs = result.timelineTabs || [];
@@ -158,6 +159,11 @@ async function collectCurrentWindowTabs() {
   for (const tab of tabs) {
     // 跳过扩展页面和特殊页面
     if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) {
+      continue;
+    }
+
+    // 可选：跳过 edge:// 页面
+    if (excludeEdgeUrls && tab.url.startsWith('edge://')) {
       continue;
     }
 

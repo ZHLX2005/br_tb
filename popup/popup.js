@@ -53,6 +53,7 @@ async function loadSettings() {
   const settings = response.settings;
   document.getElementById('closeAfterCollect').checked = settings.closeAfterCollect || false;
   document.getElementById('closeAfterRestore').checked = settings.closeAfterRestore || false;
+  document.getElementById('excludeEdgeUrls').checked = settings.excludeEdgeUrls || false;
 }
 
 // 设置默认分组
@@ -133,7 +134,8 @@ async function collectAndOpen() {
 async function saveSettings() {
   const settings = {
     closeAfterCollect: document.getElementById('closeAfterCollect').checked,
-    closeAfterRestore: document.getElementById('closeAfterRestore').checked
+    closeAfterRestore: document.getElementById('closeAfterRestore').checked,
+    excludeEdgeUrls: document.getElementById('excludeEdgeUrls').checked
   };
 
   await chrome.runtime.sendMessage({ action: 'updateSettings', settings });
@@ -161,6 +163,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('closeAfterCollect').addEventListener('change', saveSettings);
   document.getElementById('closeAfterRestore').addEventListener('change', saveSettings);
+  document.getElementById('excludeEdgeUrls').addEventListener('change', saveSettings);
 
   // 点击对话框外部关闭
   document.getElementById('addGroupDialog').addEventListener('click', (e) => {

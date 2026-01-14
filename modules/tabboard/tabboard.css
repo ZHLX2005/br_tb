@@ -483,7 +483,7 @@ body {
   }
 }
 
-/* Timeline View Styles */
+/* Timeline View Styles - OneTab 风格 */
 .view-container {
   flex: 1;
   overflow: hidden;
@@ -494,114 +494,118 @@ body {
 .timeline-list {
   flex: 1;
   overflow-y: auto;
-  padding: 12px;
+  padding: 16px;
 }
 
-.timeline-date-group {
+.timeline-domain-group {
   margin-bottom: 20px;
-}
-
-.timeline-date-header {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-light);
-  margin-bottom: 8px;
-  padding: 4px 0;
+  padding-bottom: 20px;
   border-bottom: 1px solid var(--border);
 }
 
-.timeline-items {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.timeline-domain-group:last-child {
+  border-bottom: none;
 }
 
-.timeline-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 10px;
-  cursor: pointer;
-  transition: all 0.2s;
-  position: relative;
-}
-
-.timeline-item:hover {
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  transform: translateY(-1px);
-}
-
-.timeline-item-favicon {
-  width: 32px;
-  height: 32px;
-  flex-shrink: 0;
+.timeline-domain-header {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
 }
 
-.timeline-item-favicon img {
+.timeline-domain-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.timeline-domain-count {
+  font-size: 12px;
+  color: var(--text-light);
+  background: var(--primary-light);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.timeline-domain-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.timeline-action-btn {
+  padding: 4px 10px;
+  font-size: 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: #f0f0f0;
+  color: var(--text);
+}
+
+.timeline-action-btn:hover {
+  background: var(--primary);
+  color: white;
+}
+
+.timeline-tabs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.timeline-tab-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+  border-radius: 4px;
+}
+
+.timeline-tab-row:hover {
+  background: var(--bg);
+}
+
+.timeline-tab-favicon {
   width: 16px;
   height: 16px;
-  border-radius: 3px;
+  flex-shrink: 0;
+  border-radius: 2px;
 }
 
-.timeline-item-content {
+.timeline-tab-info {
   flex: 1;
   min-width: 0;
 }
 
-.timeline-item-title {
-  font-size: 14px;
-  font-weight: 500;
+.timeline-tab-title {
+  font-size: 13px;
   color: var(--text);
-  margin-bottom: 4px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  margin-bottom: 2px;
 }
 
-.timeline-item-url {
+.timeline-tab-url {
   font-size: 11px;
   color: var(--text-light);
-  margin-bottom: 6px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.timeline-item-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.timeline-item-group {
-  font-size: 10px;
-  color: white;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-weight: 500;
-}
-
-.timeline-item-time {
-  font-size: 10px;
-  color: #999;
-}
-
-.timeline-item-delete {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 20px;
-  height: 20px;
+.timeline-tab-delete {
+  width: 18px;
+  height: 18px;
   border: none;
   background: transparent;
   color: var(--text-light);
-  font-size: 18px;
+  font-size: 16px;
   cursor: pointer;
   border-radius: 4px;
   display: flex;
@@ -611,13 +615,14 @@ body {
   transition: all 0.2s;
   padding: 0;
   line-height: 1;
+  flex-shrink: 0;
 }
 
-.timeline-item:hover .timeline-item-delete {
-  opacity: 0.6;
+.timeline-tab-row:hover .timeline-tab-delete {
+  opacity: 0.5;
 }
 
-.timeline-item-delete:hover {
+.timeline-tab-delete:hover {
   opacity: 1;
   background: var(--danger);
   color: white;
@@ -644,10 +649,10 @@ body {
 /* Timeline responsive */
 @media (max-width: 768px) {
   .timeline-list {
-    padding: 8px;
+    padding: 12px;
   }
 
-  .timeline-item {
-    padding: 8px;
+  .timeline-tab-row {
+    padding: 6px;
   }
 }
