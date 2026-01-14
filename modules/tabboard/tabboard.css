@@ -1,8 +1,7 @@
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+/**
+ * TabBoard - 使用 jKanban 库的看板样式
+ * 浅蓝色主题
+ */
 
 :root {
   --primary: #42a5f5;
@@ -16,6 +15,24 @@
   --card-bg: #ffffff;
   --danger: #ef5350;
   --success: #66bb6a;
+
+  /* 分组颜色 */
+  --color-red: #ff6b6b;
+  --color-teal: #4ecdc4;
+  --color-blue: #45b7d1;
+  --color-yellow: #f9ca24;
+  --color-purple: #6c5ce7;
+  --color-purple-light: #a29bfe;
+  --color-pink: #fd79a8;
+  --color-green: #00b894;
+  --color-orange: #e17055;
+  --color-sky: #74b9ff;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
 body {
@@ -41,45 +58,42 @@ body {
   background: white;
   border-bottom: 2px solid var(--primary-light);
   box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  flex-shrink: 0;
 }
 
 .header-left {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
 }
 
 .header h1 {
-  font-size: 20px;
+  font-size: 18px;
   color: var(--primary-dark);
 }
 
 .stats {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text-light);
-  padding: 4px 12px;
+  padding: 4px 10px;
   background: var(--primary-light);
-  border-radius: 16px;
+  border-radius: 12px;
 }
 
 .header-actions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 /* Buttons */
 .btn {
-  padding: 8px 16px;
+  padding: 6px 12px;
   border: none;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
 }
 
 .btn-primary {
@@ -94,79 +108,128 @@ body {
 .btn-secondary {
   background: #f0f0f0;
   color: var(--text);
+  padding: 8px;
 }
 
 .btn-secondary:hover {
   background: #e0e0e0;
 }
 
-/* Board */
-.board {
+/* jKanban 容器 */
+#tabboard {
   flex: 1;
-  display: flex;
-  gap: 12px;
-  padding: 12px;
   overflow-x: auto;
   overflow-y: hidden;
+  padding: 12px;
 }
 
-/* Group Column */
-.group-column {
-  flex: 0 0 280px;
+/* jKanban 看板样式覆盖 */
+.kanban-container {
   display: flex;
-  flex-direction: column;
+  gap: 12px;
+  height: 100%;
+  align-items: stretch;
+}
+
+/* 看板列 */
+.kanban-board {
+  flex-shrink: 0;
   background: var(--card-bg);
   border-radius: 10px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  display: flex;
+  flex-direction: column;
   max-height: 100%;
+  border: 1px solid var(--border);
+  width: 280px !important;
+  min-width: 200px !important;
+  max-width: 600px !important;
 }
 
-.group-header {
+/* 看板标题 */
+.kanban-title-board {
   padding: 10px 12px;
   border-top-left-radius: 10px;
   border-top-right-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: var(--primary-light);
-  border-bottom: 2px solid;
-}
-
-.group-header-color {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  margin-right: 8px;
-  flex-shrink: 0;
-}
-
-.group-header-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.group-header-name {
   font-weight: 600;
   font-size: 14px;
-  color: var(--primary-dark);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  flex-shrink: 0;
+  position: relative;
 }
 
-.group-header-count {
-  font-size: 11px;
-  color: var(--text-light);
-  margin-top: 1px;
+/* 分组颜色 */
+.kanban-board-red .kanban-title-board {
+  background: linear-gradient(135deg, var(--color-red)15, transparent);
+  border-bottom: 2px solid var(--color-red);
+  color: var(--color-red);
 }
 
-.group-header-actions {
+.kanban-board-teal .kanban-title-board {
+  background: linear-gradient(135deg, var(--color-teal)15, transparent);
+  border-bottom: 2px solid var(--color-teal);
+  color: var(--color-teal);
+}
+
+.kanban-board-blue .kanban-title-board {
+  background: linear-gradient(135deg, var(--color-blue)15, transparent);
+  border-bottom: 2px solid var(--color-blue);
+  color: var(--color-blue);
+}
+
+.kanban-board-yellow .kanban-title-board {
+  background: linear-gradient(135deg, var(--color-yellow)15, transparent);
+  border-bottom: 2px solid var(--color-yellow);
+  color: #b8940d;
+}
+
+.kanban-board-purple .kanban-title-board {
+  background: linear-gradient(135deg, var(--color-purple)15, transparent);
+  border-bottom: 2px solid var(--color-purple);
+  color: var(--color-purple);
+}
+
+.kanban-board-purple-light .kanban-title-board {
+  background: linear-gradient(135deg, var(--color-purple-light)15, transparent);
+  border-bottom: 2px solid var(--color-purple-light);
+  color: var(--color-purple-light);
+}
+
+.kanban-board-pink .kanban-title-board {
+  background: linear-gradient(135deg, var(--color-pink)15, transparent);
+  border-bottom: 2px solid var(--color-pink);
+  color: var(--color-pink);
+}
+
+.kanban-board-green .kanban-title-board {
+  background: linear-gradient(135deg, var(--color-green)15, transparent);
+  border-bottom: 2px solid var(--color-green);
+  color: var(--color-green);
+}
+
+.kanban-board-orange .kanban-title-board {
+  background: linear-gradient(135deg, var(--color-orange)15, transparent);
+  border-bottom: 2px solid var(--color-orange);
+  color: var(--color-orange);
+}
+
+.kanban-board-sky .kanban-title-board {
+  background: linear-gradient(135deg, var(--color-sky)15, transparent);
+  border-bottom: 2px solid var(--color-sky);
+  color: var(--color-sky);
+}
+
+/* 看板操作按钮 */
+.board-actions {
   display: flex;
   gap: 4px;
+  margin-left: 8px;
 }
 
-.group-header-actions button {
-  padding: 4px 8px;
+.board-action-btn {
+  padding: 4px 6px;
   font-size: 12px;
   border: none;
   border-radius: 4px;
@@ -174,64 +237,67 @@ body {
   background: white;
   color: var(--text-light);
   transition: all 0.2s;
+  opacity: 0.7;
 }
 
-.group-header-actions button:hover {
+.board-action-btn:hover {
+  opacity: 1;
   background: var(--primary);
   color: white;
 }
 
-/* Drop Zone */
-.group-content {
+/* 看板内容区域 */
+.kanban-drag {
   flex: 1;
   padding: 8px;
   overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.group-content.drag-over {
-  background: var(--primary-light);
-  border: 2px dashed var(--primary);
-  border-radius: 6px;
-}
-
-/* Tab Card */
-.tab-card {
+/* 标签卡片 */
+.kanban-item {
   background: white;
   border: 1px solid var(--border);
   border-radius: 6px;
-  padding: 8px;
+  padding: 0;
   cursor: pointer;
   transition: all 0.2s;
   position: relative;
 }
 
-.tab-card:hover {
+.kanban-item:hover {
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
   transform: translateY(-2px);
 }
 
-.tab-card.dragging {
+.kanban-item.gu-mirror {
   opacity: 0.5;
   transform: rotate(2deg);
 }
 
-.tab-header {
+/* 自定义标签卡片内容 */
+.kanban-item-content {
+  padding: 8px;
+  position: relative;
+}
+
+.kanban-item-header {
   display: flex;
   align-items: center;
   gap: 6px;
   margin-bottom: 6px;
 }
 
-.tab-favicon {
+.kanban-item-favicon {
   width: 14px;
   height: 14px;
   flex-shrink: 0;
 }
 
-.tab-title {
+.kanban-item-title {
   flex: 1;
   min-width: 0;
   font-size: 13px;
@@ -242,32 +308,7 @@ body {
   white-space: nowrap;
 }
 
-.tab-delete {
-  width: 20px;
-  height: 20px;
-  border: none;
-  background: transparent;
-  color: var(--text-light);
-  font-size: 18px;
-  cursor: pointer;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: all 0.2s;
-}
-
-.tab-card:hover .tab-delete {
-  opacity: 1;
-}
-
-.tab-delete:hover {
-  background: var(--danger);
-  color: white;
-}
-
-.tab-url {
+.kanban-item-url {
   font-size: 10px;
   color: var(--text-light);
   overflow: hidden;
@@ -276,9 +317,39 @@ body {
   margin-bottom: 4px;
 }
 
-.tab-time {
+.kanban-item-time {
   font-size: 9px;
   color: #999;
+}
+
+.kanban-item-delete {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 18px;
+  height: 18px;
+  border: none;
+  background: transparent;
+  color: var(--text-light);
+  font-size: 16px;
+  cursor: pointer;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: all 0.2s;
+  padding: 0;
+  line-height: 1;
+}
+
+.kanban-item:hover .kanban-item-delete {
+  opacity: 1;
+}
+
+.kanban-item-delete:hover {
+  background: var(--danger);
+  color: white;
 }
 
 /* Empty State */
@@ -326,74 +397,51 @@ body {
   font-size: 13px;
 }
 
-/* Group Empty State */
-.group-empty {
-  text-align: center;
-  padding: 40px 20px;
-  color: var(--text-light);
-  font-size: 13px;
-}
-
 /* Scrollbar */
-.group-content::-webkit-scrollbar {
+#tabboard::-webkit-scrollbar,
+.kanban-drag::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
 }
 
-.group-content::-webkit-scrollbar-track {
+#tabboard::-webkit-scrollbar-track,
+.kanban-drag::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.group-content::-webkit-scrollbar-thumb {
+#tabboard::-webkit-scrollbar-thumb,
+.kanban-drag::-webkit-scrollbar-thumb {
   background: #e0e0e0;
   border-radius: 3px;
 }
 
-.group-content::-webkit-scrollbar-thumb:hover {
+#tabboard::-webkit-scrollbar-thumb:hover,
+.kanban-drag::-webkit-scrollbar-thumb:hover {
   background: #c0c0c0;
 }
 
-.board::-webkit-scrollbar {
-  height: 8px;
+/* 拖拽时的样式 */
+.gu-transit {
+  opacity: 0.2;
 }
 
-.board::-webkit-scrollbar-track {
-  background: transparent;
+.gu-mirror {
+  position: fixed !important;
+  margin: 0 !important;
+  z-index: 9999 !important;
+  transform: rotate(2deg);
 }
 
-.board::-webkit-scrollbar-thumb {
-  background: #e0e0e0;
-  border-radius: 4px;
-}
-
-.board::-webkit-scrollbar-thumb:hover {
-  background: #c0c0c0;
-}
-
-/* Animations */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.tab-card {
-  animation: fadeIn 0.2s ease-out;
-}
-
-/* Responsive */
+/* 响应式 */
 @media (max-width: 768px) {
-  .board {
+  .kanban-container {
     flex-direction: column;
     overflow-x: hidden;
     overflow-y: auto;
   }
 
-  .group-column {
-    flex: 0 0 auto;
+  .kanban-board {
+    width: 100% !important;
+    max-width: none !important;
   }
 }

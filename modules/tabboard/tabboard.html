@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TabBoard - 标签页看板</title>
+  <!-- jKanban CSS -->
+  <link rel="stylesheet" href="lib/jkanban.min.css">
   <link rel="stylesheet" href="tabboard.css">
 </head>
 <body>
@@ -20,10 +22,8 @@
       </div>
     </header>
 
-    <!-- 看板容器 -->
-    <div class="board" id="board">
-      <!-- 分组列动态生成 -->
-    </div>
+    <!-- jKanban 容器 -->
+    <div id="tabboard"></div>
 
     <!-- 空状态 -->
     <div id="emptyState" class="empty-state" style="display: none;">
@@ -37,19 +37,8 @@
     </div>
   </div>
 
-  <!-- 标签卡片模板 -->
-  <template id="tabCardTemplate">
-    <div class="tab-card" draggable="true">
-      <div class="tab-header">
-        <img class="tab-favicon" src="" alt="" onerror="this.style.display='none'">
-        <span class="tab-title"></span>
-        <button class="tab-delete" title="删除">×</button>
-      </div>
-      <div class="tab-url"></div>
-      <div class="tab-time"></div>
-    </div>
-  </template>
-
+  <!-- jKanban JS -->
+  <script src="lib/jkanban.min.js"></script>
   <script src="tabboard.js"></script>
 </body>
 </html>
