@@ -6,6 +6,7 @@
 let kanban = null;
 let groups = [];
 let tabs = [];
+let timelineTabs = [];
 let currentView = 'timeline'; // 'timeline' or 'group'
 
 // 初始化
@@ -17,9 +18,10 @@ async function init() {
 
 // 加载数据
 async function loadData() {
-  const [groupsResponse, tabsResponse] = await Promise.all([
+  const [groupsResponse, tabsResponse, timelineResponse] = await Promise.all([
     chrome.runtime.sendMessage({ action: 'getGroups' }),
-    chrome.storage.local.get(['tabs'])
+    chrome.storage.local.get(['tabs']),
+    chrome.runtime.sendMessage({ action: 'getTimelineTabs' })
   ]);
 
   if (groupsResponse.success) {
@@ -28,6 +30,10 @@ async function loadData() {
 
   if (tabsResponse.tabs) {
     tabs = tabsResponse.tabs;
+  }
+
+  if (timelineResponse.success) {
+    timelineTabs = timelineResponse.tabs;
   }
 }
 
@@ -67,29 +73,10 @@ function renderTimelineView() {
   const timelineList = document.getElementById('timelineList');
 
   // 计算总标签数
-  const totalTabs = Object.values(tabs).flat().length;
-  stats.textContent = `${totalTabs} 个标签页 · ${groups.length} 个分组`;
+  const totalTabs = timelineTabs.length;
+  stats.textContent = `${totalTabs} 个标签页 · 时序视图`;
 
-  // 收集所有标签页并按时间排序
-  const allTabs = [];
-  for (const groupId in tabs) {
-    const group = groups.find(g => g.id === groupId);
-    if (group) {
-      tabs[groupId].forEach(tab => {
-        allTabs.push({
-          ...tab,
-          groupId,
-          groupName: group.name,
-          groupColor: group.color
-        });
-      });
-    }
-  }
-
-  // 按时间戳降序排序
-  allTabs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-
-  if (allTabs.length === 0) {
+  if (timelineTabs.length === 0) {
     timelineList.innerHTML = '';
     emptyState.style.display = 'flex';
     return;
@@ -98,27 +85,24 @@ function renderTimelineView() {
   emptyState.style.display = 'none';
 
   // 按日期分组
-  const groupedByDate = groupTabsByDate(allTabs);
+  const groupedByDate = groupTabsByDate(timelineTabs);
 
-  // 渲染时序列表
+  // 渲染时序列表 - 密集信息显示
   timelineList.innerHTML = Object.entries(groupedByDate).map(([dateLabel, dateTabs]) => `
     <div class="timeline-date-group">
       <div class="timeline-date-header">${dateLabel}</div>
       <div class="timeline-items">
         ${dateTabs.map(tab => `
-          <div class="timeline-item" data-tab-id="${tab.id}" data-group-id="${tab.groupId}">
+          <div class="timeline-item" data-tab-id="${tab.id}">
             <div class="timeline-item-favicon">
               <img src="${escapeHtml(tab.favicon || '')}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22%23999%22><rect width=%2224%22 height=%2224%22 rx=%224%22/></svg>'">
             </div>
             <div class="timeline-item-content">
               <div class="timeline-item-title">${escapeHtml(tab.title)}</div>
               <div class="timeline-item-url">${escapeHtml(tab.url)}</div>
-              <div class="timeline-item-meta">
-                <span class="timeline-item-group" style="background: ${tab.groupColor}">${escapeHtml(tab.groupName)}</span>
-                <span class="timeline-item-time">${formatTime(tab.timestamp)}</span>
-              </div>
+              <div class="timeline-item-time">${formatTime(tab.timestamp)}</div>
             </div>
-            <button class="timeline-item-delete" data-id="${tab.id}" data-group-id="${tab.groupId}" title="删除">×</button>
+            <button class="timeline-item-delete" data-id="${tab.id}" title="删除">×</button>
           </div>
         `).join('')}
       </div>
@@ -169,7 +153,7 @@ function setupTimelineEventListeners() {
     item.addEventListener('click', (e) => {
       if (e.target.classList.contains('timeline-item-delete')) return;
       const tabId = item.dataset.tabId;
-      const tab = findTab(tabId);
+      const tab = timelineTabs.find(t => t.id === tabId);
       if (tab) {
         chrome.runtime.sendMessage({ action: 'openTab', url: tab.url });
       }
@@ -181,12 +165,10 @@ function setupTimelineEventListeners() {
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
       const tabId = btn.dataset.id;
-      const groupId = btn.dataset.groupId;
 
       await chrome.runtime.sendMessage({
-        action: 'deleteTab',
-        tabId,
-        groupId
+        action: 'deleteTimelineTab',
+        tabId
       });
 
       await loadData();
