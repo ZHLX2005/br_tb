@@ -493,9 +493,9 @@ body {
 }
 
 .timeline-list {
-  flex: 1;
-  overflow-y: scroll;
+  overflow-y: auto;
   padding: 16px;
+  flex: 1;
   min-height: 0;
 }
 
