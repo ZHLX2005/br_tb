@@ -485,27 +485,31 @@ function renderBoard() {
 
   const boards = convertToJKanbanFormat();
 
+  // 销毁旧的 kanban 实例
   if (kanban) {
-    kanban.removeAll();
-    kanban.addBoards(boards);
-  } else {
-    kanban = new jKanban({
-      element: '#tabboard',
-      gutter: '12px',
-      widthBoard: '280px',
-      responsivePercentage: false,
-      dragItems: true,
-      dragBoards: true,
-      boards: boards,
-      click: handleItemClick,
-      dropEl: handleDropEl,
-      dragendEl: handleDragEndEl,
-      buttonClick: handleBoardButtonClick,
-      itemAddOptions: {
-        enabled: false
-      }
-    });
+    const container = document.getElementById('tabboard');
+    const boardsToRemove = container.querySelectorAll('.kanban-board');
+    boardsToRemove.forEach(board => board.remove());
+    kanban = null;
   }
+
+  // 创建新的 kanban 实例
+  kanban = new jKanban({
+    element: '#tabboard',
+    gutter: '12px',
+    widthBoard: '280px',
+    responsivePercentage: false,
+    dragItems: true,
+    dragBoards: true,
+    boards: boards,
+    click: handleItemClick,
+    dropEl: handleDropEl,
+    dragendEl: handleDragEndEl,
+    buttonClick: handleBoardButtonClick,
+    itemAddOptions: {
+      enabled: false
+    }
+  });
 
   // 每次渲染后重新设置看板操作按钮和删除按钮
   setupBoardActions();
@@ -671,19 +675,22 @@ function formatSnapshotTime(timestamp) {
 
 // 设置事件监听器
 function setupEventListeners() {
+  // 辅助函数：安全添加事件监听器
+  const addListener = (id, event, handler) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener(event, handler);
+    }
+  };
+
   // 视图切换按钮
-  document.getElementById('timelineViewBtn').addEventListener('click', switchToTimelineView);
-  document.getElementById('groupViewBtn').addEventListener('click', switchToGroupView);
+  addListener('timelineViewBtn', 'click', switchToTimelineView);
+  addListener('groupViewBtn', 'click', switchToGroupView);
 
   // 刷新按钮
-  document.getElementById('refreshBtn').addEventListener('click', async () => {
+  addListener('refreshBtn', 'click', async () => {
     await loadData();
     renderCurrentView();
-  });
-
-  // 设置按钮
-  document.getElementById('settingsBtn').addEventListener('click', () => {
-    chrome.runtime.openOptionsPage();
   });
 
   // 为看板标题添加操作按钮
