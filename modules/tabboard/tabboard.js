@@ -460,7 +460,8 @@ function renderBoard() {
   const totalTabs = Object.values(tabs).flat().length;
   stats.textContent = `${totalTabs} 个标签页 · ${groups.length} 个分组`;
 
-  if (groups.length === 0 || totalTabs === 0) {
+  // 只有没有任何分组时才显示空状态
+  if (groups.length === 0) {
     tabboard.innerHTML = '';
     emptyState.style.display = 'flex';
     return;
