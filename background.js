@@ -321,6 +321,41 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           sendResponse({ success: true });
           break;
 
+        case 'importTimelineSnapshots':
+          const importResult = await chrome.storage.local.get(['timelineSnapshots']);
+          const existingSnapshots = importResult.timelineSnapshots || [];
+          // 合并导入的快照到现有快照中（去重）
+          const existingIds = new Set(existingSnapshots.map(s => s.id));
+          const newSnapshots = request.snapshots.filter(s => !existingIds.has(s.id));
+          const mergedSnapshots = [...newSnapshots, ...existingSnapshots];
+          // 限制最多 50 个快照
+          if (mergedSnapshots.length > 50) {
+            mergedSnapshots.length = 50;
+          }
+          await chrome.storage.local.set({ timelineSnapshots: mergedSnapshots });
+          sendResponse({ success: true, imported: newSnapshots.length });
+          break;
+
+        case 'clearAllGroups':
+          const clearResult = await chrome.storage.local.get(['tabs']);
+          const clearedTabs = clearResult.tabs || {};
+          // 清空所有分组的标签
+          for (const groupId in clearedTabs) {
+            clearedTabs[groupId] = [];
+          }
+          await chrome.storage.local.set({ tabs: clearedTabs });
+          sendResponse({ success: true });
+          break;
+
+        case 'importGroupsAndTabs':
+          // 导入分组和标签数据（替换现有数据）
+          await chrome.storage.local.set({
+            groups: request.groups,
+            tabs: request.tabs
+          });
+          sendResponse({ success: true });
+          break;
+
         case 'addTab':
           const defaultId = await getDefaultGroupId();
           await addTabToGroup(request.tab, request.groupId || defaultId);

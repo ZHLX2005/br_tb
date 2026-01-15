@@ -118,8 +118,10 @@ function renderTimelineView() {
   // 渲染快照列表
   timelineList.innerHTML = `
     <div class="timeline-actions-header">
-      <button class="timeline-action-btn restore-all-btn" title="恢复所有快照">📂 恢复所有</button>
-      <button class="timeline-action-btn clear-all-btn" title="清空所有快照">🗑️ 清空时序</button>
+      <button class="timeline-action-btn restore-all-btn" title="恢复所有快照">打开全部</button>
+      <button class="timeline-action-btn clear-all-btn" title="清空所有快照">清空</button>
+      <button class="timeline-action-btn export-timeline-btn" title="导出快照数据">导出</button>
+      <button class="timeline-action-btn import-timeline-btn" title="导入快照数据">导入</button>
     </div>
     <div class="timeline-snapshots-list">
       ${timelineSnapshots.map(snapshot => renderSnapshot(snapshot)).join('')}
@@ -264,6 +266,143 @@ function setupTimelineEventListeners() {
       }
     });
   }
+
+  // 导出快照数据按钮
+  const exportBtn = document.querySelector('.export-timeline-btn');
+  if (exportBtn) {
+    exportBtn.addEventListener('click', () => {
+      exportTimelineData();
+    });
+  }
+
+  // 导入快照数据按钮
+  const importBtn = document.querySelector('.import-timeline-btn');
+  if (importBtn) {
+    importBtn.addEventListener('click', () => {
+      importTimelineData();
+    });
+  }
+}
+
+// 导出时序快照数据
+function exportTimelineData() {
+  const data = {
+    version: '1.0',
+    exportTime: new Date().toISOString(),
+    snapshots: timelineSnapshots
+  };
+
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `tabboard-timeline-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// 导入时序快照数据
+function importTimelineData() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+
+      if (!data.snapshots || !Array.isArray(data.snapshots)) {
+        alert('无效的数据格式');
+        return;
+      }
+
+      const importCount = data.snapshots.length;
+      if (!confirm(`确定要导入 ${importCount} 个快照吗？这将添加到现有快照中。`)) {
+        return;
+      }
+
+      // 合并快照数据
+      await chrome.runtime.sendMessage({
+        action: 'importTimelineSnapshots',
+        snapshots: data.snapshots
+      });
+
+      await loadData();
+      renderTimelineView();
+    } catch (error) {
+      alert('导入失败：' + error.message);
+    }
+  };
+
+  input.click();
+}
+
+// 导出分组和标签数据
+function exportGroupsData() {
+  const data = {
+    version: '1.0',
+    exportTime: new Date().toISOString(),
+    groups: groups,
+    tabs: tabs
+  };
+
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `tabboard-groups-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// 导入分组和标签数据
+function importGroupsData() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+
+      if (!data.groups || !Array.isArray(data.groups) || !data.tabs) {
+        alert('无效的数据格式');
+        return;
+      }
+
+      const groupCount = data.groups.length;
+      const tabCount = Object.values(data.tabs).flat().length;
+      if (!confirm(`确定要导入 ${groupCount} 个分组和 ${tabCount} 个标签吗？这将替换现有数据。`)) {
+        return;
+      }
+
+      // 导入数据
+      await chrome.runtime.sendMessage({
+        action: 'importGroupsAndTabs',
+        groups: data.groups,
+        tabs: data.tabs
+      });
+
+      await loadData();
+      renderCurrentView();
+    } catch (error) {
+      alert('导入失败：' + error.message);
+    }
+  };
+
+  input.click();
 }
 
 // 转换数据为 jKanban 格式
@@ -315,18 +454,33 @@ function getColorClass(color) {
 function renderBoard() {
   const emptyState = document.getElementById('emptyState');
   const stats = document.getElementById('stats');
+  const tabboard = document.getElementById('tabboard');
 
   // 计算总标签数
   const totalTabs = Object.values(tabs).flat().length;
   stats.textContent = `${totalTabs} 个标签页 · ${groups.length} 个分组`;
 
   if (groups.length === 0 || totalTabs === 0) {
-    document.getElementById('tabboard').innerHTML = '';
+    tabboard.innerHTML = '';
     emptyState.style.display = 'flex';
     return;
   }
 
   emptyState.style.display = 'none';
+
+  // 添加操作按钮区域
+  const actionsHeader = document.createElement('div');
+  actionsHeader.className = 'board-actions-header';
+  actionsHeader.innerHTML = `
+    <button class="board-action-btn open-all-groups-btn" title="打开所有分组">打开全部</button>
+    <button class="board-action-btn clear-all-groups-btn" title="清空所有分组">清空</button>
+    <button class="board-action-btn export-groups-btn" title="导出分组数据">导出</button>
+    <button class="board-action-btn import-groups-btn" title="导入分组数据">导入</button>
+  `;
+
+  // 清空并添加操作按钮
+  tabboard.innerHTML = '';
+  tabboard.appendChild(actionsHeader);
 
   const boards = convertToJKanbanFormat();
 
@@ -569,6 +723,49 @@ function setupBoardActions() {
 
   // 设置删除按钮的事件委托
   setupDeleteButtons();
+
+  // 绑定分组视图操作按钮
+  setupGroupActionButtons();
+}
+
+// 设置分组视图操作按钮
+function setupGroupActionButtons() {
+  const openAllBtn = document.querySelector('.open-all-groups-btn');
+  const clearAllBtn = document.querySelector('.clear-all-groups-btn');
+  const exportBtn = document.querySelector('.export-groups-btn');
+  const importBtn = document.querySelector('.import-groups-btn');
+
+  if (openAllBtn) {
+    openAllBtn.addEventListener('click', async () => {
+      if (confirm(`确定要打开所有 ${groups.length} 个分组吗？`)) {
+        for (const group of groups) {
+          await chrome.runtime.sendMessage({ action: 'openGroup', groupId: group.id });
+        }
+      }
+    });
+  }
+
+  if (clearAllBtn) {
+    clearAllBtn.addEventListener('click', async () => {
+      if (confirm(`确定要清空所有分组吗？`)) {
+        await chrome.runtime.sendMessage({ action: 'clearAllGroups' });
+        await loadData();
+        renderCurrentView();
+      }
+    });
+  }
+
+  if (exportBtn) {
+    exportBtn.addEventListener('click', () => {
+      exportGroupsData();
+    });
+  }
+
+  if (importBtn) {
+    importBtn.addEventListener('click', () => {
+      importGroupsData();
+    });
+  }
 }
 
 // 添加看板操作按钮

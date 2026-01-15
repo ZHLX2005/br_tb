@@ -160,6 +160,29 @@ body {
   padding: 12px;
 }
 
+/* 分组视图操作按钮区域 */
+.board-actions-header {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
+
+.board-actions-header .board-action-btn {
+  padding: 4px 10px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: white;
+  color: var(--text);
+}
+
+.board-actions-header .board-action-btn:hover {
+  background: var(--bg);
+}
+
 /* jKanban 看板样式覆盖 */
 .kanban-container {
   display: flex;
@@ -483,7 +506,7 @@ body {
   }
 }
 
-/* Timeline View Styles - 快照模式 */
+/* Timeline View Styles - 快照模式 - 朴素密集风格 */
 .view-container {
   flex: 1;
   display: flex;
@@ -494,46 +517,45 @@ body {
 
 .timeline-list {
   overflow-y: auto;
-  padding: 16px;
+  padding: 8px 12px;
   flex: 1;
   min-height: 0;
 }
 
 .timeline-actions-header {
   display: flex;
-  gap: 8px;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--border);
+  gap: 6px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
 }
 
 .timeline-action-btn {
-  padding: 4px 10px;
-  font-size: 12px;
-  border: none;
-  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 11px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
   cursor: pointer;
-  transition: all 0.2s;
-  background: #f0f0f0;
+  transition: all 0.15s;
+  background: white;
   color: var(--text);
 }
 
 .timeline-action-btn:hover {
-  background: var(--primary);
-  color: white;
+  background: var(--bg);
+  border-color: var(--text-light);
 }
 
-/* 快照列表 */
+/* 快照列表 - 朴素密集风格 */
 .timeline-snapshots-list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 6px;
 }
 
 .timeline-snapshot {
   background: white;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 3px;
   overflow: hidden;
 }
 
@@ -541,67 +563,66 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 12px;
-  background: var(--primary-light);
+  padding: 4px 6px;
+  background: var(--bg);
   border-bottom: 1px solid var(--border);
 }
 
 .snapshot-info {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .snapshot-time {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--primary-dark);
+  font-size: 11px;
+  color: var(--text);
 }
 
 .snapshot-count {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-light);
   background: white;
-  padding: 2px 6px;
-  border-radius: 10px;
+  padding: 1px 4px;
+  border-radius: 2px;
+  border: 1px solid var(--border);
 }
 
 .snapshot-actions {
   display: flex;
-  gap: 6px;
+  gap: 3px;
 }
 
 .snapshot-action-btn {
-  padding: 4px 8px;
-  font-size: 11px;
-  border: none;
-  border-radius: 4px;
+  padding: 2px 5px;
+  font-size: 10px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.15s;
   background: white;
   color: var(--text);
 }
 
 .snapshot-action-btn:hover {
-  background: var(--primary);
-  color: white;
+  background: var(--bg);
 }
 
 .snapshot-tabs {
-  padding: 8px;
+  padding: 2px 4px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0;
 }
 
 .snapshot-tab-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
+  gap: 5px;
+  padding: 2px 4px;
   cursor: pointer;
-  transition: background 0.15s;
-  border-radius: 4px;
+  transition: background 0.1s;
+  border-radius: 2px;
 }
 
 .snapshot-tab-row:hover {
@@ -609,16 +630,15 @@ body {
 }
 
 .snapshot-tab-favicon {
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   flex-shrink: 0;
-  border-radius: 2px;
 }
 
 .snapshot-tab-title {
   flex: 1;
   min-width: 0;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -627,20 +647,19 @@ body {
 
 .snapshot-more-btn {
   width: 100%;
-  padding: 6px;
-  margin-top: 4px;
-  border: none;
-  background: #f8f9fa;
+  padding: 3px;
+  margin-top: 2px;
+  border: 1px solid var(--border);
+  background: white;
   color: var(--text-light);
-  font-size: 11px;
+  font-size: 10px;
   cursor: pointer;
-  border-radius: 4px;
-  transition: all 0.2s;
+  border-radius: 2px;
+  transition: all 0.15s;
 }
 
 .snapshot-more-btn:hover {
-  background: var(--primary-light);
-  color: var(--primary-dark);
+  background: var(--bg);
 }
 
 /* Timeline scrollbar */
