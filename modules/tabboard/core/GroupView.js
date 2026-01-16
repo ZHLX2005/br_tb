@@ -80,6 +80,7 @@ class GroupView {
       dropEl: (el, target, source, sibling) => this._handleDropEl(el, target, source, sibling),
       dragendEl: (el) => this._handleDragEndEl(el),
       buttonClick: (el, boardId) => this._handleBoardButtonClick(el, boardId),
+      dropBoard: (el, target, source, sibling) => this._handleDropBoard(el, target, source, sibling),
       itemAddOptions: {
         enabled: false
       }
@@ -253,15 +254,15 @@ class GroupView {
     const targetBoardId = target.parentElement.getAttribute('data-id');
     const sourceBoardId = source.parentElement.getAttribute('data-id');
 
-    if (targetBoardId === sourceBoardId) {
-      return;
-    }
+    // 获取 sibling 的 ID 来确定插入位置
+    const siblingId = sibling?.getAttribute('data-eid') || null;
 
-    // 通过 background 更新存储，避免直接修改全局变量
+    // 通过 background 更新存储，包含位置信息
     await this.dataManager.sendMessage('moveTab', {
       tabId: itemId,
       fromGroup: sourceBoardId,
-      toGroup: targetBoardId
+      toGroup: targetBoardId,
+      afterTabId: siblingId  // 用于确定插入顺序
     });
   }
 
@@ -270,6 +271,21 @@ class GroupView {
    */
   _handleDragEndEl(el) {
     // 可以在这里添加额外的处理逻辑
+  }
+
+  /**
+   * 处理看板拖拽 - 保存看板顺序
+   */
+  async _handleDropBoard(el, target, source, sibling) {
+    // 获取所有看板的当前顺序
+    const container = document.querySelector('.kanban-container');
+    const boardElements = container.querySelectorAll('.kanban-board');
+
+    // 按照当前 DOM 顺序收集看板 ID
+    const boardOrder = Array.from(boardElements).map(board => board.getAttribute('data-id'));
+
+    // 更新看板顺序到存储
+    await this.dataManager.sendMessage('updateBoardOrder', { boardOrder });
   }
 
   /**
