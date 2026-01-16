@@ -799,6 +799,18 @@ function setupGroupActionButtons() {
 
 // 添加看板操作按钮
 function addBoardActionButtons() {
+  const groupView = document.getElementById('groupView');
+  const actionsHeader = document.querySelector('.board-actions-header');
+
+  // 使用 groupView 的完整高度作为基准
+  const viewHeight = groupView.clientHeight;
+
+  // 计算看板可用高度
+  let boardMaxHeight = viewHeight - 24; // 减去 tabboard 的 padding (12px * 2)
+  if (actionsHeader) {
+    boardMaxHeight -= actionsHeader.offsetHeight + 8; // 减去按钮高度和 margin-bottom
+  }
+
   document.querySelectorAll('.kanban-board').forEach(board => {
     const header = board.querySelector('.kanban-title-board');
     if (header && !header.querySelector('.board-actions')) {
@@ -811,6 +823,9 @@ function addBoardActionButtons() {
       `;
       header.appendChild(actions);
     }
+
+    // 设置看板高度，使内容区域可以滚动
+    board.style.height = `${Math.max(200, boardMaxHeight)}px`; // 最小高度 200px
   });
 
   // 绑定按钮事件
