@@ -3,7 +3,9 @@
     "allow": [
       "Bash(dir:*)",
       "Bash(curl:*)",
-      "Bash(if not exist docs mkdir docs)"
+      "Bash(if not exist docs mkdir docs)",
+      "Bash(git fetch:*)",
+      "Bash(git merge:*)"
     ]
   }
 }
