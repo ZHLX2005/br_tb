@@ -16,7 +16,7 @@ function generateId() {
 
 // 初始化默认数据
 async function initializeDefaultData() {
-  const result = await chrome.storage.local.get(['groups', 'tabs', 'timelineTabs', 'settings']);
+  const result = await chrome.storage.local.get(['groups', 'tabs', 'timelineSnapshots', 'settings']);
 
   if (!result.groups) {
     const defaultGroups = [
