@@ -65,6 +65,14 @@ async function getDefaultGroupId() {
 
 // 添加标签页到分组
 async function addTabToGroup(tab, groupId) {
+  // 过滤无效标签
+  if (!tab.url || tab.url === 'about:blank' || tab.url.trim() === '') {
+    return false;
+  }
+  if (!tab.title || tab.title.trim() === '') {
+    return false;
+  }
+
   const result = await chrome.storage.local.get(['tabs']);
   const tabs = result.tabs || {};
 
@@ -106,6 +114,30 @@ async function addCurrentTabToDefaultGroup() {
       type: 'info',
       title: '无法添加',
       message: '无法添加特殊页面',
+      duration: 2000
+    }).catch(() => {});
+    return;
+  }
+
+  // 跳过空白页和无效 URL
+  if (!tab.url || tab.url === 'about:blank' || tab.url.trim() === '') {
+    chrome.tabs.sendMessage(tab.id, {
+      action: 'showToast',
+      type: 'info',
+      title: '无法添加',
+      message: '无法添加空白页',
+      duration: 2000
+    }).catch(() => {});
+    return;
+  }
+
+  // 跳过空标题和无效标题
+  if (!tab.title || tab.title.trim() === '') {
+    chrome.tabs.sendMessage(tab.id, {
+      action: 'showToast',
+      type: 'info',
+      title: '无法添加',
+      message: '无法添加无效页面',
       duration: 2000
     }).catch(() => {});
     return;
@@ -171,6 +203,16 @@ async function collectCurrentWindowTabs() {
 
     // 可选：跳过 edge:// 页面
     if (excludeEdgeUrls && tab.url.startsWith('edge://')) {
+      continue;
+    }
+
+    // 跳过空白页和无效 URL
+    if (!tab.url || tab.url === 'about:blank' || tab.url.trim() === '') {
+      continue;
+    }
+
+    // 跳过空标题和无效标题
+    if (!tab.title || tab.title.trim() === '') {
       continue;
     }
 
