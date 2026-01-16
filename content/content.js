@@ -212,3 +212,35 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
   return true;
 });
+
+// ==================== 访问次数统计 ====================
+/**
+ * 页面加载时检查并增加访问次数
+ */
+function trackPageVisit() {
+  // 忽略特殊页面
+  if (window.location.protocol === 'chrome:' ||
+      window.location.protocol === 'chrome-extension:' ||
+      window.location.protocol === 'edge:' ||
+      window.location.href === 'about:blank') {
+    return;
+  }
+
+  // 发送消息给 background，增加当前 URL 的访问次数
+  chrome.runtime.sendMessage({
+    action: 'incrementVisitCount',
+    url: window.location.href
+  }, (response) => {
+    // 忽略响应错误（可能 background 还没准备好）
+    if (chrome.runtime.lastError) {
+      // 静默处理
+    }
+  });
+}
+
+// 页面加载完成后立即统计
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', trackPageVisit);
+} else {
+  trackPageVisit();
+}

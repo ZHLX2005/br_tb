@@ -367,6 +367,15 @@ body {
   white-space: nowrap;
 }
 
+.kanban-item-visits {
+  font-size: 10px;
+  color: var(--primary);
+  background: var(--primary-light);
+  padding: 1px 5px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
 .kanban-item-url {
   font-size: 10px;
   color: var(--text-light);

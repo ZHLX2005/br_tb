@@ -100,22 +100,28 @@ class GroupView {
         id: group.id,
         title: group.name,
         class: `kanban-board-${getColorClass(group.color)}`,
-        item: groupTabs.map(tab => ({
-          id: tab.id,
-          title: `
-            <div class="kanban-item-content">
-              <div class="kanban-item-header">
-                <img class="kanban-item-favicon" src="${escapeHtml(tab.favicon || '')}" loading="lazy">
-                <span class="kanban-item-title">${escapeHtml(tab.title)}</span>
+        item: groupTabs.map(tab => {
+          const visitCount = tab.visitCount || 0;
+          const visitBadge = visitCount > 0 ? `<span class="kanban-item-visits" title="访问次数">👁 ${visitCount}</span>` : '';
+
+          return {
+            id: tab.id,
+            title: `
+              <div class="kanban-item-content">
+                <div class="kanban-item-header">
+                  <img class="kanban-item-favicon" src="${escapeHtml(tab.favicon || '')}" loading="lazy">
+                  <span class="kanban-item-title">${escapeHtml(tab.title)}</span>
+                  ${visitBadge}
+                </div>
+                <div class="kanban-item-url">${escapeHtml(tab.url)}</div>
+                <div class="kanban-item-time">${formatTime(tab.timestamp)}</div>
+                <button class="kanban-item-delete" data-id="${tab.id}" title="删除">×</button>
               </div>
-              <div class="kanban-item-url">${escapeHtml(tab.url)}</div>
-              <div class="kanban-item-time">${formatTime(tab.timestamp)}</div>
-              <button class="kanban-item-delete" data-id="${tab.id}" title="删除">×</button>
-            </div>
-          `,
-          url: tab.url,
-          timestamp: tab.timestamp
-        }))
+            `,
+            url: tab.url,
+            timestamp: tab.timestamp
+          };
+        })
       };
     });
   }
