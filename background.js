@@ -14,6 +14,16 @@ function generateId() {
   return 'id-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
 }
 
+// 获取 URL 基础部分（忽略查询参数和 hash）
+function getUrlBase(url) {
+  try {
+    const urlObj = new URL(url);
+    return urlObj.origin + urlObj.pathname;
+  } catch {
+    return url;
+  }
+}
+
 // 初始化默认数据
 async function initializeDefaultData() {
   const result = await chrome.storage.local.get(['groups', 'tabs', 'timelineSnapshots', 'settings']);
@@ -567,6 +577,42 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         case 'collectAndOpenTabboard':
           await collectAndOpenTabboard();
           sendResponse({ success: true });
+          break;
+
+        case 'incrementVisitCount':
+          // 增加标签页的访问次数
+          const visitResult = await chrome.storage.local.get(['tabs']);
+          const allTabs = visitResult.tabs || {};
+          let found = false;
+
+          // 遍历所有分组，查找匹配的 URL
+          for (const groupId in allTabs) {
+            const groupTabs = allTabs[groupId];
+            for (const tab of groupTabs) {
+              // 使用 URL 基础部分进行匹配（忽略查询参数和 hash）
+              const tabUrlBase = getUrlBase(tab.url);
+              const requestUrlBase = getUrlBase(request.url);
+
+              if (tabUrlBase === requestUrlBase) {
+                // 增加访问次数
+                if (!tab.visitCount) {
+                  tab.visitCount = 0;
+                }
+                tab.visitCount += 1;
+                tab.lastVisit = new Date().toISOString();
+                found = true;
+                break;
+              }
+            }
+            if (found) break;
+          }
+
+          // 如果找到匹配的标签，保存更新
+          if (found) {
+            await chrome.storage.local.set({ tabs: allTabs });
+          }
+
+          sendResponse({ success: true, found });
           break;
 
         default:
