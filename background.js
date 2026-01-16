@@ -327,13 +327,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           // 合并导入的快照到现有快照中（去重）
           const existingIds = new Set(existingSnapshots.map(s => s.id));
           const snapshotsToAdd = request.snapshots.filter(s => !existingIds.has(s.id));
-          const mergedSnapshots = [...snapshotsToAdd, ...existingSnapshots];
+          // 现有快照在前，新导入的在后，这样超过50个时截断的是新快照而非现有快照
+          const mergedSnapshots = [...existingSnapshots, ...snapshotsToAdd];
           // 限制最多 50 个快照
           if (mergedSnapshots.length > 50) {
             mergedSnapshots.length = 50;
           }
           await chrome.storage.local.set({ timelineSnapshots: mergedSnapshots });
-          sendResponse({ success: true, imported: snapshotsToAdd.length });
+          sendResponse({ success: true, imported: snapshotsToAdd.length, total: mergedSnapshots.length });
           break;
 
         case 'clearAllGroups':

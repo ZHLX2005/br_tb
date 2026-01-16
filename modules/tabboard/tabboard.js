@@ -213,10 +213,15 @@ function setupTimelineEventListeners() {
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
       const snapshotId = btn.dataset.id;
-      await chrome.runtime.sendMessage({
+      const result = await chrome.runtime.sendMessage({
         action: 'restoreSnapshot',
         snapshotId
       });
+      if (result.success) {
+        // 恢复成功后刷新视图，确保数据同步
+        await loadData();
+        renderTimelineView();
+      }
     });
   });
 
@@ -328,10 +333,19 @@ function importTimelineData() {
       }
 
       // 合并快照数据
-      await chrome.runtime.sendMessage({
+      const importResult = await chrome.runtime.sendMessage({
         action: 'importTimelineSnapshots',
         snapshots: data.snapshots
       });
+
+      if (importResult.success) {
+        const totalImported = importResult.imported || 0;
+        const totalSnapshots = importResult.total || 0;
+        alert(`成功导入 ${totalImported} 个快照，当前共有 ${totalSnapshots} 个快照。`);
+      } else {
+        alert('导入失败，请重试。');
+        return;
+      }
 
       await loadData();
       renderTimelineView();
@@ -854,12 +868,21 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-// 监听存储变化
-chrome.storage.onChanged.addListener(async (changes, namespace) => {
-  if (namespace === 'local') {
+// 监听存储变化（带防抖，避免与手动刷新冲突）
+let storageChangeTimer = null;
+chrome.storage.onChanged.addListener((changes, namespace) => {
+  if (namespace !== 'local') return;
+
+  // 清除之前的定时器
+  if (storageChangeTimer) {
+    clearTimeout(storageChangeTimer);
+  }
+
+  // 防抖延迟 100ms，避免短时间内多次变化导致重复渲染
+  storageChangeTimer = setTimeout(async () => {
     await loadData();
     renderCurrentView();
-  }
+  }, 100);
 });
 
 // 初始化
