@@ -207,9 +207,9 @@ async function collectCurrentWindowTabs() {
   // 添加到快照列表开头
   timelineSnapshots.unshift(newSnapshot);
 
-  // 限制最多 50 个快照
+  // 限制最多 50 个快照（删除最旧的，即数组末尾的）
   if (timelineSnapshots.length > 50) {
-    timelineSnapshots.length = 50;
+    timelineSnapshots.splice(50);  // 删除索引 50 及之后的所有元素
   }
 
   await chrome.storage.local.set({ timelineSnapshots });
@@ -329,9 +329,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           const snapshotsToAdd = request.snapshots.filter(s => !existingIds.has(s.id));
           // 现有快照在前，新导入的在后，这样超过50个时截断的是新快照而非现有快照
           const mergedSnapshots = [...existingSnapshots, ...snapshotsToAdd];
-          // 限制最多 50 个快照
+          // 限制最多 50 个快照（删除最旧的，即数组末尾的）
           if (mergedSnapshots.length > 50) {
-            mergedSnapshots.length = 50;
+            mergedSnapshots.splice(50);  // 删除索引 50 及之后的所有元素
           }
           await chrome.storage.local.set({ timelineSnapshots: mergedSnapshots });
           sendResponse({ success: true, imported: snapshotsToAdd.length, total: mergedSnapshots.length });
