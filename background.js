@@ -408,27 +408,73 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         case 'moveTab':
           const moveResult = await chrome.storage.local.get(['tabs']);
           const tabsData = moveResult.tabs || {};
-          const { fromGroup, toGroup, tabId } = request;
+          const { fromGroup, toGroup, tabId, afterTabId } = request;
 
-          // 从原分组移除
-          tabsData[fromGroup] = tabsData[fromGroup]?.filter(t => t.id !== tabId) || [];
+          // 从原分组移除并找到要移动的标签
+          let tabToMove = tabsData[fromGroup]?.find(t => t.id === tabId);
+          if (tabsData[fromGroup]) {
+            tabsData[fromGroup] = tabsData[fromGroup].filter(t => t.id !== tabId);
+          }
 
-          // 添加到新分组
-          const tabToMove = tabsData[fromGroup]?.find(t => t.id === tabId) ||
-                            Object.values(tabsData).flat().find(t => t.id === tabId);
+          // 如果原分组没找到，从所有分组中查找
+          if (!tabToMove) {
+            for (const gid in tabsData) {
+              const found = tabsData[gid].find(t => t.id === tabId);
+              if (found) {
+                tabToMove = found;
+                tabsData[gid] = tabsData[gid].filter(t => t.id !== tabId);
+                break;
+              }
+            }
+          }
 
           if (tabToMove) {
             if (!tabsData[toGroup]) tabsData[toGroup] = [];
-            tabsData[toGroup].push(tabToMove);
 
-            // 从所有分组中清理旧数据
-            for (const gid in tabsData) {
-              if (gid !== toGroup) {
-                tabsData[gid] = tabsData[gid].filter(t => t.id !== tabId);
+            // 根据 afterTabId 确定插入位置
+            if (afterTabId) {
+              const afterIndex = tabsData[toGroup].findIndex(t => t.id === afterTabId);
+              if (afterIndex !== -1) {
+                // 插入到 afterTabId 之后
+                tabsData[toGroup].splice(afterIndex + 1, 0, tabToMove);
+              } else {
+                // 没找到 afterTabId，添加到末尾
+                tabsData[toGroup].push(tabToMove);
               }
+            } else {
+              // 没有指定 afterTabId，添加到开头
+              tabsData[toGroup].unshift(tabToMove);
             }
 
             await chrome.storage.local.set({ tabs: tabsData });
+          }
+          sendResponse({ success: true });
+          break;
+
+        case 'updateBoardOrder':
+          const boardResult = await chrome.storage.local.get(['groups']);
+          const allGroups = boardResult.groups || [];
+          const { boardOrder } = request;
+
+          // 根据 boardOrder 重新排列 groups 数组
+          if (Array.isArray(boardOrder) && boardOrder.length > 0) {
+            const orderedGroups = [];
+            const groupMap = new Map(allGroups.map(g => [g.id, g]));
+
+            // 按照指定顺序添加分组
+            for (const groupId of boardOrder) {
+              if (groupMap.has(groupId)) {
+                orderedGroups.push(groupMap.get(groupId));
+                groupMap.delete(groupId);
+              }
+            }
+
+            // 添加任何未在 boardOrder 中的分组（新创建的等）
+            for (const group of groupMap.values()) {
+              orderedGroups.push(group);
+            }
+
+            await chrome.storage.local.set({ groups: orderedGroups });
           }
           sendResponse({ success: true });
           break;
