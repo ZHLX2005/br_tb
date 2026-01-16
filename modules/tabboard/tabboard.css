@@ -698,3 +698,14 @@ body {
     padding: 5px 6px;
   }
 }
+
+/* 图片加载失败时的样式 - 使用伪元素作为默认图标 */
+.kanban-item-favicon:not([src]),
+.snapshot-tab-favicon:not([src]) {
+  visibility: hidden;
+}
+
+.kanban-item-favicon[src=""],
+.snapshot-tab-favicon[src=""] {
+  visibility: hidden;
+}

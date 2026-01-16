@@ -153,7 +153,7 @@ function renderSnapshot(snapshot) {
       <div class="snapshot-tabs">
         ${displayTabs.map(tab => `
           <div class="snapshot-tab-row" data-url="${escapeHtml(tab.url)}">
-            <img class="snapshot-tab-favicon" src="${escapeHtml(tab.favicon || '')}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22 fill=%22%23999%22><rect width=%2216%22 height=%2216%22 rx=%223%22/></svg>'">
+            <img class="snapshot-tab-favicon" src="${escapeHtml(tab.favicon || '')}" loading="lazy">
             <span class="snapshot-tab-title">${escapeHtml(tab.title)}</span>
           </div>
         `).join('')}
@@ -196,7 +196,7 @@ function setupTimelineEventListeners() {
           tabRow.className = 'snapshot-tab-row';
           tabRow.dataset.url = tab.url;
           tabRow.innerHTML = `
-            <img class="snapshot-tab-favicon" src="${escapeHtml(tab.favicon || '')}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22 fill=%22%23999%22><rect width=%2216%22 height=%2216%22 rx=%223%22/></svg>'">
+            <img class="snapshot-tab-favicon" src="${escapeHtml(tab.favicon || '')}" loading="lazy">
             <span class="snapshot-tab-title">${escapeHtml(tab.title)}</span>
           `;
           tabRow.addEventListener('click', () => {
@@ -418,7 +418,7 @@ function convertToJKanbanFormat() {
         title: `
           <div class="kanban-item-content">
             <div class="kanban-item-header">
-              <img class="kanban-item-favicon" src="${escapeHtml(tab.favicon || '')}" onerror="this.style.display='none'">
+              <img class="kanban-item-favicon" src="${escapeHtml(tab.favicon || '')}" loading="lazy">
               <span class="kanban-item-title">${escapeHtml(tab.title)}</span>
             </div>
             <div class="kanban-item-url">${escapeHtml(tab.url)}</div>
@@ -692,6 +692,13 @@ function setupEventListeners() {
     await loadData();
     renderCurrentView();
   });
+
+  // 图片加载错误处理 - 使用事件委托
+  document.addEventListener('error', (e) => {
+    if (e.target.tagName === 'IMG') {
+      e.target.style.display = 'none';
+    }
+  }, true);
 
   // 为看板标题添加操作按钮
   setupBoardActions();
