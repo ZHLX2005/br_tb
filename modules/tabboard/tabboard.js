@@ -21,29 +21,25 @@ async function init() {
   setupEventListeners();
 }
 
-// 加载数据
+// 加载数据 - 统一从 storage 读取以避免竞态条件
 async function loadData() {
-  const [groupsResponse, tabsResponse, timelineResponse, settingsResponse] = await Promise.all([
-    chrome.runtime.sendMessage({ action: 'getGroups' }),
-    chrome.storage.local.get(['tabs']),
-    chrome.runtime.sendMessage({ action: 'getTimelineTabs' }),
-    chrome.runtime.sendMessage({ action: 'getSettings' })
-  ]);
+  const data = await chrome.storage.local.get(['groups', 'tabs', 'timelineSnapshots', 'settings']);
 
-  if (groupsResponse.success) {
-    groups = groupsResponse.groups;
+  // 使用 'in' 操作符检查 key 是否存在，避免空数组被 falsy 判断导致不更新
+  if ('groups' in data) {
+    groups = data.groups;
   }
 
-  if (tabsResponse.tabs) {
-    tabs = tabsResponse.tabs;
+  if ('tabs' in data) {
+    tabs = data.tabs;
   }
 
-  if (timelineResponse.success) {
-    timelineSnapshots = timelineResponse.snapshots;
+  if ('timelineSnapshots' in data) {
+    timelineSnapshots = data.timelineSnapshots;
   }
 
-  if (settingsResponse.success) {
-    settings = settingsResponse.settings || {};
+  if ('settings' in data) {
+    settings = data.settings;
   }
 }
 
@@ -548,7 +544,7 @@ function handleItemClick(el) {
   }
 }
 
-// 处理拖拽结束 - 保存更改到存储
+// 处理拖拽结束 - 通过 background 更新存储
 async function handleDropEl(el, target, source, sibling) {
   const itemId = el.getAttribute('data-eid');
   const targetBoardId = target.parentElement.getAttribute('data-id');
@@ -558,11 +554,15 @@ async function handleDropEl(el, target, source, sibling) {
     return;
   }
 
-  // 更新存储
-  await moveTabToGroup(itemId, sourceBoardId, targetBoardId);
+  // 通过 background 更新存储，避免直接修改全局变量
+  await chrome.runtime.sendMessage({
+    action: 'moveTab',
+    tabId: itemId,
+    fromGroup: sourceBoardId,
+    toGroup: targetBoardId
+  });
 
-  // 重新加载数据
-  await loadData();
+  // 不需要手动调用 loadData()，storage 变化会自动触发监听器刷新
 }
 
 // 处理拖拽结束
@@ -573,24 +573,6 @@ function handleDragEndEl(el) {
 // 处理看板按钮点击
 function handleBoardButtonClick(el, boardId) {
   // 可以在这里添加处理逻辑
-}
-
-// 移动标签到分组
-async function moveTabToGroup(tabId, fromGroup, toGroup) {
-  const tab = findTabInGroup(tabId, fromGroup);
-  if (!tab) return;
-
-  // 从原分组移除
-  tabs[fromGroup] = tabs[fromGroup].filter(t => t.id !== tabId);
-
-  // 添加到新分组
-  if (!tabs[toGroup]) {
-    tabs[toGroup] = [];
-  }
-  tabs[toGroup].push(tab);
-
-  // 保存到存储
-  await chrome.storage.local.set({ tabs });
 }
 
 // 查找标签页
