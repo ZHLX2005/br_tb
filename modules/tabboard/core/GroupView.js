@@ -12,6 +12,7 @@ class GroupView {
     this.tabs = {};
     this.kanban = null;
     this.boardActionsObserver = null;
+    this.visibleGroups = new Set(); // 存储可见分组的 ID
   }
 
   /**
@@ -20,6 +21,30 @@ class GroupView {
   updateData(data) {
     this.groups = data.groups || [];
     this.tabs = data.tabs || {};
+
+    // 初始化可见分组设置
+    this._initializeVisibleGroups(data.settings);
+  }
+
+  /**
+   * 初始化可见分组设置
+   */
+  _initializeVisibleGroups(settings) {
+    const savedVisibleGroups = settings?.visibleGroups;
+
+    if (savedVisibleGroups && Array.isArray(savedVisibleGroups)) {
+      this.visibleGroups = new Set(savedVisibleGroups);
+    } else {
+      // 默认显示所有分组
+      this.visibleGroups = new Set(this.groups.map(g => g.id));
+    }
+  }
+
+  /**
+   * 获取可见分组列表
+   */
+  _getVisibleGroups() {
+    return this.groups.filter(group => this.visibleGroups.has(group.id));
   }
 
   /**
@@ -32,7 +57,8 @@ class GroupView {
 
     // 计算总标签数
     const totalTabs = Object.values(this.tabs).flat().length;
-    stats.textContent = `${totalTabs} 个标签页 · ${this.groups.length} 个分组`;
+    const visibleGroups = this._getVisibleGroups();
+    stats.textContent = `${totalTabs} 个标签页 · ${visibleGroups.length}/${this.groups.length} 个分组显示`;
 
     // 只有没有任何分组时才显示空状态
     if (this.groups.length === 0) {
@@ -47,6 +73,7 @@ class GroupView {
     const actionsHeader = document.createElement('div');
     actionsHeader.className = 'board-actions-header';
     actionsHeader.innerHTML = `
+      <button class="board-action-btn filter-groups-btn" title="选择要显示的分组">🔍 筛选</button>
       <button class="board-action-btn open-all-groups-btn" title="打开所有分组">打开全部</button>
       <button class="board-action-btn clear-all-groups-btn" title="清空所有分组">清空</button>
       <button class="board-action-btn export-groups-btn" title="导出分组数据">导出</button>
@@ -57,7 +84,18 @@ class GroupView {
     tabboard.innerHTML = '';
     tabboard.appendChild(actionsHeader);
 
-    const boards = this._convertToJKanbanFormat();
+    // 如果没有可见分组，显示提示
+    if (visibleGroups.length === 0) {
+      const noVisibleMsg = document.createElement('div');
+      noVisibleMsg.className = 'no-visible-groups-message';
+      noVisibleMsg.textContent = '当前没有显示的分组，请点击"筛选"按钮选择要显示的分组';
+      noVisibleMsg.style.cssText = 'text-align: center; padding: 40px; color: #888; font-size: 14px;';
+      tabboard.appendChild(noVisibleMsg);
+      this._setupGroupActionButtons();
+      return;
+    }
+
+    const boards = this._convertToJKanbanFormat(visibleGroups);
 
     // 销毁旧的 kanban 实例
     if (this.kanban) {
@@ -93,8 +131,8 @@ class GroupView {
   /**
    * 转换数据为 jKanban 格式
    */
-  _convertToJKanbanFormat() {
-    return this.groups.map(group => {
+  _convertToJKanbanFormat(groupsToConvert = this.groups) {
+    return groupsToConvert.map(group => {
       const groupTabs = this.tabs[group.id] || [];
       return {
         id: group.id,
@@ -339,10 +377,15 @@ class GroupView {
    * 设置分组视图操作按钮
    */
   _setupGroupActionButtons() {
+    const filterBtn = document.querySelector('.filter-groups-btn');
     const openAllBtn = document.querySelector('.open-all-groups-btn');
     const clearAllBtn = document.querySelector('.clear-all-groups-btn');
     const exportBtn = document.querySelector('.export-groups-btn');
     const importBtn = document.querySelector('.import-groups-btn');
+
+    if (filterBtn) {
+      filterBtn.addEventListener('click', () => this._showGroupFilterDialog());
+    }
 
     if (openAllBtn) {
       openAllBtn.addEventListener('click', async () => {
@@ -406,6 +449,156 @@ class GroupView {
 
       await this.dataManager.loadData();
       this.render();
+    });
+  }
+
+  /**
+   * 显示分组筛选对话框
+   */
+  _showGroupFilterDialog() {
+    // 移除已存在的对话框
+    const existingDialog = document.getElementById('group-filter-dialog');
+    if (existingDialog) {
+      existingDialog.remove();
+    }
+
+    // 创建对话框遮罩
+    const overlay = document.createElement('div');
+    overlay.id = 'group-filter-dialog';
+    overlay.className = 'group-filter-overlay';
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+    `;
+
+    // 创建对话框内容
+    const dialog = document.createElement('div');
+    dialog.className = 'group-filter-dialog';
+    dialog.style.cssText = `
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 20px;
+      min-width: 400px;
+      max-width: 600px;
+      max-height: 70vh;
+      overflow: auto;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    `;
+
+    // 构建分组列表 HTML
+    const groupListHtml = this.groups.map(group => {
+      const isVisible = this.visibleGroups.has(group.id);
+      const tabCount = this.tabs[group.id]?.length || 0;
+      return `
+        <label class="group-filter-item" style="
+          display: flex;
+          align-items: center;
+          padding: 10px;
+          margin: 5px 0;
+          background: white;
+          border-radius: 4px;
+          cursor: pointer;
+          transition: background 0.2s;
+        ">
+          <input type="checkbox" value="${group.id}" ${isVisible ? 'checked' : ''} style="margin-right: 10px;">
+          <span class="group-color-indicator" style="
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+            background: ${group.color};
+          "></span>
+          <span class="group-name" style="flex: 1; font-weight: 500;">${escapeHtml(group.name)}</span>
+          <span class="group-tab-count" style="color: #888; font-size: 12px;">${tabCount} 个标签</span>
+        </label>
+      `;
+    }).join('');
+
+    dialog.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h3 style="margin: 0; font-size: 18px;">选择要显示的分组</h3>
+        <button class="close-dialog-btn" style="background: none; border: none; font-size: 20px; cursor: pointer;">×</button>
+      </div>
+      <div style="margin-bottom: 15px;">
+        <button class="select-all-groups-btn" style="margin-right: 10px; padding: 6px 12px; cursor: pointer;">全选</button>
+        <button class="deselect-all-groups-btn" style="padding: 6px 12px; cursor: pointer;">全不选</button>
+      </div>
+      <div class="group-filter-list">
+        ${groupListHtml}
+      </div>
+      <div style="margin-top: 15px; text-align: right; padding-top: 15px; border-top: 1px solid #ddd;">
+        <button class="cancel-filter-btn" style="margin-right: 10px; padding: 8px 16px; cursor: pointer;">取消</button>
+        <button class="apply-filter-btn" style="padding: 8px 16px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px;">应用</button>
+      </div>
+    `;
+
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    // 添加事件监听
+    const closeDialog = () => overlay.remove();
+
+    dialog.querySelector('.close-dialog-btn').addEventListener('click', closeDialog);
+    dialog.querySelector('.cancel-filter-btn').addEventListener('click', closeDialog);
+
+    dialog.querySelector('.select-all-groups-btn').addEventListener('click', () => {
+      dialog.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = true);
+    });
+
+    dialog.querySelector('.deselect-all-groups-btn').addEventListener('click', () => {
+      dialog.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+    });
+
+    dialog.querySelector('.apply-filter-btn').addEventListener('click', () => {
+      const selectedGroups = Array.from(dialog.querySelectorAll('input[type="checkbox"]:checked'))
+        .map(cb => cb.value);
+
+      if (selectedGroups.length === 0) {
+        alert('请至少选择一个分组');
+        return;
+      }
+
+      this.visibleGroups = new Set(selectedGroups);
+      this._saveVisibleGroups();
+      this.render();
+      closeDialog();
+    });
+
+    // 点击遮罩关闭
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        closeDialog();
+      }
+    });
+
+    // 添加 hover 效果
+    dialog.querySelectorAll('.group-filter-item').forEach(item => {
+      item.addEventListener('mouseenter', () => {
+        item.style.background = '#f0f0f0';
+      });
+      item.addEventListener('mouseleave', () => {
+        item.style.background = 'white';
+      });
+    });
+  }
+
+  /**
+   * 保存可见分组设置
+   */
+  async _saveVisibleGroups() {
+    const visibleGroupsArray = Array.from(this.visibleGroups);
+    await this.dataManager.sendMessage('updateSettings', {
+      settings: {
+        visibleGroups: visibleGroupsArray
+      }
     });
   }
 
