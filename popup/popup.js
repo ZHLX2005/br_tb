@@ -16,14 +16,22 @@ async function loadGroups() {
   const response = await chrome.runtime.sendMessage({ action: 'getGroups' });
   if (!response.success) return;
 
+  // 获取设置以获取可见分组列表
+  const settingsResponse = await chrome.runtime.sendMessage({ action: 'getSettings' });
+  const settings = settingsResponse.settings || {};
+  const visibleGroups = new Set(settings.visibleGroups || []);
+
   const groupsList = document.getElementById('groupsList');
 
-  if (response.groups.length === 0) {
-    groupsList.innerHTML = '<div class="empty-state">暂无分组</div>';
+  // 只显示可见的分组
+  const visibleGroupsList = response.groups.filter(group => visibleGroups.has(group.id));
+
+  if (visibleGroupsList.length === 0) {
+    groupsList.innerHTML = '<div class="empty-state">暂无可显示的分组（请在看板中筛选）</div>';
     return;
   }
 
-  groupsList.innerHTML = response.groups.map(group => `
+  groupsList.innerHTML = visibleGroupsList.map(group => `
     <div class="group-item" style="border-left-color: ${group.color}">
       <div class="group-color" style="background: ${group.color}"></div>
       <div class="group-name">${escapeHtml(group.name)}</div>
