@@ -617,23 +617,32 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
         case 'toggleTabMark':
           // 切换快照中标签的红色标记状态
+          console.log('[Background] toggleTabMark request:', request);
           const markResult = await chrome.storage.local.get(['timelineSnapshots']);
           const markSnapshots = markResult.timelineSnapshots || [];
           const { snapshotId, tabUrl, marked } = request;
 
           // 找到对应的快照
           const targetSnapshot = markSnapshots.find(s => s.id === snapshotId);
+          console.log('[Background] Found snapshot:', targetSnapshot ? 'Yes' : 'No');
+
           if (targetSnapshot) {
             // 找到对应的标签
             const targetTab = targetSnapshot.tabs.find(t => t.url === tabUrl);
+            console.log('[Background] Found tab:', targetTab ? 'Yes' : 'No', 'Searching for URL:', tabUrl);
+
             if (targetTab) {
               targetTab.marked = marked;
+              console.log('[Background] Setting marked to:', marked, 'for tab:', targetTab.title);
               await chrome.storage.local.set({ timelineSnapshots: markSnapshots });
               sendResponse({ success: true, marked: targetTab.marked });
+              console.log('[Background] Mark toggled successfully');
             } else {
+              console.error('[Background] Tab not found. Available tabs:', targetSnapshot.tabs.map(t => t.url));
               sendResponse({ success: false, error: 'Tab not found' });
             }
           } else {
+            console.error('[Background] Snapshot not found. Available snapshots:', markSnapshots.map(s => s.id));
             sendResponse({ success: false, error: 'Snapshot not found' });
           }
           break;

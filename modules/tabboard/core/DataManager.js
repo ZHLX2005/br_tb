@@ -67,7 +67,16 @@ class DataManager {
    * 通过 background 发送消息
    */
   async sendMessage(action, data = {}) {
-    return chrome.runtime.sendMessage({ action, ...data });
+    return new Promise((resolve) => {
+      chrome.runtime.sendMessage({ action, ...data }, (response) => {
+        if (chrome.runtime.lastError) {
+          console.error('[DataManager] Message error:', chrome.runtime.lastError);
+          resolve({ success: false, error: chrome.runtime.lastError.message });
+        } else {
+          resolve(response || { success: true });
+        }
+      });
+    });
   }
 }
 
