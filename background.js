@@ -615,6 +615,29 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           sendResponse({ success: true, found });
           break;
 
+        case 'toggleTabMark':
+          // 切换快照中标签的红色标记状态
+          const markResult = await chrome.storage.local.get(['timelineSnapshots']);
+          const markSnapshots = markResult.timelineSnapshots || [];
+          const { snapshotId, tabUrl, marked } = request;
+
+          // 找到对应的快照
+          const targetSnapshot = markSnapshots.find(s => s.id === snapshotId);
+          if (targetSnapshot) {
+            // 找到对应的标签
+            const targetTab = targetSnapshot.tabs.find(t => t.url === tabUrl);
+            if (targetTab) {
+              targetTab.marked = marked;
+              await chrome.storage.local.set({ timelineSnapshots: markSnapshots });
+              sendResponse({ success: true, marked: targetTab.marked });
+            } else {
+              sendResponse({ success: false, error: 'Tab not found' });
+            }
+          } else {
+            sendResponse({ success: false, error: 'Snapshot not found' });
+          }
+          break;
+
         default:
           sendResponse({ success: false, error: 'Unknown action' });
       }

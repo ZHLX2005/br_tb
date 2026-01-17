@@ -9,6 +9,7 @@ class TimelineView {
   constructor(dataManager) {
     this.dataManager = dataManager;
     this.snapshots = [];
+    this.filterMarkedOnly = false; // 筛选状态：是否只显示红色标记
   }
 
   /**
@@ -19,6 +20,14 @@ class TimelineView {
   }
 
   /**
+   * 切换筛选状态
+   */
+  toggleMarkedFilter() {
+    this.filterMarkedOnly = !this.filterMarkedOnly;
+    this.render();
+  }
+
+  /**
    * 渲染时序视图
    */
   render() {
@@ -26,14 +35,29 @@ class TimelineView {
     const stats = document.getElementById('stats');
     const timelineList = document.getElementById('timelineList');
 
-    // 计算总快照数和标签数
-    const totalSnapshots = this.snapshots.length;
-    const totalTabs = this.snapshots.reduce((sum, s) => sum + s.tabs.length, 0);
-    stats.textContent = `${totalSnapshots} 个快照 · ${totalTabs} 个标签页`;
+    // 根据筛选状态过滤快照
+    const filteredSnapshots = this._getFilteredSnapshots();
 
-    if (this.snapshots.length === 0) {
+    // 计算总快照数和标签数
+    const totalSnapshots = filteredSnapshots.length;
+    const totalTabs = filteredSnapshots.reduce((sum, s) => sum + s.tabs.length, 0);
+    const filterLabel = this.filterMarkedOnly ? ' (已标记)' : '';
+    stats.textContent = `${totalSnapshots} 个快照${filterLabel} · ${totalTabs} 个标签页`;
+
+    if (filteredSnapshots.length === 0) {
       timelineList.innerHTML = '';
-      emptyState.style.display = 'flex';
+      if (this.snapshots.length === 0) {
+        emptyState.style.display = 'flex';
+      } else {
+        // 有数据但筛选后为空
+        timelineList.innerHTML = `
+          <div class="timeline-empty-filter">
+            <div class="empty-icon">🔍</div>
+            <p>没有标记的标签</p>
+          </div>
+        `;
+        emptyState.style.display = 'none';
+      }
       return;
     }
 
@@ -46,13 +70,33 @@ class TimelineView {
         <button class="timeline-action-btn clear-all-btn" title="清空所有快照">清空</button>
         <button class="timeline-action-btn export-timeline-btn" title="导出快照数据">导出</button>
         <button class="timeline-action-btn import-timeline-btn" title="导入快照数据">导入</button>
+        <button class="timeline-action-btn filter-marked-btn ${this.filterMarkedOnly ? 'active' : ''}" title="只显示红色标记">
+          ${this.filterMarkedOnly ? '显示全部' : '只显示标记'}
+        </button>
       </div>
       <div class="timeline-snapshots-list">
-        ${this.snapshots.map(snapshot => this._renderSnapshot(snapshot)).join('')}
+        ${filteredSnapshots.map(snapshot => this._renderSnapshot(snapshot)).join('')}
       </div>
     `;
 
     this._setupEventListeners();
+  }
+
+  /**
+   * 获取过滤后的快照列表
+   */
+  _getFilteredSnapshots() {
+    if (!this.filterMarkedOnly) {
+      return this.snapshots;
+    }
+
+    // 只返回包含已标记标签的快照
+    return this.snapshots
+      .map(snapshot => ({
+        ...snapshot,
+        tabs: snapshot.tabs.filter(tab => tab.marked)
+      }))
+      .filter(snapshot => snapshot.tabs.length > 0);
   }
 
   /**
@@ -76,12 +120,7 @@ class TimelineView {
           </div>
         </div>
         <div class="snapshot-tabs">
-          ${displayTabs.map(tab => `
-            <div class="snapshot-tab-row" data-url="${escapeHtml(tab.url)}">
-              <img class="snapshot-tab-favicon" src="${escapeHtml(tab.favicon || '')}" loading="lazy">
-              <span class="snapshot-tab-title">${escapeHtml(tab.title)}</span>
-            </div>
-          `).join('')}
+          ${displayTabs.map(tab => this._renderTabRow(tab, snapshot.id)).join('')}
           ${hasMore ? `
             <button class="snapshot-more-btn" data-snapshot-id="${snapshot.id}">
               还有 ${moreCount} 个标签... ▼
@@ -93,17 +132,47 @@ class TimelineView {
   }
 
   /**
+   * 渲染单个标签行
+   */
+  _renderTabRow(tab, snapshotId) {
+    const markedClass = tab.marked ? 'marked' : '';
+    const markIcon = tab.marked ? '🔴' : '';
+
+    return `
+      <div class="snapshot-tab-row ${markedClass}" data-url="${escapeHtml(tab.url)}" data-snapshot-id="${snapshotId}" data-tab-url="${escapeHtml(tab.url)}">
+        <span class="tab-mark-indicator">${markIcon}</span>
+        <img class="snapshot-tab-favicon" src="${escapeHtml(tab.favicon || '')}" loading="lazy">
+        <span class="snapshot-tab-title">${escapeHtml(tab.title)}</span>
+      </div>
+    `;
+  }
+
+  /**
    * 设置时序视图事件监听器
    */
   _setupEventListeners() {
     // 点击快照中的标签行打开标签页
     document.querySelectorAll('.snapshot-tab-row').forEach(row => {
-      row.addEventListener('click', () => {
+      row.addEventListener('click', (e) => {
+        // 如果是右键点击，不处理打开逻辑
+        if (e.button === 2) return;
+
         const url = row.dataset.url;
         if (url) {
           this.dataManager.sendMessage('openTab', { url });
         }
       });
+
+      // 右键菜单
+      row.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        this._showContextMenu(e, row);
+      });
+    });
+
+    // 点击其他地方关闭右键菜单
+    document.addEventListener('click', () => {
+      this._hideContextMenu();
     });
 
     // "更多"按钮 - 展开显示所有标签
@@ -153,6 +222,134 @@ class TimelineView {
     if (importBtn) {
       importBtn.addEventListener('click', () => this._importData());
     }
+
+    // 筛选标记按钮
+    const filterBtn = document.querySelector('.filter-marked-btn');
+    if (filterBtn) {
+      filterBtn.addEventListener('click', () => this.toggleMarkedFilter());
+    }
+  }
+
+  /**
+   * 显示右键菜单
+   */
+  _showContextMenu(event, row) {
+    // 移除已存在的菜单
+    this._hideContextMenu();
+
+    const isMarked = row.classList.contains('marked');
+    const snapshotId = row.dataset.snapshotId;
+    const tabUrl = row.dataset.tabUrl;
+
+    const menu = document.createElement('div');
+    menu.className = 'context-menu';
+    menu.innerHTML = `
+      <div class="context-menu-item" data-action="${isMarked ? 'unmark' : 'mark'}">
+        <span class="menu-icon">${isMarked ? '⚪' : '🔴'}</span>
+        <span>${isMarked ? '取消标记' : '标记为重要'}</span>
+      </div>
+      <div class="context-menu-divider"></div>
+      <div class="context-menu-item" data-action="open">
+        <span class="menu-icon">🔗</span>
+        <span>打开链接</span>
+      </div>
+      <div class="context-menu-item" data-action="copy">
+        <span class="menu-icon">📋</span>
+        <span>复制链接</span>
+      </div>
+    `;
+
+    // 定位菜单
+    const x = event.clientX;
+    const y = event.clientY;
+    menu.style.left = `${x}px`;
+    menu.style.top = `${y}px`;
+
+    document.body.appendChild(menu);
+
+    // 添加菜单项点击事件
+    menu.querySelectorAll('.context-menu-item').forEach(item => {
+      item.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const action = item.dataset.action;
+
+        switch (action) {
+          case 'mark':
+            await this._toggleMark(snapshotId, tabUrl, true);
+            break;
+          case 'unmark':
+            await this._toggleMark(snapshotId, tabUrl, false);
+            break;
+          case 'open':
+            this.dataManager.sendMessage('openTab', { url: tabUrl });
+            break;
+          case 'copy':
+            await navigator.clipboard.writeText(tabUrl);
+            this._showToast('链接已复制', 'success');
+            break;
+        }
+
+        this._hideContextMenu();
+      });
+    });
+
+    // 阻止菜单的点击事件冒泡
+    menu.addEventListener('click', (e) => e.stopPropagation());
+  }
+
+  /**
+   * 隐藏右键菜单
+   */
+  _hideContextMenu() {
+    const existingMenu = document.querySelector('.context-menu');
+    if (existingMenu) {
+      existingMenu.remove();
+    }
+  }
+
+  /**
+   * 切换标记状态
+   */
+  async _toggleMark(snapshotId, tabUrl, marked) {
+    const result = await this.dataManager.sendMessage('toggleTabMark', {
+      snapshotId,
+      tabUrl,
+      marked
+    });
+
+    if (result.success) {
+      // 重新加载数据并渲染
+      await this.dataManager.loadData();
+      this.render();
+    }
+  }
+
+  /**
+   * 显示提示消息
+   */
+  _showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    toast.style.cssText = `
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 12px 20px;
+      background: ${type === 'success' ? '#66bb6a' : '#42a5f5'};
+      color: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      z-index: 10000;
+      animation: slideIn 0.3s ease;
+    `;
+
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+      toast.style.animation = 'slideOut 0.3s ease';
+      setTimeout(() => toast.remove(), 300);
+    }, 2000);
   }
 
   /**
@@ -169,15 +366,30 @@ class TimelineView {
     const remainingTabs = snapshot.tabs.slice(3);
     remainingTabs.forEach(tab => {
       const tabRow = document.createElement('div');
-      tabRow.className = 'snapshot-tab-row';
+      const markedClass = tab.marked ? 'marked' : '';
+      const markIcon = tab.marked ? '🔴' : '';
+
+      tabRow.className = `snapshot-tab-row ${markedClass}`;
       tabRow.dataset.url = tab.url;
+      tabRow.dataset.snapshotId = snapshotId;
+      tabRow.dataset.tabUrl = tab.url;
       tabRow.innerHTML = `
+        <span class="tab-mark-indicator">${markIcon}</span>
         <img class="snapshot-tab-favicon" src="${escapeHtml(tab.favicon || '')}" loading="lazy">
         <span class="snapshot-tab-title">${escapeHtml(tab.title)}</span>
       `;
-      tabRow.addEventListener('click', () => {
+
+      // 添加点击和右键菜单事件
+      tabRow.addEventListener('click', (e) => {
+        if (e.button === 2) return;
         this.dataManager.sendMessage('openTab', { url: tab.url });
       });
+
+      tabRow.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        this._showContextMenu(e, tabRow);
+      });
+
       tabsContainer.appendChild(tabRow);
     });
   }
@@ -208,12 +420,15 @@ class TimelineView {
    * 恢复所有快照
    */
   async _restoreAllSnapshots() {
-    const totalTabs = this.snapshots.reduce((sum, s) => sum + s.tabs.length, 0);
-    if (!confirm(`确定要恢复所有 ${this.snapshots.length} 个快照吗？这将打开 ${totalTabs} 个标签页。`)) {
+    const snapshotsToRestore = this.filterMarkedOnly ?
+      this._getFilteredSnapshots() : this.snapshots;
+
+    const totalTabs = snapshotsToRestore.reduce((sum, s) => sum + s.tabs.length, 0);
+    if (!confirm(`确定要恢复所有 ${snapshotsToRestore.length} 个快照吗？这将打开 ${totalTabs} 个标签页。`)) {
       return;
     }
 
-    for (const snapshot of this.snapshots) {
+    for (const snapshot of snapshotsToRestore) {
       for (const tab of snapshot.tabs) {
         await this.dataManager.sendMessage('openTab', { url: tab.url });
       }
