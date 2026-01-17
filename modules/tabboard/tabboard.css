@@ -553,6 +553,17 @@ body {
   border-color: var(--text-light);
 }
 
+/* 筛选按钮激活状态 */
+.timeline-action-btn.filter-marked-btn.active {
+  background: var(--danger);
+  color: white;
+  border-color: var(--danger);
+}
+
+.timeline-action-btn.filter-marked-btn.active:hover {
+  background: #e54847;
+}
+
 /* 快照列表 - 朴素密集风格 */
 .timeline-snapshots-list {
   display: flex;
@@ -637,6 +648,24 @@ body {
   background: var(--bg);
 }
 
+/* 红色标记的标签 */
+.snapshot-tab-row.marked {
+  background: rgba(239, 83, 80, 0.08);
+  border-left: 3px solid var(--danger);
+}
+
+.snapshot-tab-row.marked:hover {
+  background: rgba(239, 83, 80, 0.15);
+}
+
+/* 标记指示器 */
+.tab-mark-indicator {
+  font-size: 10px;
+  flex-shrink: 0;
+  width: 14px;
+  text-align: center;
+}
+
 .snapshot-tab-favicon {
   width: 12px;
   height: 12px;
@@ -716,4 +745,96 @@ body {
 .kanban-item-favicon[src=""],
 .snapshot-tab-favicon[src=""] {
   visibility: hidden;
+}
+
+/* 右键菜单样式 */
+.context-menu {
+  position: fixed;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  padding: 4px;
+  z-index: 10000;
+  min-width: 150px;
+  animation: contextMenuFadeIn 0.15s ease;
+}
+
+@keyframes contextMenuFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.1s;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.context-menu-item:hover {
+  background: var(--bg);
+}
+
+.context-menu-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+
+.menu-icon {
+  font-size: 14px;
+  width: 16px;
+  text-align: center;
+}
+
+/* 空筛选状态 */
+.timeline-empty-filter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--text-light);
+}
+
+.timeline-empty-filter .empty-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+  opacity: 0.4;
+}
+
+/* Toast动画 */
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOut {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
 }
