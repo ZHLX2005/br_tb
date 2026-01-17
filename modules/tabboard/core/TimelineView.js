@@ -138,13 +138,28 @@ class TimelineView {
     const markedClass = tab.marked ? 'marked' : '';
     const markIcon = tab.marked ? '🔴' : '';
 
+    // 对 data 属性不使用 escapeHtml，避免 URL 转义导致匹配失败
     return `
-      <div class="snapshot-tab-row ${markedClass}" data-url="${escapeHtml(tab.url)}" data-snapshot-id="${snapshotId}" data-tab-url="${escapeHtml(tab.url)}">
+      <div class="snapshot-tab-row ${markedClass}"
+           data-url="${this._escapeHtmlAttribute(tab.url)}"
+           data-snapshot-id="${snapshotId}"
+           data-tab-url="${this._escapeHtmlAttribute(tab.url)}">
         <span class="tab-mark-indicator">${markIcon}</span>
-        <img class="snapshot-tab-favicon" src="${escapeHtml(tab.favicon || '')}" loading="lazy">
+        <img class="snapshot-tab-favicon" src="${this._escapeHtmlAttribute(tab.favicon || '')}" loading="lazy">
         <span class="snapshot-tab-title">${escapeHtml(tab.title)}</span>
       </div>
     `;
+  }
+
+  /**
+   * 转义 HTML 属性值（只转义必要的字符，避免 URL 被破坏）
+   */
+  _escapeHtmlAttribute(str) {
+    return str
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
   }
 
   /**
@@ -311,16 +326,24 @@ class TimelineView {
    * 切换标记状态
    */
   async _toggleMark(snapshotId, tabUrl, marked) {
+    console.log('[TimelineView] Toggling mark:', { snapshotId, tabUrl, marked });
+
     const result = await this.dataManager.sendMessage('toggleTabMark', {
       snapshotId,
       tabUrl,
       marked
     });
 
-    if (result.success) {
+    console.log('[TimelineView] Toggle result:', result);
+
+    if (result && result.success) {
       // 重新加载数据并渲染
       await this.dataManager.loadData();
       this.render();
+      this._showToast(marked ? '已标记为重要' : '已取消标记', 'success');
+    } else {
+      console.error('[TimelineView] Failed to toggle mark:', result);
+      this._showToast('操作失败，请重试', 'error');
     }
   }
 
@@ -331,12 +354,18 @@ class TimelineView {
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
     toast.textContent = message;
+
+    // 根据类型选择颜色
+    let bgColor = '#42a5f5'; // info
+    if (type === 'success') bgColor = '#66bb6a';
+    if (type === 'error') bgColor = '#ef5350';
+
     toast.style.cssText = `
       position: fixed;
       bottom: 20px;
       right: 20px;
       padding: 12px 20px;
-      background: ${type === 'success' ? '#66bb6a' : '#42a5f5'};
+      background: ${bgColor};
       color: white;
       border-radius: 8px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.15);
@@ -370,12 +399,15 @@ class TimelineView {
       const markIcon = tab.marked ? '🔴' : '';
 
       tabRow.className = `snapshot-tab-row ${markedClass}`;
+      // 直接设置 dataset，不经过 HTML 字符串
       tabRow.dataset.url = tab.url;
       tabRow.dataset.snapshotId = snapshotId;
       tabRow.dataset.tabUrl = tab.url;
+
+      // 安全地设置 innerHTML（favicon 和 title 需要转义）
       tabRow.innerHTML = `
         <span class="tab-mark-indicator">${markIcon}</span>
-        <img class="snapshot-tab-favicon" src="${escapeHtml(tab.favicon || '')}" loading="lazy">
+        <img class="snapshot-tab-favicon" src="${this._escapeHtmlAttribute(tab.favicon || '')}" loading="lazy">
         <span class="snapshot-tab-title">${escapeHtml(tab.title)}</span>
       `;
 
