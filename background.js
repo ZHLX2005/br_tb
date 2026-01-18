@@ -857,6 +857,27 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           break;
         }
 
+        case 'renameRecording': {
+          // 使用 'in' 检查避免空数组被 falsy 判断导致数据丢失
+          const renameRecResult = await chrome.storage.local.get(['recordings', 'recordingState']);
+          const recordings = ('recordings' in renameRecResult) ? renameRecResult.recordings : [];
+          const recording = recordings.find(r => r.id === request.recordingId);
+          if (recording) {
+            recording.name = request.newName;
+            await chrome.storage.local.set({ recordings });
+            // 如果是正在录制的项目，同时更新录制状态中的名称
+            const recordingState = ('recordingState' in renameRecResult) ? renameRecResult.recordingState : {};
+            if (recordingState.isRecording && recordingState.recordingId === request.recordingId) {
+              recordingState.recordingName = request.newName;
+              await chrome.storage.local.set({ recordingState });
+            }
+            sendResponse({ success: true });
+          } else {
+            sendResponse({ success: false, error: 'Recording not found' });
+          }
+          break;
+        }
+
         case 'openRecording': {
           // 使用 'in' 检查避免空数组被 falsy 判断导致数据丢失
           const openRecResult = await chrome.storage.local.get(['recordings']);
