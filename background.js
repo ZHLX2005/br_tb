@@ -379,12 +379,12 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     return;
   }
 
-  // 获取录制状态
+  // 获取录制状态 - 使用 'in' 检查避免空对象被 falsy 判断导致数据丢失
   const result = await chrome.storage.local.get(['recordingState']);
-  const recordingState = result.recordingState || {};
+  const recordingState = ('recordingState' in result) ? result.recordingState : null;
 
-  // 如果不在录制模式，直接返回
-  if (!recordingState.isRecording || !recordingState.recordingId) {
+  // 如果不在录制模式或状态无效，直接返回
+  if (!recordingState || !recordingState.isRecording || !recordingState.recordingId) {
     return;
   }
 
@@ -406,11 +406,10 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   // 添加到录制列表（独立存储）
   // 使用 'in' 检查避免空数组被 falsy 判断导致数据丢失
   const recordingsResult = await chrome.storage.local.get(['recordings']);
-  const recordingStateResult = await chrome.storage.local.get(['recordingState']);
 
   // 只在 key 存在时才获取数据，避免覆盖
   const recordings = ('recordings' in recordingsResult) ? recordingsResult.recordings : [];
-  const recordingState = ('recordingState' in recordingStateResult) ? recordingStateResult.recordingState : {};
+  // recordingState 已在前面（line 384）获取，这里无需重复获取
 
   const currentRecording = recordings.find(r => r.id === recordingState.recordingId);
 
@@ -832,21 +831,23 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           sendResponse({ success: true, groupName: newGroup.name });
           break;
 
-        case 'getRecordingState':
+        case 'getRecordingState': {
           // 使用 'in' 检查避免空对象被 falsy 判断导致数据丢失
           const recordingStateResult = await chrome.storage.local.get(['recordingState']);
           const recordingState = ('recordingState' in recordingStateResult) ? recordingStateResult.recordingState : { isRecording: false };
           sendResponse({ success: true, recordingState });
           break;
+        }
 
-        case 'getRecordings':
+        case 'getRecordings': {
           // 使用 'in' 检查避免空数组被 falsy 判断导致数据丢失
           const recordingsResult = await chrome.storage.local.get(['recordings']);
           const recordings = ('recordings' in recordingsResult) ? recordingsResult.recordings : [];
           sendResponse({ success: true, recordings });
           break;
+        }
 
-        case 'deleteRecording':
+        case 'deleteRecording': {
           // 使用 'in' 检查避免空数组被 falsy 判断导致数据丢失
           const delRecResult = await chrome.storage.local.get(['recordings']);
           const recordings = ('recordings' in delRecResult) ? delRecResult.recordings : [];
@@ -854,8 +855,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           await chrome.storage.local.set({ recordings: newRecordings });
           sendResponse({ success: true });
           break;
+        }
 
-        case 'openRecording':
+        case 'openRecording': {
           // 使用 'in' 检查避免空数组被 falsy 判断导致数据丢失
           const openRecResult = await chrome.storage.local.get(['recordings']);
           const allRecordings = ('recordings' in openRecResult) ? openRecResult.recordings : [];
@@ -867,8 +869,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           }
           sendResponse({ success: true });
           break;
+        }
 
-        case 'startRecording':
+        case 'startRecording': {
           const recName = request.groupName || `录制 ${new Date().toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`;
           const recId = generateId();
 
@@ -904,8 +907,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
           sendResponse({ success: true, recordingState: newRecordingState });
           break;
+        }
 
-        case 'stopRecording':
+        case 'stopRecording': {
           // 使用 'in' 检查避免空数组被 falsy 判断导致数据丢失
           const stopRecResult = await chrome.storage.local.get(['recordingState', 'recordings']);
           const currentRecordingState = ('recordingState' in stopRecResult) ? stopRecResult.recordingState : {};
@@ -940,6 +944,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
           sendResponse({ success: true, recordingState: stoppedRecordingState, tabCount });
           break;
+        }
 
         default:
           sendResponse({ success: false, error: 'Unknown action' });
