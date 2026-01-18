@@ -45,24 +45,21 @@ class RecordingPage {
       this.storageChangeTimer = setTimeout(async () => {
         let needsRender = false;
 
-        // 检查录制状态变化
+        // 检查录制状态变化 - 使用 'in' 检查避免数据丢失
         if (changes.recordingState) {
           const newState = changes.recordingState.newValue;
-          if (JSON.stringify(newState) !== JSON.stringify(this.recordingState)) {
-            this.recordingState = newState || {
-              isRecording: false,
-              recordingId: null,
-              recordingName: '',
-              startTime: null,
-              tabCount: 0
-            };
+          // 如果新值存在且与当前状态不同，则更新
+          if (newState && JSON.stringify(newState) !== JSON.stringify(this.recordingState)) {
+            this.recordingState = newState;
             needsRender = true;
           }
         }
 
-        // 检查录制列表变化
+        // 检查录制列表变化 - 使用 'in' 检查避免数据丢失
         if (changes.recordings) {
-          this.recordings = changes.recordings.newValue || [];
+          const newRecordings = changes.recordings.newValue;
+          // 确保使用新值（即使是空数组）
+          this.recordings = Array.isArray(newRecordings) ? newRecordings : [];
           needsRender = true;
         }
 

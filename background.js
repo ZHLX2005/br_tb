@@ -26,7 +26,15 @@ function getUrlBase(url) {
 
 // 初始化默认数据
 async function initializeDefaultData() {
-  const result = await chrome.storage.local.get(['groups', 'tabs', 'timelineSnapshots', 'settings']);
+  // 一次性获取所有需要初始化的数据
+  const result = await chrome.storage.local.get([
+    'groups',
+    'tabs',
+    'timelineSnapshots',
+    'settings',
+    'recordings',
+    'recordingState'
+  ]);
 
   if (!result.groups) {
     const defaultGroups = [
@@ -396,8 +404,14 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   }
 
   // 添加到录制列表（独立存储）
+  // 使用 'in' 检查避免空数组被 falsy 判断导致数据丢失
   const recordingsResult = await chrome.storage.local.get(['recordings']);
-  const recordings = recordingsResult.recordings || [];
+  const recordingStateResult = await chrome.storage.local.get(['recordingState']);
+
+  // 只在 key 存在时才获取数据，避免覆盖
+  const recordings = ('recordings' in recordingsResult) ? recordingsResult.recordings : [];
+  const recordingState = ('recordingState' in recordingStateResult) ? recordingStateResult.recordingState : {};
+
   const currentRecording = recordings.find(r => r.id === recordingState.recordingId);
 
   if (currentRecording) {
@@ -417,16 +431,17 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
         currentRecording.tabs = currentRecording.tabs.slice(0, 100);
       }
 
-      await chrome.storage.local.set({ recordings });
+      // 更新录制状态中的标签计数
+      recordingState.tabCount = (recordingState.tabCount || 0) + 1;
+
+      // 批量更新存储，避免多次操作导致数据冲突
+      await chrome.storage.local.set({
+        recordings,
+        recordingState
+      });
 
       // 标记为已记录，防止重复
       recordedTabsInSession.add(tabId);
-
-      // 更新录制状态中的标签计数
-      const updatedResult = await chrome.storage.local.get(['recordingState']);
-      const updatedState = updatedResult.recordingState || {};
-      updatedState.tabCount = (updatedState.tabCount || 0) + 1;
-      await chrome.storage.local.set({ recordingState: updatedState });
 
       console.log('[TabBoard] 录制模式下自动捕获标签页:', tab.title, tab.url);
     }
@@ -818,26 +833,32 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           break;
 
         case 'getRecordingState':
+          // 使用 'in' 检查避免空对象被 falsy 判断导致数据丢失
           const recordingStateResult = await chrome.storage.local.get(['recordingState']);
-          sendResponse({ success: true, recordingState: recordingStateResult.recordingState || { isRecording: false } });
+          const recordingState = ('recordingState' in recordingStateResult) ? recordingStateResult.recordingState : { isRecording: false };
+          sendResponse({ success: true, recordingState });
           break;
 
         case 'getRecordings':
+          // 使用 'in' 检查避免空数组被 falsy 判断导致数据丢失
           const recordingsResult = await chrome.storage.local.get(['recordings']);
-          sendResponse({ success: true, recordings: recordingsResult.recordings || [] });
+          const recordings = ('recordings' in recordingsResult) ? recordingsResult.recordings : [];
+          sendResponse({ success: true, recordings });
           break;
 
         case 'deleteRecording':
+          // 使用 'in' 检查避免空数组被 falsy 判断导致数据丢失
           const delRecResult = await chrome.storage.local.get(['recordings']);
-          const recordings = delRecResult.recordings || [];
+          const recordings = ('recordings' in delRecResult) ? delRecResult.recordings : [];
           const newRecordings = recordings.filter(r => r.id !== request.recordingId);
           await chrome.storage.local.set({ recordings: newRecordings });
           sendResponse({ success: true });
           break;
 
         case 'openRecording':
+          // 使用 'in' 检查避免空数组被 falsy 判断导致数据丢失
           const openRecResult = await chrome.storage.local.get(['recordings']);
-          const allRecordings = openRecResult.recordings || [];
+          const allRecordings = ('recordings' in openRecResult) ? openRecResult.recordings : [];
           const targetRecording = allRecordings.find(r => r.id === request.recordingId);
           if (targetRecording) {
             for (const tab of targetRecording.tabs) {
@@ -859,8 +880,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             tabs: []
           };
 
+          // 使用 'in' 检查避免空数组被 falsy 判断导致数据丢失
           const getRecsResult = await chrome.storage.local.get(['recordings']);
-          const existingRecordings = getRecsResult.recordings || [];
+          const existingRecordings = ('recordings' in getRecsResult) ? getRecsResult.recordings : [];
           existingRecordings.unshift(newRecording);
 
           const newRecordingState = {
@@ -884,18 +906,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           break;
 
         case 'stopRecording':
+          // 使用 'in' 检查避免空数组被 falsy 判断导致数据丢失
           const stopRecResult = await chrome.storage.local.get(['recordingState', 'recordings']);
-          const currentRecordingState = stopRecResult.recordingState || {};
+          const currentRecordingState = ('recordingState' in stopRecResult) ? stopRecResult.recordingState : {};
           const tabCount = currentRecordingState.tabCount || 0;
           const recordingId = currentRecordingState.recordingId;
+          const allRecordings = ('recordings' in stopRecResult) ? stopRecResult.recordings : [];
 
           // 更新录制结束时间
           if (recordingId) {
-            const allRecordings = stopRecResult.recordings || [];
             const recording = allRecordings.find(r => r.id === recordingId);
             if (recording) {
               recording.endTime = new Date().toISOString();
-              await chrome.storage.local.set({ recordings: allRecordings });
             }
           }
 
@@ -907,7 +929,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             tabCount: 0
           };
 
+          // 批量更新存储，避免多次操作导致数据冲突
           await chrome.storage.local.set({
+            recordings: allRecordings,
             recordingState: stoppedRecordingState
           });
 
