@@ -72,7 +72,13 @@ async function setDefaultGroup(groupId) {
 
 // 删除分组
 async function deleteGroup(groupId) {
-  if (!confirm('确定要删除这个分组吗？分组内的标签页也会被删除。')) return;
+  const confirmed = await window.modal.confirm('确定要删除这个分组吗？分组内的标签页也会被删除。', {
+    title: '删除分组',
+    type: 'danger',
+    confirmText: '删除',
+    cancelText: '取消'
+  });
+  if (!confirmed) return;
 
   await chrome.runtime.sendMessage({ action: 'deleteGroup', groupId });
   await loadGroups();

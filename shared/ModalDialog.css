@@ -1,0 +1,277 @@
+/* Modal Dialog Styles - 统一模态对话框样式 */
+
+:root {
+  --modal-overlay-bg: rgba(0, 0, 0, 0.5);
+  --modal-bg: #ffffff;
+  --modal-border: #e0e0e0;
+  --modal-text: #333;
+  --modal-text-light: #666;
+  --modal-primary: #42a5f5;
+  --modal-danger: #ef5350;
+  --modal-warning: #ffa726;
+  --modal-success: #66bb6a;
+  --modal-radius: 8px;
+  --modal-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+/* 遮罩层 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--modal-overlay-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* 模态框 */
+.modal-dialog {
+  background: var(--modal-bg);
+  border-radius: var(--modal-radius);
+  box-shadow: var(--modal-shadow);
+  max-width: 450px;
+  width: 90%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* 头部 */
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--modal-border);
+}
+
+.modal-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--modal-text);
+  margin: 0;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  line-height: 1;
+  color: var(--modal-text-light);
+  cursor: pointer;
+  padding: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.modal-close:hover {
+  background: #f5f5f5;
+  color: var(--modal-text);
+}
+
+/* 内容区 */
+.modal-body {
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.modal-message {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--modal-text);
+  margin-bottom: 16px;
+}
+
+/* 消息类型样式 */
+.modal-type-warning {
+  color: #e65100;
+  padding-left: 12px;
+  border-left: 3px solid var(--modal-warning);
+}
+
+.modal-type-danger {
+  color: #c62828;
+  padding-left: 12px;
+  border-left: 3px solid var(--modal-danger);
+}
+
+.modal-type-info {
+  color: #1565c0;
+  padding-left: 12px;
+  border-left: 3px solid var(--modal-primary);
+}
+
+/* 输入框 */
+.modal-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--modal-border);
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.modal-input:focus {
+  outline: none;
+  border-color: var(--modal-primary);
+  box-shadow: 0 0 0 3px rgba(66, 165, 245, 0.1);
+}
+
+.modal-input::placeholder {
+  color: #999;
+}
+
+/* 底部按钮区 */
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--modal-border);
+}
+
+/* 按钮样式 */
+.modal-footer .btn {
+  padding: 8px 16px;
+  border: 1px solid var(--modal-border);
+  border-radius: 4px;
+  font-size: 14px;
+  background: var(--modal-bg);
+  color: var(--modal-text);
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 70px;
+}
+
+.modal-footer .btn:hover {
+  background: #f5f5f5;
+}
+
+.modal-footer .btn-primary {
+  background: var(--modal-primary);
+  border-color: var(--modal-primary);
+  color: white;
+}
+
+.modal-footer .btn-primary:hover {
+  background: #1976d2;
+  border-color: #1976d2;
+}
+
+.modal-footer .btn-danger {
+  background: var(--modal-danger);
+  border-color: var(--modal-danger);
+  color: white;
+}
+
+.modal-footer .btn-danger:hover {
+  background: #d32f2f;
+  border-color: #d32f2f;
+}
+
+.modal-footer .btn-secondary {
+  background: #f5f5f5;
+  border-color: var(--modal-border);
+  color: var(--modal-text);
+}
+
+.modal-footer .btn-secondary:hover {
+  background: #e0e0e0;
+}
+
+/* Toast 提示 */
+.toast {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  padding: 12px 20px;
+  border-radius: 8px;
+  color: white;
+  font-size: 14px;
+  z-index: 10001;
+  animation: slideIn 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  max-width: 300px;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOut {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+.toast-success { background: var(--modal-success); }
+.toast-error { background: var(--modal-danger); }
+.toast-info { background: var(--modal-primary); }
+.toast-warning { background: var(--modal-warning); }
+
+/* 响应式 */
+@media (max-width: 480px) {
+  .modal-dialog {
+    width: 95%;
+    max-width: none;
+  }
+
+  .modal-header,
+  .modal-body,
+  .modal-footer {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .toast {
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    max-width: none;
+  }
+}

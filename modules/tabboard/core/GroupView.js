@@ -4,6 +4,7 @@
  */
 
 import { escapeHtml, formatTime, getColorClass, exportData, importData } from './Utils.js';
+import { modal } from '../../../shared/ModalDialog.js';
 
 class GroupView {
   constructor(dataManager) {
@@ -367,7 +368,11 @@ class GroupView {
     if (groupTabs.length === 0) return;
 
     const groupName = this.groups.find(g => g.id === groupId)?.name;
-    if (!confirm(`确定要清空 "${groupName}" 分组吗？`)) {
+    const confirmed = await modal.confirm(`确定要清空 "${groupName}" 分组吗？`, {
+      title: '清空分组',
+      type: 'warning'
+    });
+    if (!confirmed) {
       return;
     }
 
@@ -393,7 +398,11 @@ class GroupView {
       ? `确定要删除 "${groupName}" 分组吗？该分组包含 ${groupTabs.length} 个标签，将被一起删除。`
       : `确定要删除 "${groupName}" 分组吗？`;
 
-    if (!confirm(message)) {
+    const confirmed = await modal.confirm(message, {
+      title: '删除分组',
+      type: 'danger'
+    });
+    if (!confirmed) {
       return;
     }
 
@@ -418,7 +427,11 @@ class GroupView {
 
     if (openAllBtn) {
       openAllBtn.addEventListener('click', async () => {
-        if (!confirm(`确定要打开所有 ${this.groups.length} 个分组吗？`)) return;
+        const confirmed = await modal.confirm(`确定要打开所有 ${this.groups.length} 个分组吗？`, {
+          title: '打开所有分组',
+          type: 'warning'
+        });
+        if (!confirmed) return;
         for (const group of this.groups) {
           await this.dataManager.sendMessage('openGroup', { groupId: group.id });
         }
@@ -427,7 +440,11 @@ class GroupView {
 
     if (clearAllBtn) {
       clearAllBtn.addEventListener('click', async () => {
-        if (!confirm(`确定要清空所有分组吗？`)) return;
+        const confirmed = await modal.confirm('确定要清空所有分组吗？', {
+          title: '清空所有分组',
+          type: 'danger'
+        });
+        if (!confirmed) return;
         await this.dataManager.sendMessage('clearAllGroups');
       });
     }
@@ -467,7 +484,11 @@ class GroupView {
 
       const groupCount = data.groups.length;
       const tabCount = Object.values(data.tabs).flat().length;
-      if (!confirm(`确定要导入 ${groupCount} 个分组和 ${tabCount} 个标签吗？这将替换现有数据。`)) {
+      const confirmed = await modal.confirm(`确定要导入 ${groupCount} 个分组和 ${tabCount} 个标签吗？这将替换现有数据。`, {
+        title: '导入数据',
+        type: 'warning'
+      });
+      if (!confirmed) {
         return;
       }
 
