@@ -36,12 +36,16 @@ class EventManager {
   _setupViewSwitchButtons() {
     const timelineBtn = document.getElementById('timelineViewBtn');
     const groupBtn = document.getElementById('groupViewBtn');
+    const recordingBtn = document.getElementById('recordingViewBtn');
 
     if (timelineBtn) {
       timelineBtn.addEventListener('click', () => this.switchToTimelineView());
     }
     if (groupBtn) {
       groupBtn.addEventListener('click', () => this.switchToGroupView());
+    }
+    if (recordingBtn) {
+      recordingBtn.addEventListener('click', () => this.openRecordingPage());
     }
   }
 
@@ -161,6 +165,13 @@ class EventManager {
     this.currentView = view || 'timeline';
     this._updateViewUI();
     this._renderCurrentView();
+  }
+
+  /**
+   * 打开录制页面
+   */
+  async openRecordingPage() {
+    await chrome.runtime.sendMessage({ action: 'openRecordingPage' });
   }
 }
 

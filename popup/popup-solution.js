@@ -9,8 +9,8 @@ class PopupSolution {
     this.container = document.getElementById('solutionContainer');
     this.recordingState = {
       isRecording: false,
-      groupId: null,
-      groupName: '',
+      recordingId: null,
+      recordingName: '',
       startTime: null,
       tabCount: 0
     };
@@ -33,8 +33,8 @@ class PopupSolution {
     if (response.success) {
       this.recordingState = response.recordingState || {
         isRecording: false,
-        groupId: null,
-        groupName: '',
+        recordingId: null,
+        recordingName: '',
         startTime: null,
         tabCount: 0
       };
@@ -88,10 +88,10 @@ class PopupSolution {
   }
 
   /**
-   * 查看分组
+   * 打开录制页面
    */
   async openGroup() {
-    await chrome.runtime.sendMessage({ action: 'openTabboard' });
+    await chrome.runtime.sendMessage({ action: 'openRecordingPage' });
     window.close();
   }
 
@@ -101,7 +101,7 @@ class PopupSolution {
   render() {
     if (!this.container) return;
 
-    const { isRecording, groupName, startTime, tabCount } = this.recordingState;
+    const { isRecording, recordingName, startTime, tabCount } = this.recordingState;
 
     if (isRecording) {
       // 录制中状态
@@ -117,8 +117,8 @@ class PopupSolution {
           </div>
           <div class="recording-info">
             <div class="recording-group">
-              <span class="label">目标分组:</span>
-              <span class="group-name">${this.escapeHtml(groupName || '未命名')}</span>
+              <span class="label">录制名称:</span>
+              <span class="group-name">${this.escapeHtml(recordingName || '未命名')}</span>
             </div>
             <div class="recording-count">
               <span class="label">已记录:</span>
@@ -127,7 +127,7 @@ class PopupSolution {
           </div>
           <div class="recording-actions">
             <button id="stopRecordingBtn" class="btn btn-stop">停止录制</button>
-            <button id="openGroupBtn" class="btn btn-secondary">查看分组</button>
+            <button id="openGroupBtn" class="btn btn-secondary">查看录制</button>
           </div>
         </div>
       `;
@@ -140,7 +140,7 @@ class PopupSolution {
           <div class="idle-header">
             <div class="idle-icon">🎯</div>
             <div class="idle-title">自动录制标签页</div>
-            <div class="idle-desc">启动录制后，所有打开的标签页将自动保存到新分组</div>
+            <div class="idle-desc">启动录制后，所有打开的标签页将自动保存到录制列表</div>
           </div>
           <div class="idle-actions">
             <button id="startRecordingBtn" class="btn btn-primary">开始录制</button>
