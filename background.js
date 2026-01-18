@@ -647,6 +647,46 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           }
           break;
 
+        case 'extractMarkedAsGroup':
+          // 将标记为重要的标签提取为新分组，并清空所有快照
+          console.log('[Background] extractMarkedAsGroup request:', request);
+          const extractResult = await chrome.storage.local.get(['groups', 'tabs']);
+          const allGroups = extractResult.groups || [];
+          const allTabs = extractResult.tabs || {};
+          const { markedTabs } = request;
+
+          // 生成新分组的颜色（使用默认颜色）
+          const newColor = DEFAULT_COLORS[allGroups.length % DEFAULT_COLORS.length];
+          const newGroupId = generateId();
+
+          // 创建新分组
+          const newGroup = {
+            id: newGroupId,
+            name: `重要标签 ${new Date().toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}`,
+            color: newColor,
+            isDefault: false
+          };
+
+          allGroups.push(newGroup);
+          allTabs[newGroupId] = markedTabs.map(tab => ({
+            id: generateId(),
+            title: tab.title,
+            url: tab.url,
+            favicon: tab.favicon,
+            timestamp: new Date().toISOString()
+          }));
+
+          // 清空所有快照
+          await chrome.storage.local.set({
+            groups: allGroups,
+            tabs: allTabs,
+            timelineSnapshots: []
+          });
+
+          console.log('[Background] Extracted marked tabs to group:', newGroup.name);
+          sendResponse({ success: true, groupName: newGroup.name });
+          break;
+
         default:
           sendResponse({ success: false, error: 'Unknown action' });
       }

@@ -68,6 +68,7 @@ class TimelineView {
       <div class="timeline-actions-header">
         <button class="timeline-action-btn restore-all-btn" title="恢复所有快照">打开全部</button>
         <button class="timeline-action-btn clear-all-btn" title="清空所有快照">清空</button>
+        <button class="timeline-action-btn extract-marked-btn" title="将所有标记为重要的标签提取为新分组，并删除非重要快照">提取为分组</button>
         <button class="timeline-action-btn export-timeline-btn" title="导出快照数据">导出</button>
         <button class="timeline-action-btn import-timeline-btn" title="导入快照数据">导入</button>
         <button class="timeline-action-btn filter-marked-btn ${this.filterMarkedOnly ? 'active' : ''}" title="只显示红色标记">
@@ -224,6 +225,12 @@ class TimelineView {
     const clearAllBtn = document.querySelector('.clear-all-btn');
     if (clearAllBtn) {
       clearAllBtn.addEventListener('click', () => this._clearAllSnapshots());
+    }
+
+    // 提取标记为分组按钮
+    const extractBtn = document.querySelector('.extract-marked-btn');
+    if (extractBtn) {
+      extractBtn.addEventListener('click', () => this._extractMarkedAsGroup());
     }
 
     // 导出快照数据按钮
@@ -524,6 +531,49 @@ class TimelineView {
       await this.dataManager.loadData();
       this.render();
     });
+  }
+
+  /**
+   * 提取标记为重要的标签为新分组
+   */
+  async _extractMarkedAsGroup() {
+    // 收集所有标记为重要的标签
+    const markedTabs = [];
+    for (const snapshot of this.snapshots) {
+      for (const tab of snapshot.tabs) {
+        if (tab.marked) {
+          // 避免重复添加相同 URL
+          if (!markedTabs.some(t => t.url === tab.url)) {
+            markedTabs.push({
+              title: tab.title,
+              url: tab.url,
+              favicon: tab.favicon || ''
+            });
+          }
+        }
+      }
+    }
+
+    if (markedTabs.length === 0) {
+      this._showToast('没有找到标记为重要的标签', 'info');
+      return;
+    }
+
+    if (!confirm(`找到 ${markedTabs.length} 个标记为重要的标签，确定要将它们提取为新分组并清空所有快照吗？`)) {
+      return;
+    }
+
+    const result = await this.dataManager.sendMessage('extractMarkedAsGroup', {
+      markedTabs
+    });
+
+    if (result.success) {
+      await this.dataManager.loadData();
+      this.render();
+      this._showToast(`已将 ${markedTabs.length} 个标签提取到分组「${result.groupName}」`, 'success');
+    } else {
+      this._showToast('操作失败，请重试', 'error');
+    }
   }
 }
 
