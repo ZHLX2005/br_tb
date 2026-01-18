@@ -64,6 +64,19 @@ async function initializeDefaultData() {
       }
     });
   }
+
+  // 初始化录制状态
+  if (!result.recordingState) {
+    await chrome.storage.local.set({
+      recordingState: {
+        isRecording: false,
+        groupId: null,
+        groupName: '',
+        startTime: null,
+        tabCount: 0
+      }
+    });
+  }
 }
 
 // 获取默认分组ID
@@ -335,6 +348,63 @@ chrome.commands.onCommand.addListener((command) => {
       break;
     default:
       console.warn('Unknown command:', command);
+  }
+});
+
+// 监听标签页创建事件（用于录制模式）
+chrome.tabs.onCreated.addListener(async (tab) => {
+  const result = await chrome.storage.local.get(['recordingState']);
+  const recordingState = result.recordingState || {};
+
+  if (!recordingState.isRecording || !recordingState.groupId) {
+    return;
+  }
+
+  // 跳过特殊页面
+  if (!tab.url || tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('edge://') || tab.url === 'about:blank') {
+    return;
+  }
+
+  // 等待标签页完全加载
+  if (tab.status === 'loading') {
+    await new Promise(resolve => {
+      const listener = (updatedTabId, changeInfo) => {
+        if (updatedTabId === tab.id && changeInfo.status === 'complete') {
+          chrome.tabs.onUpdated.removeListener(listener);
+          resolve();
+        }
+      };
+      chrome.tabs.onUpdated.addListener(listener);
+      // 超时保护
+      setTimeout(() => {
+        chrome.tabs.onUpdated.removeListener(listener);
+        resolve();
+      }, 5000);
+    });
+
+    // 重新获取标签页信息
+    const updatedTab = await chrome.tabs.get(tab.id);
+    tab.url = updatedTab.url;
+    tab.title = updatedTab.title;
+    tab.favIconUrl = updatedTab.favIconUrl;
+  }
+
+  // 检查标签页是否有效
+  if (!tab.url || !tab.title || tab.url === 'about:blank') {
+    return;
+  }
+
+  // 添加到录制分组
+  const added = await addTabToGroup(tab, recordingState.groupId);
+
+  if (added) {
+    // 更新录制状态中的标签计数
+    const updatedResult = await chrome.storage.local.get(['recordingState']);
+    const updatedState = updatedResult.recordingState || {};
+    updatedState.tabCount = (updatedState.tabCount || 0) + 1;
+    await chrome.storage.local.set({ recordingState: updatedState });
+
+    console.log('[TabBoard] 录制模式下自动捕获标签页:', tab.title);
   }
 });
 
@@ -700,6 +770,75 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
           console.log('[Background] Extracted marked tabs to group:', newGroup.name);
           sendResponse({ success: true, groupName: newGroup.name });
+          break;
+
+        case 'getRecordingState':
+          const recordingStateResult = await chrome.storage.local.get(['recordingState']);
+          sendResponse({ success: true, recordingState: recordingStateResult.recordingState || { isRecording: false } });
+          break;
+
+        case 'startRecording':
+          const startRecResult = await chrome.storage.local.get(['groups', 'tabs', 'recordingState']);
+          const startRecGroups = startRecResult.groups || [];
+          const startRecTabs = startRecResult.tabs || {};
+
+          // 创建新的录制分组
+          const recColor = DEFAULT_COLORS[startRecGroups.length % DEFAULT_COLORS.length];
+          const recGroupId = generateId();
+          const recGroupName = request.groupName || `录制 ${new Date().toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`;
+
+          const recGroup = {
+            id: recGroupId,
+            name: recGroupName,
+            color: recColor,
+            isDefault: false
+          };
+
+          startRecGroups.push(recGroup);
+          startRecTabs[recGroupId] = [];
+
+          const newRecordingState = {
+            isRecording: true,
+            groupId: recGroupId,
+            groupName: recGroupName,
+            startTime: new Date().toISOString(),
+            tabCount: 0
+          };
+
+          await chrome.storage.local.set({
+            groups: startRecGroups,
+            tabs: startRecTabs,
+            recordingState: newRecordingState
+          });
+
+          // 更新徽章显示
+          chrome.action.setBadgeText({ text: 'REC' });
+          chrome.action.setBadgeBackgroundColor({ color: '#ef5350' });
+
+          sendResponse({ success: true, recordingState: newRecordingState });
+          break;
+
+        case 'stopRecording':
+          const stopRecResult = await chrome.storage.local.get(['recordingState']);
+          const currentRecordingState = stopRecResult.recordingState || {};
+          const tabCount = currentRecordingState.tabCount || 0;
+
+          const stoppedRecordingState = {
+            isRecording: false,
+            groupId: null,
+            groupName: '',
+            startTime: null,
+            tabCount: 0
+          };
+
+          await chrome.storage.local.set({
+            recordingState: stoppedRecordingState
+          });
+
+          // 清除徽章
+          chrome.action.setBadgeText({ text: '' });
+
+          sendResponse({ success: true, recordingState: stoppedRecordingState, tabCount });
           break;
 
         default:
