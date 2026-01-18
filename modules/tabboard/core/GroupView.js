@@ -229,6 +229,7 @@ class GroupView {
         actions.innerHTML = `
           <button class="board-action-btn open-all" data-board-id="${boardId}" title="打开所有">📂</button>
           <button class="board-action-btn clear-group" data-board-id="${boardId}" title="清空分组">🗑️</button>
+          <button class="board-action-btn delete-group" data-board-id="${boardId}" title="删除分组">❌</button>
         `;
         header.appendChild(actions);
       }
@@ -246,6 +247,11 @@ class GroupView {
     document.querySelectorAll('.clear-group').forEach(btn => {
       btn.removeEventListener('click', this._handleClearGroup);
       btn.addEventListener('click', this._handleClearGroup.bind(this));
+    });
+
+    document.querySelectorAll('.delete-group').forEach(btn => {
+      btn.removeEventListener('click', this._handleDeleteGroup);
+      btn.addEventListener('click', this._handleDeleteGroup.bind(this));
     });
   }
 
@@ -371,6 +377,29 @@ class GroupView {
         groupId
       });
     }
+  }
+
+  /**
+   * 处理删除分组按钮
+   */
+  async _handleDeleteGroup(e) {
+    e.stopPropagation();
+    const btn = e.currentTarget;
+    const groupId = btn.dataset.boardId;
+    const groupTabs = this.tabs[groupId] || [];
+    const groupName = this.groups.find(g => g.id === groupId)?.name;
+
+    const message = groupTabs.length > 0
+      ? `确定要删除 "${groupName}" 分组吗？该分组包含 ${groupTabs.length} 个标签，将被一起删除。`
+      : `确定要删除 "${groupName}" 分组吗？`;
+
+    if (!confirm(message)) {
+      return;
+    }
+
+    await this.dataManager.sendMessage('deleteGroup', { groupId });
+    await this.dataManager.loadData();
+    this.render();
   }
 
   /**
