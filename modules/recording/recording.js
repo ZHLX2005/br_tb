@@ -168,6 +168,28 @@ class RecordingPage {
   }
 
   /**
+   * 重命名录制
+   */
+  async renameRecording(recordingId, currentName) {
+    const newName = prompt('请输入新的录制名称:', currentName);
+    if (newName === null || newName.trim() === '' || newName === currentName) return;
+
+    const response = await chrome.runtime.sendMessage({
+      action: 'renameRecording',
+      recordingId,
+      newName: newName.trim()
+    });
+
+    if (response.success) {
+      await this.loadRecordings();
+      this.render();
+      this.showToast('录制名称已更新', 'success');
+    } else {
+      this.showToast('重命名失败', 'error');
+    }
+  }
+
+  /**
    * 删除录制
    */
   async deleteRecording(recordingId) {
@@ -340,6 +362,7 @@ class RecordingPage {
               </div>
             </div>
             <div class="recording-actions">
+              <button class="btn edit-btn" data-id="${recording.id}" data-name="${this._escapeHtmlAttribute(recording.name)}">✏️ 重命名</button>
               <button class="btn open-btn" data-id="${recording.id}">📂 打开</button>
               <button class="btn btn-danger delete-btn" data-id="${recording.id}">删除</button>
             </div>
@@ -357,6 +380,13 @@ class RecordingPage {
     }).join('');
 
     // 绑定事件
+    listContainer.querySelectorAll('.edit-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.renameRecording(btn.dataset.id, btn.dataset.name);
+      });
+    });
+
     listContainer.querySelectorAll('.open-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
