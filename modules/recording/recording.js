@@ -1,6 +1,7 @@
 /**
  * 录制页面逻辑
  * 独立管理标签录制功能
+ * 使用 chrome.storage 监听实现状态同步
  */
 
 class RecordingPage {
@@ -14,6 +15,7 @@ class RecordingPage {
     };
     this.recordings = [];
     this.elapsedTimer = null;
+    this.storageChangeTimer = null;
   }
 
   /**
@@ -24,6 +26,51 @@ class RecordingPage {
     await this.loadRecordings();
     this.render();
     this.bindEvents();
+    this.setupStorageListener();
+  }
+
+  /**
+   * 设置存储变化监听器（实现状态同步）
+   */
+  setupStorageListener() {
+    chrome.storage.onChanged.addListener((changes, namespace) => {
+      if (namespace !== 'local') return;
+
+      // 清除之前的定时器
+      if (this.storageChangeTimer) {
+        clearTimeout(this.storageChangeTimer);
+      }
+
+      // 防抖延迟 100ms
+      this.storageChangeTimer = setTimeout(async () => {
+        let needsRender = false;
+
+        // 检查录制状态变化
+        if (changes.recordingState) {
+          const newState = changes.recordingState.newValue;
+          if (JSON.stringify(newState) !== JSON.stringify(this.recordingState)) {
+            this.recordingState = newState || {
+              isRecording: false,
+              recordingId: null,
+              recordingName: '',
+              startTime: null,
+              tabCount: 0
+            };
+            needsRender = true;
+          }
+        }
+
+        // 检查录制列表变化
+        if (changes.recordings) {
+          this.recordings = changes.recordings.newValue || [];
+          needsRender = true;
+        }
+
+        if (needsRender) {
+          this.render();
+        }
+      }, 100);
+    });
   }
 
   /**
@@ -75,7 +122,7 @@ class RecordingPage {
 
     if (response.success) {
       this.recordingState = response.recordingState;
-      await this.loadRecordings(); // 重新加载列表
+      await this.loadRecordings();
       this.render();
       this.showToast('开始录制标签页', 'success');
     } else {
@@ -93,7 +140,7 @@ class RecordingPage {
 
     if (response.success) {
       this.recordingState = response.recordingState;
-      await this.loadRecordings(); // 重新加载列表
+      await this.loadRecordings();
       this.render();
       this.showToast(`录制已停止，共记录 ${response.tabCount} 个标签页`, 'info');
     }
@@ -129,6 +176,16 @@ class RecordingPage {
     if (response.success) {
       this.showToast('正在打开标签页...', 'success');
     }
+  }
+
+  /**
+   * 打开单个标签
+   */
+  async openTab(url) {
+    await chrome.runtime.sendMessage({
+      action: 'openTab',
+      url
+    });
   }
 
   /**
@@ -238,21 +295,35 @@ class RecordingPage {
         ? `${Math.round((endDate - startDate) / 60000)} 分钟`
         : '进行中';
 
+      // 显示前3个标签
+      const displayTabs = recording.tabs?.slice(0, 3) || [];
+      const hasMore = tabCount > 3;
+
       return `
         <div class="recording-item" data-id="${recording.id}">
-          <div class="recording-main">
-            <div class="recording-name">${this.escapeHtml(recording.name)}</div>
-            <div class="recording-meta">
-              <span>${dateStr}</span>
-              <span class="recording-count">
-                <span class="count-number">${tabCount}</span> 个标签页
-              </span>
-              <span>${durationStr}</span>
+          <div class="recording-header">
+            <div class="recording-main">
+              <div class="recording-name">${this.escapeHtml(recording.name)}</div>
+              <div class="recording-meta">
+                <span>${dateStr}</span>
+                <span class="recording-count">
+                  <span class="count-number">${tabCount}</span> 个标签页
+                </span>
+                <span>${durationStr}</span>
+              </div>
+            </div>
+            <div class="recording-actions">
+              <button class="btn open-btn" data-id="${recording.id}">📂 打开</button>
+              <button class="btn btn-danger delete-btn" data-id="${recording.id}">删除</button>
             </div>
           </div>
-          <div class="recording-actions">
-            <button class="btn btn-secondary open-btn" data-id="${recording.id}">打开</button>
-            <button class="btn btn-danger delete-btn" data-id="${recording.id}">删除</button>
+          <div class="recording-tabs">
+            ${displayTabs.map(tab => this._renderTabRow(tab)).join('')}
+            ${hasMore ? `
+              <button class="recording-more-btn" data-recording-id="${recording.id}">
+                还有 ${tabCount - 3} 个标签... ▼
+              </button>
+            ` : ''}
           </div>
         </div>
       `;
@@ -273,10 +344,73 @@ class RecordingPage {
       });
     });
 
-    listContainer.querySelectorAll('.recording-item').forEach(item => {
-      item.addEventListener('click', () => {
-        this.openRecording(item.dataset.id);
+    // 点击标签行打开标签
+    listContainer.querySelectorAll('.recording-tab-row').forEach(row => {
+      row.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.openTab(row.dataset.url);
       });
+    });
+
+    // "更多"按钮 - 展开显示所有标签
+    listContainer.querySelectorAll('.recording-more-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this._expandRecording(btn);
+      });
+    });
+  }
+
+  /**
+   * 渲染单个标签行
+   */
+  _renderTabRow(tab) {
+    return `
+      <div class="recording-tab-row" data-url="${this._escapeHtmlAttribute(tab.url)}">
+        <img class="recording-tab-favicon" src="${this._escapeHtmlAttribute(tab.favicon || '')}" loading="lazy">
+        <span class="recording-tab-title">${this.escapeHtml(tab.title)}</span>
+      </div>
+    `;
+  }
+
+  /**
+   * 转义 HTML 属性值
+   */
+  _escapeHtmlAttribute(str) {
+    return str
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  /**
+   * 展开显示录制的所有标签
+   */
+  _expandRecording(btn) {
+    const recordingId = btn.dataset.recordingId;
+    const recording = this.recordings.find(r => r.id === recordingId);
+    if (!recording) return;
+
+    const tabsContainer = btn.parentElement;
+    btn.remove();
+
+    const remainingTabs = recording.tabs?.slice(3) || [];
+    remainingTabs.forEach(tab => {
+      const tabRow = document.createElement('div');
+      tabRow.className = 'recording-tab-row';
+      tabRow.dataset.url = tab.url;
+      tabRow.innerHTML = `
+        <img class="recording-tab-favicon" src="${this._escapeHtmlAttribute(tab.favicon || '')}" loading="lazy">
+        <span class="recording-tab-title">${this.escapeHtml(tab.title)}</span>
+      `;
+
+      tabRow.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.openTab(tab.url);
+      });
+
+      tabsContainer.appendChild(tabRow);
     });
   }
 
@@ -346,6 +480,9 @@ class RecordingPage {
    */
   destroy() {
     this.stopElapsedTimer();
+    if (this.storageChangeTimer) {
+      clearTimeout(this.storageChangeTimer);
+    }
   }
 }
 
