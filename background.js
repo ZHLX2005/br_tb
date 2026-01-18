@@ -351,46 +351,42 @@ chrome.commands.onCommand.addListener((command) => {
   }
 });
 
-// 监听标签页创建事件（用于录制模式）
-chrome.tabs.onCreated.addListener(async (tab) => {
+// 监听标签页更新事件（用于录制模式）
+// 使用 Set 来跟踪已记录的标签页 ID，避免重复记录
+const recordedTabsInSession = new Set();
+
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  // 只在页面加载完成时处理
+  if (changeInfo.status !== 'complete') {
+    return;
+  }
+
+  // 检查是否已经记录过这个标签页（避免重复）
+  if (recordedTabsInSession.has(tabId)) {
+    return;
+  }
+
+  // 获取录制状态
   const result = await chrome.storage.local.get(['recordingState']);
   const recordingState = result.recordingState || {};
 
+  // 如果不在录制模式，直接返回
   if (!recordingState.isRecording || !recordingState.groupId) {
     return;
   }
 
   // 跳过特殊页面
-  if (!tab.url || tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('edge://') || tab.url === 'about:blank') {
+  if (!tab.url ||
+      tab.url.startsWith('chrome://') ||
+      tab.url.startsWith('chrome-extension://') ||
+      tab.url.startsWith('edge://') ||
+      tab.url === 'about:blank' ||
+      tab.url.startsWith('about:')) {
     return;
   }
 
-  // 等待标签页完全加载
-  if (tab.status === 'loading') {
-    await new Promise(resolve => {
-      const listener = (updatedTabId, changeInfo) => {
-        if (updatedTabId === tab.id && changeInfo.status === 'complete') {
-          chrome.tabs.onUpdated.removeListener(listener);
-          resolve();
-        }
-      };
-      chrome.tabs.onUpdated.addListener(listener);
-      // 超时保护
-      setTimeout(() => {
-        chrome.tabs.onUpdated.removeListener(listener);
-        resolve();
-      }, 5000);
-    });
-
-    // 重新获取标签页信息
-    const updatedTab = await chrome.tabs.get(tab.id);
-    tab.url = updatedTab.url;
-    tab.title = updatedTab.title;
-    tab.favIconUrl = updatedTab.favIconUrl;
-  }
-
   // 检查标签页是否有效
-  if (!tab.url || !tab.title || tab.url === 'about:blank') {
+  if (!tab.url || !tab.title) {
     return;
   }
 
@@ -398,14 +394,22 @@ chrome.tabs.onCreated.addListener(async (tab) => {
   const added = await addTabToGroup(tab, recordingState.groupId);
 
   if (added) {
+    // 标记为已记录，防止重复
+    recordedTabsInSession.add(tabId);
+
     // 更新录制状态中的标签计数
     const updatedResult = await chrome.storage.local.get(['recordingState']);
     const updatedState = updatedResult.recordingState || {};
     updatedState.tabCount = (updatedState.tabCount || 0) + 1;
     await chrome.storage.local.set({ recordingState: updatedState });
 
-    console.log('[TabBoard] 录制模式下自动捕获标签页:', tab.title);
+    console.log('[TabBoard] 录制模式下自动捕获标签页:', tab.title, tab.url);
   }
+});
+
+// 监听标签页关闭事件，清理记录
+chrome.tabs.onRemoved.addListener((tabId) => {
+  recordedTabsInSession.delete(tabId);
 });
 
 // 消息处理（用于 popup 和 tabboard 通信）
