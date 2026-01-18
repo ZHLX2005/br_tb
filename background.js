@@ -651,12 +651,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           // 将标记为重要的标签提取为新分组，并清空所有快照
           console.log('[Background] extractMarkedAsGroup request:', request);
           const extractResult = await chrome.storage.local.get(['groups', 'tabs']);
-          const allGroups = extractResult.groups || [];
-          const allTabs = extractResult.tabs || {};
+          const existingGroups = extractResult.groups || [];
+          const existingTabs = extractResult.tabs || {};
           const { markedTabs } = request;
 
           // 生成新分组的颜色（使用默认颜色）
-          const newColor = DEFAULT_COLORS[allGroups.length % DEFAULT_COLORS.length];
+          const newColor = DEFAULT_COLORS[existingGroups.length % DEFAULT_COLORS.length];
           const newGroupId = generateId();
 
           // 创建新分组
@@ -667,8 +667,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             isDefault: false
           };
 
-          allGroups.push(newGroup);
-          allTabs[newGroupId] = markedTabs.map(tab => ({
+          existingGroups.push(newGroup);
+          existingTabs[newGroupId] = markedTabs.map(tab => ({
             id: generateId(),
             title: tab.title,
             url: tab.url,
@@ -678,8 +678,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
           // 清空所有快照
           await chrome.storage.local.set({
-            groups: allGroups,
-            tabs: allTabs,
+            groups: existingGroups,
+            tabs: existingTabs,
             timelineSnapshots: []
           });
 
