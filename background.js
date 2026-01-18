@@ -65,17 +65,22 @@ async function initializeDefaultData() {
     });
   }
 
-  // 初始化录制状态
+  // 初始化录制状态（独立存储，与分组分离）
   if (!result.recordingState) {
     await chrome.storage.local.set({
       recordingState: {
         isRecording: false,
-        groupId: null,
-        groupName: '',
+        recordingId: null,
+        recordingName: '',
         startTime: null,
         tabCount: 0
       }
     });
+  }
+
+  // 初始化录制列表存储（独立于 groups 和 tabs）
+  if (!result.recordings) {
+    await chrome.storage.local.set({ recordings: [] });
   }
 }
 
@@ -371,7 +376,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   const recordingState = result.recordingState || {};
 
   // 如果不在录制模式，直接返回
-  if (!recordingState.isRecording || !recordingState.groupId) {
+  if (!recordingState.isRecording || !recordingState.recordingId) {
     return;
   }
 
@@ -390,20 +395,41 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     return;
   }
 
-  // 添加到录制分组
-  const added = await addTabToGroup(tab, recordingState.groupId);
+  // 添加到录制列表（独立存储）
+  const recordingsResult = await chrome.storage.local.get(['recordings']);
+  const recordings = recordingsResult.recordings || [];
+  const currentRecording = recordings.find(r => r.id === recordingState.recordingId);
 
-  if (added) {
-    // 标记为已记录，防止重复
-    recordedTabsInSession.add(tabId);
+  if (currentRecording) {
+    // 检查是否已存在
+    const exists = currentRecording.tabs.some(t => t.url === tab.url);
+    if (!exists) {
+      currentRecording.tabs.unshift({
+        id: generateId(),
+        title: tab.title,
+        url: tab.url,
+        favicon: tab.favIconUrl || '',
+        timestamp: new Date().toISOString()
+      });
 
-    // 更新录制状态中的标签计数
-    const updatedResult = await chrome.storage.local.get(['recordingState']);
-    const updatedState = updatedResult.recordingState || {};
-    updatedState.tabCount = (updatedState.tabCount || 0) + 1;
-    await chrome.storage.local.set({ recordingState: updatedState });
+      // 限制每个录制最多 100 个标签
+      if (currentRecording.tabs.length > 100) {
+        currentRecording.tabs = currentRecording.tabs.slice(0, 100);
+      }
 
-    console.log('[TabBoard] 录制模式下自动捕获标签页:', tab.title, tab.url);
+      await chrome.storage.local.set({ recordings });
+
+      // 标记为已记录，防止重复
+      recordedTabsInSession.add(tabId);
+
+      // 更新录制状态中的标签计数
+      const updatedResult = await chrome.storage.local.get(['recordingState']);
+      const updatedState = updatedResult.recordingState || {};
+      updatedState.tabCount = (updatedState.tabCount || 0) + 1;
+      await chrome.storage.local.set({ recordingState: updatedState });
+
+      console.log('[TabBoard] 录制模式下自动捕获标签页:', tab.title, tab.url);
+    }
   }
 });
 
@@ -663,6 +689,21 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           sendResponse({ success: true });
           break;
 
+        case 'openRecordingPage':
+          // 检查是否已经打开了录制页面
+          const tabs = await chrome.tabs.query({});
+          const existingRecTab = tabs.find(tab => tab.url?.includes('modules/recording/recording.html'));
+
+          if (existingRecTab) {
+            await chrome.tabs.update(existingRecTab.id, { active: true });
+          } else {
+            await chrome.tabs.create({
+              url: chrome.runtime.getURL('modules/recording/recording.html')
+            });
+          }
+          sendResponse({ success: true });
+          break;
+
         case 'collectAndOpenTabboard':
           await collectAndOpenTabboard();
           sendResponse({ success: true });
@@ -781,37 +822,57 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           sendResponse({ success: true, recordingState: recordingStateResult.recordingState || { isRecording: false } });
           break;
 
+        case 'getRecordings':
+          const recordingsResult = await chrome.storage.local.get(['recordings']);
+          sendResponse({ success: true, recordings: recordingsResult.recordings || [] });
+          break;
+
+        case 'deleteRecording':
+          const delRecResult = await chrome.storage.local.get(['recordings']);
+          const recordings = delRecResult.recordings || [];
+          const newRecordings = recordings.filter(r => r.id !== request.recordingId);
+          await chrome.storage.local.set({ recordings: newRecordings });
+          sendResponse({ success: true });
+          break;
+
+        case 'openRecording':
+          const openRecResult = await chrome.storage.local.get(['recordings']);
+          const allRecordings = openRecResult.recordings || [];
+          const targetRecording = allRecordings.find(r => r.id === request.recordingId);
+          if (targetRecording) {
+            for (const tab of targetRecording.tabs) {
+              await chrome.tabs.create({ url: tab.url });
+            }
+          }
+          sendResponse({ success: true });
+          break;
+
         case 'startRecording':
-          const startRecResult = await chrome.storage.local.get(['groups', 'tabs', 'recordingState']);
-          const startRecGroups = startRecResult.groups || [];
-          const startRecTabs = startRecResult.tabs || {};
+          const recName = request.groupName || `录制 ${new Date().toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`;
+          const recId = generateId();
 
-          // 创建新的录制分组
-          const recColor = DEFAULT_COLORS[startRecGroups.length % DEFAULT_COLORS.length];
-          const recGroupId = generateId();
-          const recGroupName = request.groupName || `录制 ${new Date().toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`;
-
-          const recGroup = {
-            id: recGroupId,
-            name: recGroupName,
-            color: recColor,
-            isDefault: false
+          const newRecording = {
+            id: recId,
+            name: recName,
+            startTime: new Date().toISOString(),
+            endTime: null,
+            tabs: []
           };
 
-          startRecGroups.push(recGroup);
-          startRecTabs[recGroupId] = [];
+          const getRecsResult = await chrome.storage.local.get(['recordings']);
+          const existingRecordings = getRecsResult.recordings || [];
+          existingRecordings.unshift(newRecording);
 
           const newRecordingState = {
             isRecording: true,
-            groupId: recGroupId,
-            groupName: recGroupName,
+            recordingId: recId,
+            recordingName: recName,
             startTime: new Date().toISOString(),
             tabCount: 0
           };
 
           await chrome.storage.local.set({
-            groups: startRecGroups,
-            tabs: startRecTabs,
+            recordings: existingRecordings,
             recordingState: newRecordingState
           });
 
@@ -823,14 +884,25 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           break;
 
         case 'stopRecording':
-          const stopRecResult = await chrome.storage.local.get(['recordingState']);
+          const stopRecResult = await chrome.storage.local.get(['recordingState', 'recordings']);
           const currentRecordingState = stopRecResult.recordingState || {};
           const tabCount = currentRecordingState.tabCount || 0;
+          const recordingId = currentRecordingState.recordingId;
+
+          // 更新录制结束时间
+          if (recordingId) {
+            const allRecordings = stopRecResult.recordings || [];
+            const recording = allRecordings.find(r => r.id === recordingId);
+            if (recording) {
+              recording.endTime = new Date().toISOString();
+              await chrome.storage.local.set({ recordings: allRecordings });
+            }
+          }
 
           const stoppedRecordingState = {
             isRecording: false,
-            groupId: null,
-            groupName: '',
+            recordingId: null,
+            recordingName: '',
             startTime: null,
             tabCount: 0
           };

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>标签录制 - TabBoard</title>
+  <link rel="stylesheet" href="recording.css">
+</head>
+<body>
+  <div class="container">
+    <!-- 头部 -->
+    <header class="header">
+      <div class="header-left">
+        <h1 class="title">
+          <span class="title-icon">🎯</span>
+          标签录制
+        </h1>
+        <p class="subtitle">自动记录浏览的标签页</p>
+      </div>
+      <div class="header-right">
+        <button id="backBtn" class="btn btn-secondary">返回看板</button>
+      </div>
+    </header>
+
+    <!-- 录制状态区 -->
+    <section id="recordingStatus" class="recording-status-section">
+      <!-- 动态内容 -->
+    </section>
+
+    <!-- 录制列表 -->
+    <section class="recordings-section">
+      <div class="section-header">
+        <h2 class="section-title">历史录制</h2>
+        <span id="recordingCount" class="count-badge">0</span>
+      </div>
+      <div id="recordingsList" class="recordings-list">
+        <!-- 动态内容 -->
+      </div>
+    </section>
+  </div>
+
+  <script type="module" src="recording.js"></script>
+</body>
+</html>
