@@ -16,17 +16,28 @@ class RecordingPage {
     this.recordings = [];
     this.elapsedTimer = null;
     this.storageChangeTimer = null;
+    this.isInitialized = false;
   }
 
   /**
-   * 初始化
+   * 初始化 - 先设置监听器再加载数据，避免遗漏变化
    */
   async init() {
+    // 先设置存储监听器，确保不会错过任何变化
+    this.setupStorageListener();
+
+    // 然后加载数据
     await this.loadRecordingState();
     await this.loadRecordings();
-    this.render();
+
+    // 绑定事件
     this.bindEvents();
-    this.setupStorageListener();
+
+    // 最后渲染
+    this.render();
+
+    // 标记为已初始化
+    this.isInitialized = true;
   }
 
   /**
@@ -47,20 +58,33 @@ class RecordingPage {
 
         // 检查录制状态变化 - 使用 'in' 检查避免数据丢失
         if (changes.recordingState) {
-          const newState = changes.recordingState.newValue;
-          // 如果新值存在且与当前状态不同，则更新
-          if (newState && JSON.stringify(newState) !== JSON.stringify(this.recordingState)) {
+          const { oldValue: oldState, newValue: newState } = changes.recordingState;
+          // 检查是否真正发生了变化（不仅仅是引用变化）
+          const stateChanged = !this.isInitialized ||
+            JSON.stringify(oldState) !== JSON.stringify(newState);
+
+          if (stateChanged && newState) {
             this.recordingState = newState;
             needsRender = true;
+            console.log('[RecordingPage] recordingState changed:', newState);
           }
         }
 
         // 检查录制列表变化 - 使用 'in' 检查避免数据丢失
         if (changes.recordings) {
-          const newRecordings = changes.recordings.newValue;
+          const { oldValue: oldRecs, newValue: newRecs } = changes.recordings;
           // 确保使用新值（即使是空数组）
-          this.recordings = Array.isArray(newRecordings) ? newRecordings : [];
-          needsRender = true;
+          const newRecordings = Array.isArray(newRecs) ? newRecs : [];
+
+          // 检查是否真正发生了变化
+          const recordingsChanged = !this.isInitialized ||
+            JSON.stringify(oldRecs) !== JSON.stringify(newRecs);
+
+          if (recordingsChanged) {
+            this.recordings = newRecordings;
+            needsRender = true;
+            console.log('[RecordingPage] recordings changed:', newRecordings.length, 'items');
+          }
         }
 
         if (needsRender) {
@@ -213,7 +237,13 @@ class RecordingPage {
   renderRecordingStatus() {
     const statusSection = document.getElementById('recordingStatus');
 
-    if (this.recordingState.isRecording) {
+    // 验证录制状态的完整性
+    const isValidRecording = this.recordingState &&
+      this.recordingState.isRecording === true &&
+      this.recordingState.recordingId &&
+      this.recordingState.startTime;
+
+    if (isValidRecording) {
       // 录制中
       const elapsed = this.formatElapsedTime(this.recordingState.startTime);
       statusSection.innerHTML = `
@@ -232,7 +262,7 @@ class RecordingPage {
             </div>
             <div class="info-item">
               <span class="info-label">已记录:</span>
-              <span class="info-value">${this.recordingState.tabCount} 个标签页</span>
+              <span class="info-value">${this.recordingState.tabCount || 0} 个标签页</span>
             </div>
           </div>
           <div class="recording-actions">
