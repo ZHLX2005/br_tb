@@ -498,14 +498,13 @@ class GroupView {
       const isVisible = this.visibleGroups.has(group.id);
       const tabCount = this.tabs[group.id]?.length || 0;
       return `
-        <label class="group-filter-item" style="
+        <div class="group-filter-item" data-group-id="${group.id}" style="
           display: flex;
           align-items: center;
           padding: 10px;
           margin: 5px 0;
           background: white;
           border-radius: 4px;
-          cursor: pointer;
           transition: background 0.2s;
         ">
           <input type="checkbox" value="${group.id}" ${isVisible ? 'checked' : ''} style="margin-right: 10px;">
@@ -517,8 +516,17 @@ class GroupView {
             background: ${group.color};
           "></span>
           <span class="group-name" style="flex: 1; font-weight: 500;">${escapeHtml(group.name)}</span>
-          <span class="group-tab-count" style="color: #888; font-size: 12px;">${tabCount} 个标签</span>
-        </label>
+          <span class="group-tab-count" style="color: #888; font-size: 12px; margin-right: 10px;">${tabCount} 个标签</span>
+          <button class="edit-group-name-btn" data-group-id="${group.id}" style="
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 4px 8px;
+            opacity: 0.6;
+            transition: opacity 0.2s;
+          " title="编辑分组名称">✏️</button>
+        </div>
       `;
     }).join('');
 
@@ -587,6 +595,143 @@ class GroupView {
       item.addEventListener('mouseleave', () => {
         item.style.background = 'white';
       });
+    });
+
+    // 添加编辑按钮事件
+    dialog.querySelectorAll('.edit-group-name-btn').forEach(btn => {
+      btn.addEventListener('mouseenter', () => {
+        btn.style.opacity = '1';
+      });
+      btn.addEventListener('mouseleave', () => {
+        btn.style.opacity = '0.6';
+      });
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this._startEditingGroupName(btn);
+      });
+    });
+  }
+
+  /**
+   * 开始编辑分组名称
+   */
+  _startEditingGroupName(editBtn) {
+    const groupItem = editBtn.closest('.group-filter-item');
+    const groupId = editBtn.dataset.groupId;
+    const nameSpan = groupItem.querySelector('.group-name');
+    const currentName = nameSpan.textContent;
+
+    // 创建编辑界面
+    const editContainer = document.createElement('div');
+    editContainer.className = 'group-name-edit-container';
+    editContainer.style.cssText = 'display: flex; align-items: center; gap: 5px; flex: 1;';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = currentName;
+    input.className = 'group-name-input';
+    input.style.cssText = `
+      flex: 1;
+      padding: 4px 8px;
+      border: 1px solid #007bff;
+      border-radius: 4px;
+      font-size: 14px;
+      outline: none;
+    `;
+
+    const saveBtn = document.createElement('button');
+    saveBtn.textContent = '✓';
+    saveBtn.className = 'save-group-name-btn';
+    saveBtn.style.cssText = `
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      width: 28px;
+      height: 28px;
+      cursor: pointer;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    `;
+    saveBtn.title = '保存';
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = '✕';
+    cancelBtn.className = 'cancel-group-name-btn';
+    cancelBtn.style.cssText = `
+      background: #6c757d;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      width: 28px;
+      height: 28px;
+      cursor: pointer;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    `;
+    cancelBtn.title = '取消';
+
+    editContainer.appendChild(input);
+    editContainer.appendChild(saveBtn);
+    editContainer.appendChild(cancelBtn);
+
+    // 隐藏原始名称和编辑按钮
+    nameSpan.style.display = 'none';
+    editBtn.style.display = 'none';
+
+    // 插入编辑界面
+    nameSpan.parentNode.insertBefore(editContainer, editBtn);
+
+    // 聚焦输入框
+    input.focus();
+    input.select();
+
+    // 保存处理
+    const saveEdit = async () => {
+      const newName = input.value.trim();
+      if (!newName) {
+        alert('分组名称不能为空');
+        return;
+      }
+      if (newName === currentName) {
+        cancelEdit();
+        return;
+      }
+
+      const result = await this.dataManager.sendMessage('updateGroupName', {
+        groupId,
+        newName
+      });
+
+      if (result.success) {
+        await this.dataManager.loadData();
+        nameSpan.textContent = newName;
+        cancelEdit();
+      } else {
+        alert('更新失败，请重试');
+      }
+    };
+
+    // 取消处理
+    const cancelEdit = () => {
+      editContainer.remove();
+      nameSpan.style.display = '';
+      editBtn.style.display = '';
+    };
+
+    // 事件绑定
+    saveBtn.addEventListener('click', saveEdit);
+    cancelBtn.addEventListener('click', cancelEdit);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        saveEdit();
+      } else if (e.key === 'Escape') {
+        cancelEdit();
+      }
     });
   }
 

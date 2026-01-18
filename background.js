@@ -569,6 +569,21 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           sendResponse({ success: true });
           break;
 
+        case 'updateGroupName':
+          // 更新分组名称
+          const nameUpdateResult = await chrome.storage.local.get(['groups']);
+          const groupsForUpdate = nameUpdateResult.groups || [];
+          const targetGroup = groupsForUpdate.find(g => g.id === request.groupId);
+
+          if (targetGroup) {
+            targetGroup.name = request.newName;
+            await chrome.storage.local.set({ groups: groupsForUpdate });
+            sendResponse({ success: true });
+          } else {
+            sendResponse({ success: false, error: 'Group not found' });
+          }
+          break;
+
         case 'openTabboard':
           await openTabboard();
           sendResponse({ success: true });
