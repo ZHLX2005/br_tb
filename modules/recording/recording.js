@@ -4,6 +4,8 @@
  * 使用 chrome.storage 监听实现状态同步
  */
 
+import { modal } from '../../../shared/ModalDialog.js';
+
 class RecordingPage {
   constructor() {
     this.recordingState = {
@@ -131,10 +133,15 @@ class RecordingPage {
       minute: '2-digit'
     })}`;
 
-    const name = prompt('请输入录制名称:', defaultName);
-    if (name === null) return;
+    const name = await modal.prompt('请输入录制名称:', {
+      title: '开始录制',
+      defaultValue: defaultName,
+      placeholder: '录制名称',
+      confirmText: '开始录制'
+    });
+    if (!name) return;
 
-    const recordingName = (name || defaultName).trim();
+    const recordingName = name.trim();
 
     const response = await chrome.runtime.sendMessage({
       action: 'startRecording',
@@ -155,7 +162,13 @@ class RecordingPage {
    * 停止录制
    */
   async stopRecording() {
-    if (!confirm('确定要停止录制吗？')) return;
+    const confirmed = await modal.confirm('确定要停止录制吗？', {
+      title: '停止录制',
+      type: 'warning',
+      confirmText: '停止',
+      cancelText: '取消'
+    });
+    if (!confirmed) return;
 
     const response = await chrome.runtime.sendMessage({ action: 'stopRecording' });
 
@@ -171,8 +184,14 @@ class RecordingPage {
    * 重命名录制
    */
   async renameRecording(recordingId, currentName) {
-    const newName = prompt('请输入新的录制名称:', currentName);
-    if (newName === null || newName.trim() === '' || newName === currentName) return;
+    const newName = await modal.prompt('请输入新的录制名称:', {
+      title: '重命名录制',
+      defaultValue: currentName,
+      placeholder: '新名称',
+      confirmText: '保存',
+      cancelText: '取消'
+    });
+    if (!newName || newName.trim() === '' || newName === currentName) return;
 
     const response = await chrome.runtime.sendMessage({
       action: 'renameRecording',
@@ -193,7 +212,13 @@ class RecordingPage {
    * 删除录制
    */
   async deleteRecording(recordingId) {
-    if (!confirm('确定要删除这个录制吗？')) return;
+    const confirmed = await modal.confirm('确定要删除这个录制吗？删除后无法恢复。', {
+      title: '删除录制',
+      type: 'danger',
+      confirmText: '删除',
+      cancelText: '取消'
+    });
+    if (!confirmed) return;
 
     const response = await chrome.runtime.sendMessage({
       action: 'deleteRecording',

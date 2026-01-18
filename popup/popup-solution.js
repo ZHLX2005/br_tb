@@ -53,10 +53,15 @@ class PopupSolution {
       minute: '2-digit'
     })}`;
 
-    const groupName = prompt('请输入录制分组名称:', defaultName);
-    if (groupName === null) return; // 用户取消
+    const groupName = await window.modal.prompt('请输入录制分组名称:', {
+      title: '开始录制',
+      defaultValue: defaultName,
+      placeholder: '录制名称',
+      confirmText: '开始录制'
+    });
+    if (!groupName) return; // 用户取消
 
-    const name = (groupName || defaultName).trim();
+    const name = groupName.trim();
 
     const response = await chrome.runtime.sendMessage({
       action: 'startRecording',
@@ -76,7 +81,13 @@ class PopupSolution {
    * 停止录制
    */
   async stopRecording() {
-    if (!confirm('确定要停止录制吗？')) return;
+    const confirmed = await window.modal.confirm('确定要停止录制吗？', {
+      title: '停止录制',
+      type: 'warning',
+      confirmText: '停止',
+      cancelText: '取消'
+    });
+    if (!confirmed) return;
 
     const response = await chrome.runtime.sendMessage({ action: 'stopRecording' });
 

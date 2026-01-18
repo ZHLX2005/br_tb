@@ -4,6 +4,7 @@
  */
 
 import { escapeHtml, formatSnapshotTime, exportData, importData } from './Utils.js';
+import { modal } from '../../../shared/ModalDialog.js';
 
 class TimelineView {
   constructor(dataManager) {
@@ -448,7 +449,11 @@ class TimelineView {
    * 删除单个快照
    */
   async _deleteSnapshot(snapshotId) {
-    if (!confirm('确定要删除这个快照吗？')) return;
+    const confirmed = await modal.confirm('确定要删除这个快照吗？', {
+      title: '删除快照',
+      type: 'danger'
+    });
+    if (!confirmed) return;
 
     await this.dataManager.sendMessage('deleteTimelineSnapshot', { snapshotId });
     await this.dataManager.loadData();
@@ -463,7 +468,11 @@ class TimelineView {
       this._getFilteredSnapshots() : this.snapshots;
 
     const totalTabs = snapshotsToRestore.reduce((sum, s) => sum + s.tabs.length, 0);
-    if (!confirm(`确定要恢复所有 ${snapshotsToRestore.length} 个快照吗？这将打开 ${totalTabs} 个标签页。`)) {
+    const confirmed = await modal.confirm(`确定要恢复所有 ${snapshotsToRestore.length} 个快照吗？这将打开 ${totalTabs} 个标签页。`, {
+      title: '恢复快照',
+      type: 'warning'
+    });
+    if (!confirmed) {
       return;
     }
 
@@ -478,7 +487,11 @@ class TimelineView {
    * 清空所有快照
    */
   async _clearAllSnapshots() {
-    if (!confirm(`确定要清空所有 ${this.snapshots.length} 个快照吗？`)) return;
+    const confirmed = await modal.confirm(`确定要清空所有 ${this.snapshots.length} 个快照吗？`, {
+      title: '清空所有快照',
+      type: 'danger'
+    });
+    if (!confirmed) return;
 
     for (const snapshot of this.snapshots) {
       await this.dataManager.sendMessage('deleteTimelineSnapshot', { snapshotId: snapshot.id });
@@ -511,7 +524,11 @@ class TimelineView {
       }
 
       const importCount = data.snapshots.length;
-      if (!confirm(`确定要导入 ${importCount} 个快照吗？这将添加到现有快照中。`)) {
+      const confirmed = await modal.confirm(`确定要导入 ${importCount} 个快照吗？这将添加到现有快照中。`, {
+        title: '导入快照',
+        type: 'info'
+      });
+      if (!confirmed) {
         return;
       }
 
@@ -559,7 +576,11 @@ class TimelineView {
       return;
     }
 
-    if (!confirm(`找到 ${markedTabs.length} 个标记为重要的标签，确定要将它们提取为新分组并清空所有快照吗？`)) {
+    const confirmed = await modal.confirm(`找到 ${markedTabs.length} 个标记为重要的标签，确定要将它们提取为新分组并清空所有快照吗？`, {
+      title: '提取重要标签',
+      type: 'warning'
+    });
+    if (!confirmed) {
       return;
     }
 
