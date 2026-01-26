@@ -614,15 +614,27 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           break;
 
         case 'addGroup':
-          const addGroupResult = await chrome.storage.local.get(['groups']);
-          const groups = addGroupResult.groups || [];
-          groups.push({
+          const addGroupResult = await chrome.storage.local.get(['groups', 'settings']);
+          const addGroups = addGroupResult.groups || [];
+          const addSettings = addGroupResult.settings || {};
+
+          const addedGroup = {
             id: generateId(),
             name: request.name,
             color: request.color,
             isDefault: false
-          });
-          await chrome.storage.local.set({ groups });
+          };
+
+          addGroups.push(addedGroup);
+
+          // 确保新分组默认可见
+          if (!addSettings.visibleGroups) {
+            addSettings.visibleGroups = addGroups.map(g => g.id);
+          } else {
+            addSettings.visibleGroups.push(addedGroup.id);
+          }
+
+          await chrome.storage.local.set({ groups: addGroups, settings: addSettings });
           sendResponse({ success: true });
           break;
 
