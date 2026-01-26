@@ -74,6 +74,7 @@ class GroupView {
     const actionsHeader = document.createElement('div');
     actionsHeader.className = 'board-actions-header';
     actionsHeader.innerHTML = `
+      <button class="board-action-btn add-group-btn" title="添加新分组">➕ 添加分组</button>
       <button class="board-action-btn filter-groups-btn" title="选择要显示的分组">🔍 筛选</button>
       <button class="board-action-btn open-all-groups-btn" title="打开所有分组">打开全部</button>
       <button class="board-action-btn clear-all-groups-btn" title="清空所有分组">清空</button>
@@ -415,11 +416,16 @@ class GroupView {
    * 设置分组视图操作按钮
    */
   _setupGroupActionButtons() {
+    const addGroupBtn = document.querySelector('.add-group-btn');
     const filterBtn = document.querySelector('.filter-groups-btn');
     const openAllBtn = document.querySelector('.open-all-groups-btn');
     const clearAllBtn = document.querySelector('.clear-all-groups-btn');
     const exportBtn = document.querySelector('.export-groups-btn');
     const importBtn = document.querySelector('.import-groups-btn');
+
+    if (addGroupBtn) {
+      addGroupBtn.addEventListener('click', () => this._showAddGroupDialog());
+    }
 
     if (filterBtn) {
       filterBtn.addEventListener('click', () => this._showGroupFilterDialog());
@@ -783,6 +789,167 @@ class GroupView {
         cancelEdit();
       }
     });
+  }
+
+  // 默认颜色选项
+  static DEFAULT_COLORS = [
+    '#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24', '#6c5ce7',
+    '#a29bfe', '#fd79a8', '#00b894', '#e17055', '#74b9ff'
+  ];
+
+  /**
+   * 显示添加分组对话框
+   */
+  _showAddGroupDialog() {
+    // 移除已存在的对话框
+    const existingDialog = document.getElementById('add-group-dialog');
+    if (existingDialog) {
+      existingDialog.remove();
+    }
+
+    // 创建对话框遮罩
+    const overlay = document.createElement('div');
+    overlay.id = 'add-group-dialog';
+    overlay.className = 'add-group-overlay';
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+    `;
+
+    // 创建对话框内容
+    const dialog = document.createElement('div');
+    dialog.className = 'add-group-dialog';
+    dialog.style.cssText = `
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 20px;
+      min-width: 400px;
+      max-width: 500px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    `;
+
+    // 构建颜色选择器HTML
+    const colorPickerHtml = GroupView.DEFAULT_COLORS.map(color => `
+      <div class="color-option" style="
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        margin-right: 10px;
+        background: ${color};
+        cursor: pointer;
+        border: 2px solid transparent;
+        transition: border-color 0.2s;
+      " data-color="${color}"></div>
+    `).join('');
+
+    dialog.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h3 style="margin: 0; font-size: 18px;">添加新分组</h3>
+        <button class="close-dialog-btn" style="background: none; border: none; font-size: 20px; cursor: pointer;">×</button>
+      </div>
+      <div style="margin-bottom: 15px;">
+        <label style="display: block; margin-bottom: 5px; font-weight: 500;">分组名称</label>
+        <input type="text" id="new-group-name" style="
+          width: 100%;
+          padding: 8px 12px;
+          border: 1px solid #ddd;
+          border-radius: 4px;
+          font-size: 14px;
+          box-sizing: border-box;
+        " placeholder="请输入分组名称">
+      </div>
+      <div style="margin-bottom: 15px;">
+        <label style="display: block; margin-bottom: 5px; font-weight: 500;">分组颜色</label>
+        <div id="color-picker" style="display: flex; flex-wrap: wrap;">
+          ${colorPickerHtml}
+        </div>
+      </div>
+      <div style="text-align: right; padding-top: 15px; border-top: 1px solid #ddd;">
+        <button class="cancel-add-btn" style="
+          margin-right: 10px;
+          padding: 8px 16px;
+          cursor: pointer;
+          background: #6c757d;
+          color: white;
+          border: none;
+          border-radius: 4px;
+        ">取消</button>
+        <button class="confirm-add-btn" style="
+          padding: 8px 16px;
+          cursor: pointer;
+          background: #007bff;
+          color: white;
+          border: none;
+          border-radius: 4px;
+        ">确定</button>
+      </div>
+    `;
+
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    // 选择默认颜色
+    let selectedColor = GroupView.DEFAULT_COLORS[0];
+    const colorOptions = dialog.querySelectorAll('.color-option');
+    colorOptions.forEach(option => {
+      if (option.dataset.color === selectedColor) {
+        option.style.borderColor = '#000';
+      }
+      option.addEventListener('click', () => {
+        selectedColor = option.dataset.color;
+        colorOptions.forEach(opt => opt.style.borderColor = 'transparent');
+        option.style.borderColor = '#000';
+      });
+    });
+
+    // 事件绑定
+    const closeDialog = () => overlay.remove();
+
+    dialog.querySelector('.close-dialog-btn').addEventListener('click', closeDialog);
+    dialog.querySelector('.cancel-add-btn').addEventListener('click', closeDialog);
+
+    dialog.querySelector('.confirm-add-btn').addEventListener('click', async () => {
+      const groupName = document.getElementById('new-group-name').value.trim();
+      if (!groupName) {
+        alert('请输入分组名称');
+        return;
+      }
+
+      await this.dataManager.sendMessage('addGroup', {
+        name: groupName,
+        color: selectedColor
+      });
+
+      await this.dataManager.loadData();
+      this.render();
+      closeDialog();
+    });
+
+    // 点击遮罩关闭
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        closeDialog();
+      }
+    });
+
+    // ESC键关闭对话框
+    document.addEventListener('keydown', function handleEsc(e) {
+      if (e.key === 'Escape') {
+        closeDialog();
+        document.removeEventListener('keydown', handleEsc);
+      }
+    });
+
+    // 聚焦输入框
+    document.getElementById('new-group-name').focus();
   }
 
   /**
