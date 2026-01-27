@@ -295,9 +295,35 @@ async function collectCurrentWindowTabs() {
   // 如果设置为收集后关闭
   if (closeAfterCollect) {
     const tabsToClose = await chrome.tabs.query({ currentWindow: true });
+
+    // 构建需要关闭的标签页ID集合
+    const tabsToCloseIds = [];
     for (const tab of tabsToClose) {
-      if (!tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-extension://')) {
-        await chrome.tabs.remove(tab.id);
+      // 只保留需要关闭的标签页（与收集时的逻辑一致）
+      const shouldClose = !(
+        tab.url.startsWith('chrome://') ||
+        tab.url.startsWith('chrome-extension://')
+      );
+
+      if (shouldClose) {
+        tabsToCloseIds.push(tab.id);
+      }
+    }
+
+    // 关闭所有符合条件的标签页，添加错误处理
+    if (tabsToCloseIds.length > 0) {
+      try {
+        // 使用 Promise.allSettled 确保所有标签页都被处理，即使有错误
+        const closePromises = tabsToCloseIds.map(tabId =>
+          chrome.tabs.remove(tabId).catch(error => {
+            console.warn(`Failed to close tab ${tabId}:`, error);
+          })
+        );
+
+        await Promise.allSettled(closePromises);
+        console.log(`Successfully closed ${tabsToCloseIds.length} tabs`);
+      } catch (error) {
+        console.error('Error closing tabs:', error);
       }
     }
   }
