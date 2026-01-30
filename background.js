@@ -344,6 +344,145 @@ async function collectCurrentWindowTabs() {
   }
 }
 
+// 收集除了当前页面外的其他所有标签页到 Timeline（创建快照）
+async function collectOtherTabs() {
+  const tabs = await chrome.tabs.query({ currentWindow: true });
+  const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+  // 如果没有活动标签页，直接返回
+  if (!activeTab) {
+    return;
+  }
+
+  const settings = await chrome.storage.local.get(['settings']);
+  const closeAfterCollect = settings.settings?.closeAfterCollect || false;
+  const excludeEdgeUrls = settings.settings?.excludeEdgeUrls || false;
+
+  const result = await chrome.storage.local.get(['timelineSnapshots']);
+  const timelineSnapshots = result.timelineSnapshots || [];
+
+  // 收集所有有效标签页（除了当前活动标签页）
+  const collectedTabs = [];
+  for (const tab of tabs) {
+    // 跳过当前活动标签页
+    if (tab.id === activeTab.id) {
+      continue;
+    }
+
+    // 跳过扩展页面和特殊页面
+    if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) {
+      continue;
+    }
+
+    // 可选：跳过 edge:// 页面
+    if (excludeEdgeUrls && tab.url.startsWith('edge://')) {
+      continue;
+    }
+
+    // 跳过空白页和无效 URL
+    if (!tab.url || tab.url === 'about:blank' || tab.url.trim() === '') {
+      continue;
+    }
+
+    // 跳过空标题和无效标题
+    if (!tab.title || tab.title.trim() === '') {
+      continue;
+    }
+
+    collectedTabs.push({
+      id: generateId(),
+      title: tab.title,
+      url: tab.url,
+      favicon: tab.favIconUrl || ''
+    });
+  }
+
+  // 如果没有收集到任何标签，不创建快照
+  if (collectedTabs.length === 0) {
+    if (activeTab) {
+      chrome.tabs.sendMessage(activeTab.id, {
+        action: 'showToast',
+        type: 'info',
+        title: '没有可收集的标签',
+        message: '除了当前页面外，没有其他可收集的标签页',
+        duration: 2000
+      }).catch(() => {});
+    }
+    return;
+  }
+
+  // 创建新快照
+  const newSnapshot = {
+    id: generateId(),
+    timestamp: new Date().toISOString(),
+    tabs: collectedTabs
+  };
+
+  // 添加到快照列表开头
+  timelineSnapshots.unshift(newSnapshot);
+
+  // 限制最多 50 个快照（删除最旧的，即数组末尾的）
+  if (timelineSnapshots.length > 50) {
+    timelineSnapshots.splice(50);  // 删除索引 50 及之后的所有元素
+  }
+
+  await chrome.storage.local.set({ timelineSnapshots });
+
+  // 如果设置为收集后关闭（只关闭收集的标签页，不关闭当前活动页面）
+  if (closeAfterCollect) {
+    // 构建需要关闭的标签页ID集合
+    const tabsToCloseIds = [];
+    for (const tab of tabs) {
+      // 跳过当前活动标签页
+      if (tab.id === activeTab.id) {
+        continue;
+      }
+
+      // 只保留需要关闭的标签页（与收集时的逻辑一致）
+      const shouldClose = !(
+        tab.url.startsWith('chrome://') ||
+        tab.url.startsWith('chrome-extension://')
+      );
+
+      if (shouldClose) {
+        tabsToCloseIds.push(tab.id);
+      }
+    }
+
+    // 关闭所有符合条件的标签页，添加错误处理
+    if (tabsToCloseIds.length > 0) {
+      try {
+        // 使用 Promise.allSettled 确保所有标签页都被处理，即使有错误
+        const closePromises = tabsToCloseIds.map(tabId =>
+          chrome.tabs.remove(tabId).catch(error => {
+            console.warn(`Failed to close tab ${tabId}:`, error);
+          })
+        );
+
+        await Promise.allSettled(closePromises);
+        console.log(`Successfully closed ${tabsToCloseIds.length} tabs`);
+      } catch (error) {
+        console.error('Error closing tabs:', error);
+      }
+    }
+  }
+
+  // 获取当前活动标签页用于显示提示
+  const [currentActiveTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+  // 显示提示
+  if (currentActiveTab) {
+    chrome.tabs.sendMessage(currentActiveTab.id, {
+      action: 'showToast',
+      type: 'success',
+      title: '收集完成',
+      message: `已收集 ${collectedTabs.length} 个标签页（保留了当前页面）`,
+      duration: 2000,
+      showOpenButton: true
+    }).catch(() => {});
+  }
+}
+
 // 打开标签页管理看板
 async function openTabboard() {
   // 检查是否已经打开了看板
@@ -381,6 +520,9 @@ chrome.commands.onCommand.addListener((command) => {
       break;
     case 'collect-all-tabs':
       collectCurrentWindowTabs();
+      break;
+    case 'collect-other-tabs':
+      collectOtherTabs();
       break;
     case 'open-tabboard':
       openTabboard();
@@ -758,6 +900,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
         case 'collectAndOpenTabboard':
           await collectAndOpenTabboard();
+          sendResponse({ success: true });
+          break;
+
+        case 'collectOtherTabs':
+          await collectOtherTabs();
           sendResponse({ success: true });
           break;
 
