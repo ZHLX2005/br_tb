@@ -144,6 +144,12 @@ async function collectAndOpen() {
   window.close();
 }
 
+// 收集其他标签页（除了当前页面）
+async function collectOtherTabs() {
+  await chrome.runtime.sendMessage({ action: 'collectOtherTabs' });
+  window.close();
+}
+
 // 保存设置
 async function saveSettings() {
   const settings = {
@@ -174,6 +180,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('confirmAddGroup').addEventListener('click', addGroup);
   document.getElementById('openTabboardBtn').addEventListener('click', openTabboard);
   document.getElementById('collectAndOpenBtn').addEventListener('click', collectAndOpen);
+  document.getElementById('collectOtherTabsBtn').addEventListener('click', collectOtherTabs);
 
   document.getElementById('closeAfterCollect').addEventListener('change', saveSettings);
   document.getElementById('closeAfterRestore').addEventListener('change', saveSettings);
