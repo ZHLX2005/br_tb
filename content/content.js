@@ -240,6 +240,7 @@ function trackPageVisit() {
 
 // 页面加载完成后立即统计
 if (document.readyState === 'loading') {
+  // 完成之后才进行统计 
   document.addEventListener('DOMContentLoaded', trackPageVisit);
 } else {
   trackPageVisit();
