@@ -14,6 +14,7 @@ class GroupView {
     this.kanban = null;
     this.boardActionsObserver = null;
     this.visibleGroups = new Set(); // 存储可见分组的 ID
+    this.sortByVisitCount = false; // 是否按点击次数排序
   }
 
   /**
@@ -76,6 +77,7 @@ class GroupView {
     actionsHeader.innerHTML = `
       <button class="board-action-btn add-group-btn" title="添加新分组">➕ 添加分组</button>
       <button class="board-action-btn filter-groups-btn" title="选择要显示的分组">🔍 筛选</button>
+      <button class="board-action-btn refresh-sort-btn" title="按点击次数刷新排序">🔄 刷新排序</button>
       <button class="board-action-btn open-all-groups-btn" title="打开所有分组">打开全部</button>
       <button class="board-action-btn clear-all-groups-btn" title="清空所有分组">清空</button>
       <button class="board-action-btn export-groups-btn" title="导出分组数据">导出</button>
@@ -135,7 +137,17 @@ class GroupView {
    */
   _convertToJKanbanFormat(groupsToConvert = this.groups) {
     return groupsToConvert.map(group => {
-      const groupTabs = this.tabs[group.id] || [];
+      let groupTabs = this.tabs[group.id] || [];
+
+      // 如果启用了按点击次数排序，则排序标签
+      if (this.sortByVisitCount) {
+        groupTabs = [...groupTabs].sort((a, b) => {
+          const visitCountA = a.visitCount || 0;
+          const visitCountB = b.visitCount || 0;
+          return visitCountB - visitCountA; // 降序排列
+        });
+      }
+
       return {
         id: group.id,
         title: group.name,
@@ -418,6 +430,7 @@ class GroupView {
   _setupGroupActionButtons() {
     const addGroupBtn = document.querySelector('.add-group-btn');
     const filterBtn = document.querySelector('.filter-groups-btn');
+    const refreshSortBtn = document.querySelector('.refresh-sort-btn');
     const openAllBtn = document.querySelector('.open-all-groups-btn');
     const clearAllBtn = document.querySelector('.clear-all-groups-btn');
     const exportBtn = document.querySelector('.export-groups-btn');
@@ -429,6 +442,10 @@ class GroupView {
 
     if (filterBtn) {
       filterBtn.addEventListener('click', () => this._showGroupFilterDialog());
+    }
+
+    if (refreshSortBtn) {
+      refreshSortBtn.addEventListener('click', () => this._refreshAndSort());
     }
 
     if (openAllBtn) {
@@ -950,6 +967,29 @@ class GroupView {
 
     // 聚焦输入框
     document.getElementById('new-group-name').focus();
+  }
+
+  /**
+   * 刷新并按点击次数排序
+   */
+  _refreshAndSort() {
+    // 切换排序状态
+    this.sortByVisitCount = !this.sortByVisitCount;
+
+    // 更新按钮标题以显示当前状态
+    const refreshBtn = document.querySelector('.refresh-sort-btn');
+    if (refreshBtn) {
+      if (this.sortByVisitCount) {
+        refreshBtn.title = '恢复默认排序';
+        refreshBtn.textContent = '🔄 恢复排序';
+      } else {
+        refreshBtn.title = '按点击次数刷新排序';
+        refreshBtn.textContent = '🔄 刷新排序';
+      }
+    }
+
+    // 重新渲染视图
+    this.render();
   }
 
   /**
