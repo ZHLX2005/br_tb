@@ -152,11 +152,13 @@ export {
   addCurrentTabToDefaultGroup,
   addTabToGroup,
   getDefaultGroupId,
-  openTabboard
+  openTabboard,
+  setupGroupsListeners
 };
 
-// 消息处理器
-export function handleGroupsMessage(request, sender, sendResponse) {
+// 设置分组相关的消息监听器
+function setupGroupsListeners() {
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   (async () => {
     try {
       switch (request.action) {
@@ -417,6 +419,26 @@ export function handleGroupsMessage(request, sender, sendResponse) {
           break;
         }
 
+        case 'sortTabsByVisitCount': {
+          // 按点击次数对所有分组的标签进行排序并保存到存储
+          const sortResult = await chrome.storage.local.get(['tabs']);
+          const allTabs = sortResult.tabs || {};
+
+          // 遍历所有分组，对标签按 visitCount 降序排序
+          for (const groupId in allTabs) {
+            allTabs[groupId] = allTabs[groupId].sort((a, b) => {
+              const visitCountA = a.visitCount || 0;
+              const visitCountB = b.visitCount || 0;
+              return visitCountB - visitCountA; // 降序排列
+            });
+          }
+
+          // 保存排序后的数据
+          await chrome.storage.local.set({ tabs: allTabs });
+          sendResponse({ success: true });
+          break;
+        }
+
         default:
           return false; // 未处理的消息
       }
@@ -426,4 +448,5 @@ export function handleGroupsMessage(request, sender, sendResponse) {
   })();
 
   return true; // 异步响应
+  });
 }

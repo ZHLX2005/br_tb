@@ -3,7 +3,7 @@
  * 处理快照的收集、恢复、导入导出等功能
  */
 
-import { generateId, showToast } from './utils.js';
+import { generateId, showToast, DEFAULT_COLORS } from './utils.js';
 
 // 收集当前窗口所有标签页到 Timeline（创建快照）
 async function collectCurrentWindowTabs() {
@@ -265,11 +265,13 @@ export {
   collectCurrentWindowTabs,
   collectOtherTabs,
   collectAndOpenTabboard,
-  openTabboard
+  openTabboard,
+  setupTimelineListeners
 };
 
-// 消息处理器
-export function handleTimelineMessage(request, sender, sendResponse) {
+// 设置 Timeline 相关的消息监听器
+function setupTimelineListeners() {
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   (async () => {
     try {
       switch (request.action) {
@@ -354,7 +356,6 @@ export function handleTimelineMessage(request, sender, sendResponse) {
         case 'extractMarkedAsGroup': {
           // 将标记为重要的标签提取为新分组，并清空所有快照
           console.log('[Background] extractMarkedAsGroup request:', request);
-          const { DEFAULT_COLORS } = await import('./utils.js');
           const extractResult = await chrome.storage.local.get(['groups', 'tabs']);
           const existingGroups = extractResult.groups || [];
           const existingTabs = extractResult.tabs || {};
@@ -414,4 +415,5 @@ export function handleTimelineMessage(request, sender, sendResponse) {
   })();
 
   return true; // 异步响应
+  });
 }
