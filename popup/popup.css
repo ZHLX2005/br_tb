@@ -26,6 +26,7 @@ body {
 }
 
 .container {
+  position: relative;
   padding: 16px;
 }
 
@@ -502,4 +503,37 @@ body {
     opacity: 0;
     transform: translateX(-50%) translateY(-10px);
   }
+}
+
+/* Popup Toast - 专用于 popup 页面的提示 */
+.popup-toast {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: white;
+  z-index: 1000;
+  animation: slideDown 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.popup-toast.popup-toast-success {
+  background: var(--success);
+}
+
+.popup-toast.popup-toast-error {
+  background: var(--danger);
+}
+
+.popup-toast.popup-toast-info {
+  background: var(--primary);
+}
+
+.popup-toast.popup-toast-exit {
+  animation: slideUp 0.3s ease;
 }
