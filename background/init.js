@@ -71,3 +71,28 @@ export async function initializeDefaultData() {
     await chrome.storage.local.set({ recordings: [] });
   }
 }
+
+// 设置相关的消息监听器
+export function setupSettingsListeners() {
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === 'getSettings' || request.action === 'updateSettings') {
+      (async () => {
+        try {
+          if (request.action === 'getSettings') {
+            const settingsResult = await chrome.storage.local.get(['settings']);
+            sendResponse({ success: true, settings: settingsResult.settings || {} });
+          } else {
+            const currentSettings = await chrome.storage.local.get(['settings']);
+            const newSettings = { ...currentSettings.settings, ...request.settings };
+            await chrome.storage.local.set({ settings: newSettings });
+            sendResponse({ success: true });
+          }
+        } catch (error) {
+          sendResponse({ success: false, error: error.message });
+        }
+      })();
+      return true;
+    }
+    return false;
+  });
+}

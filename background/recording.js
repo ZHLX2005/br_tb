@@ -112,11 +112,13 @@ async function openRecordingPage() {
 
 // 导出函数供外部使用
 export {
-  openRecordingPage
+  openRecordingPage,
+  setupRecordingListeners
 };
 
-// 消息处理器
-export function handleRecordingMessage(request, sender, sendResponse) {
+// 设置录制相关的消息监听器
+function setupRecordingListeners() {
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   (async () => {
     try {
       switch (request.action) {
@@ -271,4 +273,5 @@ export function handleRecordingMessage(request, sender, sendResponse) {
   })();
 
   return true; // 异步响应
+  });
 }

@@ -14,7 +14,6 @@ class GroupView {
     this.kanban = null;
     this.boardActionsObserver = null;
     this.visibleGroups = new Set(); // 存储可见分组的 ID
-    this.sortByVisitCount = false; // 是否按点击次数排序
   }
 
   /**
@@ -137,16 +136,7 @@ class GroupView {
    */
   _convertToJKanbanFormat(groupsToConvert = this.groups) {
     return groupsToConvert.map(group => {
-      let groupTabs = this.tabs[group.id] || [];
-
-      // 如果启用了按点击次数排序，则排序标签
-      if (this.sortByVisitCount) {
-        groupTabs = [...groupTabs].sort((a, b) => {
-          const visitCountA = a.visitCount || 0;
-          const visitCountB = b.visitCount || 0;
-          return visitCountB - visitCountA; // 降序排列
-        });
-      }
+      const groupTabs = this.tabs[group.id] || [];
 
       return {
         id: group.id,
@@ -970,25 +960,14 @@ class GroupView {
   }
 
   /**
-   * 刷新并按点击次数排序
+   * 刷新并按点击次数排序（持久化到存储）
    */
-  _refreshAndSort() {
-    // 切换排序状态
-    this.sortByVisitCount = !this.sortByVisitCount;
+  async _refreshAndSort() {
+    // 调用 background 对数据进行排序并保存
+    await this.dataManager.sendMessage('sortTabsByVisitCount');
 
-    // 更新按钮标题以显示当前状态
-    const refreshBtn = document.querySelector('.refresh-sort-btn');
-    if (refreshBtn) {
-      if (this.sortByVisitCount) {
-        refreshBtn.title = '恢复默认排序';
-        refreshBtn.textContent = '🔄 恢复排序';
-      } else {
-        refreshBtn.title = '按点击次数刷新排序';
-        refreshBtn.textContent = '🔄 刷新排序';
-      }
-    }
-
-    // 重新渲染视图
+    // 重新加载数据并渲染
+    await this.dataManager.loadData();
     this.render();
   }
 
