@@ -156,6 +156,54 @@ export {
   setupGroupsListeners
 };
 
+// 元素拾取器消息处理
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'TABBOARD_PICK_RESULT') {
+    // 获取当前标签页信息
+    chrome.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
+      const tab = tabs[0];
+      if (!tab || !tab.url) return;
+
+      const url = new URL(tab.url).origin + new URL(tab.url).pathname;
+
+      chrome.storage.local.get(['formData']).then((result) => {
+        const formData = result.formData || {};
+
+        if (!formData[url]) {
+          formData[url] = {
+            fields: [],
+            checkboxes: [],
+            standaloneInputs: [],
+            pickedElements: [],
+            timestamp: new Date().toISOString(),
+            pageTitle: tab.title,
+            fullUrl: tab.url
+          };
+        }
+
+        if (!formData[url].pickedElements) {
+          formData[url].pickedElements = [];
+        }
+
+        formData[url].pickedElements.push({
+          tagName: message.data.tagName,
+          id: message.data.id,
+          name: message.data.name,
+          value: message.data.value,
+          text: message.data.text,
+          placeholder: message.data.placeholder,
+          href: message.data.href,
+          timestamp: message.data.timestamp
+        });
+
+        chrome.storage.local.set({ formData });
+      });
+    });
+  } else if (message.type === 'TABBOARD_PICK_CANCEL') {
+    // 取消拾取，无需特殊处理
+  }
+});
+
 // 设置分组相关的消息监听器
 function setupGroupsListeners() {
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -470,6 +518,144 @@ function setupGroupsListeners() {
             console.error('打开侧边栏失败:', err);
           }
           sendResponse({ success: true });
+          break;
+        }
+
+        case 'startElementPicker': {
+          // 启动元素拾取器
+          try {
+            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            if (!tab || !tab.id) {
+              sendResponse({ success: false, error: 'No active tab' });
+              break;
+            }
+
+            if (!tab.url || tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('edge://') || tab.url.startsWith('about:')) {
+              sendResponse({ success: false, error: 'Cannot pick from special pages' });
+              break;
+            }
+
+            // 注入元素拾取脚本
+            await chrome.scripting.executeScript({
+              target: { tabId: tab.id },
+              func: () => {
+                // 防止重复注入
+                if (window.__tabboardPickerActive) return;
+                window.__tabboardPickerActive = true;
+
+                // 创建高亮框
+                const overlay = document.createElement("div");
+                overlay.id = '__tabboard-picker-overlay';
+                overlay.style.position = "absolute";
+                overlay.style.border = "2px solid #42a5f5";
+                overlay.style.background = "rgba(66, 165, 245, 0.1)";
+                overlay.style.pointerEvents = "none";
+                overlay.style.zIndex = "999999";
+                document.body.appendChild(overlay);
+
+                // 创建提示框
+                const tooltip = document.createElement("div");
+                tooltip.id = '__tabboard-picker-tooltip';
+                tooltip.style.position = "fixed";
+                tooltip.style.background = "black";
+                tooltip.style.color = "white";
+                tooltip.style.fontSize = "12px";
+                tooltip.style.padding = "4px 8px";
+                tooltip.style.borderRadius = "4px";
+                tooltip.style.zIndex = "1000000";
+                tooltip.style.pointerEvents = "none";
+                tooltip.style.fontFamily = "system-ui";
+                document.body.appendChild(tooltip);
+
+                function onMove(e) {
+                  let el = document.elementFromPoint(e.clientX, e.clientY);
+                  if (!el || el === overlay || el === tooltip) return;
+
+                  const rect = el.getBoundingClientRect();
+                  overlay.style.top = rect.top + window.scrollY + "px";
+                  overlay.style.left = rect.left + window.scrollX + "px";
+                  overlay.style.width = rect.width + "px";
+                  overlay.style.height = rect.height + "px";
+
+                  tooltip.style.top = (rect.top + window.scrollY - 28) + "px";
+                  tooltip.style.left = (rect.left + window.scrollX) + "px";
+
+                  // 显示元素信息
+                  const tagName = el.tagName.toLowerCase();
+                  const id = el.id ? `#${el.id}` : '';
+                  const cls = el.className ? `.${el.className.split(' ').join('.')}` : '';
+                  tooltip.innerText = `<${tagName}${id}${cls}>`;
+                }
+
+                function onClick(e) {
+                  e.preventDefault();
+                  e.stopPropagation();
+
+                  let el = document.elementFromPoint(e.clientX, e.clientY);
+                  if (!el) return;
+
+                  // 获取元素文本
+                  let text = (el.innerText || el.textContent || '').trim();
+                  // 清理多余空白
+                  text = text.replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n').slice(0, 5000);
+
+                  // 获取元素属性
+                  const tagName = el.tagName.toLowerCase();
+                  const id = el.id || '';
+                  const name = el.name || '';
+                  const value = el.value || '';
+                  const type = el.type || '';
+                  const placeholder = el.placeholder || '';
+                  const href = el.href || '';
+
+                  // 发送数据到 background
+                  chrome.runtime.sendMessage({
+                    type: 'TABBOARD_PICK_RESULT',
+                    data: {
+                      tagName,
+                      id,
+                      name,
+                      value,
+                      type,
+                      placeholder,
+                      text,
+                      href,
+                      timestamp: new Date().toISOString()
+                    }
+                  });
+
+                  cleanup();
+                }
+
+                function cleanup() {
+                  document.removeEventListener('mousemove', onMove, true);
+                  document.removeEventListener('click', onClick, true);
+                  document.removeEventListener('keydown', onKeyDown, true);
+                  overlay.remove();
+                  tooltip.remove();
+                  window.__tabboardPickerActive = false;
+                }
+
+                function onKeyDown(e) {
+                  if (e.key === 'Escape') {
+                    cleanup();
+                    chrome.runtime.sendMessage({ type: 'TABBOARD_PICK_CANCEL' });
+                  }
+                }
+
+                document.addEventListener('mousemove', onMove, true);
+                document.addEventListener('click', onClick, true);
+                document.addEventListener('keydown', onKeyDown, true);
+
+                // 提示用户
+                tooltip.innerText = '点击选择元素，ESC 取消';
+              }
+            });
+
+            sendResponse({ success: true });
+          } catch (error) {
+            sendResponse({ success: false, error: error.message });
+          }
           break;
         }
 

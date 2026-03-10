@@ -8,40 +8,104 @@
 </head>
 <body>
   <div class="sidebar-container">
-    <header class="sidebar-header">
-      <h2>📋 TabBoard</h2>
-      <button id="refreshBtn" class="header-btn" title="刷新">🔄</button>
-    </header>
+    <!-- 顶部导航 -->
+    <nav class="sidebar-nav">
+      <button class="nav-btn active" data-page="groups">
+        <span class="nav-icon">📋</span>
+        <span class="nav-text">分组</span>
+      </button>
+      <button class="nav-btn" data-page="forms">
+        <span class="nav-icon">📝</span>
+        <span class="nav-text">表单</span>
+      </button>
+      <button class="nav-btn" data-page="settings">
+        <span class="nav-icon">⚙️</span>
+        <span class="nav-text">设置</span>
+      </button>
+    </nav>
 
-    <!-- 分组选择器 -->
-    <div class="group-selector">
-      <label for="groupSelect">选择分组:</label>
-      <select id="groupSelect">
-        <option value="">-- 选择分组 --</option>
-      </select>
+    <!-- 页面容器 -->
+    <div class="page-container">
+      <!-- 分组页面 -->
+      <div id="page-groups" class="page active">
+        <div class="page-header">
+          <div class="group-selector">
+            <select id="groupSelect">
+              <option value="">-- 选择分组 --</option>
+            </select>
+          </div>
+          <button id="refreshGroupsBtn" class="header-btn" title="刷新">🔄</button>
+        </div>
+
+        <div id="currentGroupInfo" class="group-info" style="display: none;">
+          <div class="group-header">
+            <span id="groupColor" class="group-color"></span>
+            <span id="groupName" class="group-name"></span>
+            <span id="tabCount" class="tab-count"></span>
+          </div>
+          <div class="group-actions">
+            <button id="openAllBtn" class="action-btn">📂 打开全部</button>
+            <button id="clearGroupBtn" class="action-btn danger">🗑️ 清空</button>
+          </div>
+        </div>
+
+        <div id="tabList" class="tab-list">
+          <div class="empty-hint">请选择一个分组查看标签</div>
+        </div>
+      </div>
+
+      <!-- 文本收集页面 -->
+      <div id="page-forms" class="page">
+        <div class="page-header">
+          <h3>🎯 文本收集</h3>
+          <button id="startPickerBtn" class="header-btn" title="点击选择页面元素">🎯 拾取</button>
+        </div>
+
+        <div class="form-summary">
+          <div class="summary-item">
+            <span class="summary-label">已收集网站</span>
+            <span id="siteCount" class="summary-value">0</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">已捕获元素</span>
+            <span id="elementCount" class="summary-value">0</span>
+          </div>
+        </div>
+
+        <div id="pickerStatus" class="picker-status" style="display: none;">
+          <span class="picker-hint">🎯 拾取中... 点击页面元素捕获，ESC 取消</span>
+        </div>
+
+        <div class="form-list" id="formList">
+          <div class="empty-hint">点击 🎯 按钮，在页面上选择元素</div>
+        </div>
+
+        <div class="form-actions">
+          <button id="exportFormsBtn" class="action-btn">📤 导出</button>
+          <button id="clearFormsBtn" class="action-btn danger">🗑️ 清空</button>
+        </div>
+      </div>
+
+      <!-- 设置页面 -->
+      <div id="page-settings" class="page">
+        <div class="page-header">
+          <h3>⚙️ 设置</h3>
+        </div>
+
+        <div class="settings-list">
+          <label class="setting-item">
+            <input type="checkbox" id="autoCollectForms" checked>
+            <span>启用表单收集</span>
+          </label>
+        </div>
+
+        <div class="settings-info">
+          <p>快捷键: <kbd>Alt+Shift+F</kbd> 收集表单</p>
+        </div>
+      </div>
     </div>
 
-    <!-- 当前分组信息 -->
-    <div id="currentGroupInfo" class="group-info" style="display: none;">
-      <div class="group-header">
-        <span id="groupColor" class="group-color"></span>
-        <span id="groupName" class="group-name"></span>
-        <span id="tabCount" class="tab-count"></span>
-      </div>
-      <div class="group-actions">
-        <button id="openAllBtn" class="action-btn" title="打开所有">📂 打开全部</button>
-        <button id="clearGroupBtn" class="action-btn danger" title="清空分组">🗑️ 清空</button>
-      </div>
-    </div>
-
-    <!-- 标签列表 -->
-    <div id="tabList" class="tab-list">
-      <div class="empty-hint">
-        <p>请选择一个分组查看标签</p>
-      </div>
-    </div>
-
-    <!-- 统计 -->
+    <!-- 底部统计 -->
     <footer class="sidebar-footer">
       <span id="stats">加载中...</span>
     </footer>
