@@ -138,12 +138,6 @@ async function openTabboard() {
   window.close();
 }
 
-// 打开侧边栏
-async function openSidebar() {
-  await chrome.runtime.sendMessage({ action: 'openSidebar' });
-  window.close();
-}
-
 // 收集并打开看板
 async function collectAndOpen() {
   await chrome.runtime.sendMessage({ action: 'collectAndOpenTabboard' });
@@ -185,9 +179,17 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('cancelAddGroup').addEventListener('click', closeAddGroupDialog);
   document.getElementById('confirmAddGroup').addEventListener('click', addGroup);
   document.getElementById('openTabboardBtn').addEventListener('click', openTabboard);
-  document.getElementById('openSidebarBtn').addEventListener('click', openSidebar);
   document.getElementById('collectAndOpenBtn').addEventListener('click', collectAndOpen);
   document.getElementById('collectOtherTabsBtn').addEventListener('click', collectOtherTabs);
+
+  // 录制区域折叠功能
+  const recordingSection = document.querySelector('.section-recording');
+  const recordingToggle = document.getElementById('recordingToggle');
+  if (recordingToggle) {
+    recordingToggle.addEventListener('click', () => {
+      recordingSection.classList.toggle('collapsed');
+    });
+  }
 
   document.getElementById('closeAfterCollect').addEventListener('change', saveSettings);
   document.getElementById('closeAfterRestore').addEventListener('change', saveSettings);
