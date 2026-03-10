@@ -1,12 +1,16 @@
 {
   "manifest_version": 3,
   "name": "TabBoard - 标签页分组管理",
-  "version": "1.3",
-  "description": "类似 OneTab 的标签页分组管理工具，支持快捷键快速收集和分组管理，支持侧边栏显示",
+  "version": "1.4",
+  "description": "类似 OneTab 的标签页分组管理工具，支持快捷键快速收集和分组管理，支持侧边栏显示和表单收集",
   "permissions": [
     "storage",
     "tabs",
-    "sidePanel"
+    "sidePanel",
+    "scripting"
+  ],
+  "host_permissions": [
+    "<all_urls>"
   ],
   "background": {
     "service_worker": "background/index.js",
@@ -55,7 +59,10 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "modules/tabboard/tabboard.html"
+        "modules/tabboard/tabboard.html",
+        "sidepanel/sidepanel.html",
+        "sidepanel/sidepanel.js",
+        "sidepanel/sidepanel.css"
       ],
       "matches": ["<all_urls>"]
     }

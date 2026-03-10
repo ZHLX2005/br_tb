@@ -5,81 +5,142 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  font-size: 14px;
-  line-height: 1.5;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 13px;
+  line-height: 1.4;
   color: #333;
   background: #f5f5f5;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .sidebar-container {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100%;
+}
+
+/* 导航栏 */
+.sidebar-nav {
+  display: flex;
+  background: #fff;
+  border-bottom: 1px solid #e0e0e0;
+  padding: 4px;
+  gap: 2px;
+}
+
+.nav-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 4px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 11px;
+  color: #666;
+  transition: all 0.2s;
+}
+
+.nav-btn:hover {
+  background: #f0f0f0;
+}
+
+.nav-btn.active {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.nav-icon {
+  font-size: 16px;
+}
+
+.nav-text {
+  font-size: 10px;
+}
+
+/* 页面容器 */
+.page-container {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.page {
+  display: none;
+  flex-direction: column;
+  height: 100%;
   overflow: hidden;
 }
 
-/* 头部 */
-.sidebar-header {
+.page.active {
+  display: flex;
+}
+
+/* 页面头部 */
+.page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
+  padding: 10px 12px;
   background: #fff;
   border-bottom: 1px solid #e0e0e0;
 }
 
-.sidebar-header h2 {
-  font-size: 16px;
+.page-header h3 {
+  font-size: 14px;
   font-weight: 600;
 }
 
 .header-btn {
   background: none;
   border: none;
-  font-size: 16px;
+  font-size: 14px;
   cursor: pointer;
   padding: 4px 8px;
   border-radius: 4px;
-  transition: background 0.2s;
 }
 
 .header-btn:hover {
   background: #f0f0f0;
 }
 
-/* 分组选择器 */
-.group-selector {
-  padding: 12px 16px;
-  background: #fff;
-  border-bottom: 1px solid #e0e0e0;
+.header-actions {
+  display: flex;
+  gap: 4px;
 }
 
-.group-selector label {
-  display: block;
-  margin-bottom: 6px;
+/* 拾取器状态 */
+.picker-status {
+  padding: 8px 12px;
+  background: #e3f2fd;
+  border-bottom: 1px solid #bbdefb;
+}
+
+.picker-hint {
   font-size: 12px;
-  color: #666;
+  color: #1976d2;
+}
+
+/* 分组选择器 */
+.group-selector {
+  flex: 1;
 }
 
 .group-selector select {
   width: 100%;
-  padding: 8px 12px;
+  padding: 6px 8px;
   border: 1px solid #ddd;
-  border-radius: 6px;
-  font-size: 14px;
-  background: #fff;
-  cursor: pointer;
-}
-
-.group-selector select:focus {
-  outline: none;
-  border-color: #007bff;
+  border-radius: 4px;
+  font-size: 13px;
 }
 
 /* 分组信息 */
 .group-info {
-  padding: 12px 16px;
+  padding: 10px 12px;
   background: #fff;
   border-bottom: 1px solid #e0e0e0;
 }
@@ -87,7 +148,7 @@ body {
 .group-header {
   display: flex;
   align-items: center;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .group-color {
@@ -103,7 +164,7 @@ body {
 }
 
 .tab-count {
-  font-size: 12px;
+  font-size: 11px;
   color: #888;
   background: #f0f0f0;
   padding: 2px 8px;
@@ -112,17 +173,16 @@ body {
 
 .group-actions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 .action-btn {
   flex: 1;
-  padding: 8px 12px;
+  padding: 6px 10px;
   border: none;
-  border-radius: 6px;
-  font-size: 13px;
+  border-radius: 4px;
+  font-size: 12px;
   cursor: pointer;
-  transition: background 0.2s;
   background: #f0f0f0;
 }
 
@@ -153,28 +213,27 @@ body {
   color: #888;
   text-align: center;
   padding: 20px;
+  font-size: 12px;
 }
 
 .tab-item {
   display: flex;
   align-items: center;
-  padding: 10px 12px;
+  padding: 8px 10px;
   background: #fff;
-  border-radius: 8px;
-  margin-bottom: 6px;
+  border-radius: 6px;
+  margin-bottom: 4px;
   cursor: pointer;
-  transition: background 0.2s, box-shadow 0.2s;
 }
 
 .tab-item:hover {
   background: #f8f9fa;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .tab-favicon {
-  width: 16px;
-  height: 16px;
-  margin-right: 10px;
+  width: 14px;
+  height: 14px;
+  margin-right: 8px;
   flex-shrink: 0;
 }
 
@@ -184,16 +243,14 @@ body {
 }
 
 .tab-title {
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 12px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-bottom: 2px;
 }
 
 .tab-url {
-  font-size: 11px;
+  font-size: 10px;
   color: #888;
   white-space: nowrap;
   overflow: hidden;
@@ -205,10 +262,8 @@ body {
   border: none;
   font-size: 14px;
   cursor: pointer;
-  padding: 4px 8px;
+  padding: 2px 6px;
   opacity: 0;
-  transition: opacity 0.2s;
-  border-radius: 4px;
   color: #dc3545;
 }
 
@@ -216,26 +271,180 @@ body {
   opacity: 1;
 }
 
-.tab-delete:hover {
-  background: #ffe0e3;
-}
-
-/* 访问次数徽章 */
 .visit-badge {
-  font-size: 11px;
+  font-size: 10px;
   color: #666;
   background: #e9ecef;
-  padding: 1px 6px;
+  padding: 1px 4px;
   border-radius: 8px;
-  margin-left: 6px;
+  margin-left: 4px;
+}
+
+/* 表单收集页面 */
+.form-summary {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #fff;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.summary-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px;
+  background: #f8f9fa;
+  border-radius: 6px;
+}
+
+.summary-label {
+  font-size: 10px;
+  color: #888;
+}
+
+.summary-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1976d2;
+}
+
+.form-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.form-item {
+  background: #fff;
+  border-radius: 6px;
+  margin-bottom: 6px;
+  overflow: hidden;
+}
+
+.form-item-header {
+  display: flex;
+  align-items: center;
+  padding: 8px 10px;
+  background: #f8f9fa;
+  cursor: pointer;
+}
+
+.form-item-header:hover {
+  background: #f0f0f0;
+}
+
+.form-site {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.form-count {
+  font-size: 10px;
+  color: #888;
+  background: #e9ecef;
+  padding: 2px 6px;
+  border-radius: 8px;
+}
+
+.form-item-content {
+  display: none;
+  padding: 10px;
+  border-top: 1px solid #eee;
+}
+
+.form-item.expanded .form-item-content {
+  display: block;
+}
+
+.form-field {
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.form-field:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.form-field-label {
+  font-size: 10px;
+  color: #888;
+  margin-bottom: 2px;
+}
+
+.form-field-value {
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.form-item-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #eee;
+}
+
+.form-item-actions .action-btn {
+  flex: 1;
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
+.form-actions {
+  display: flex;
+  gap: 6px;
+  padding: 10px 12px;
+  background: #fff;
+  border-top: 1px solid #e0e0e0;
+}
+
+/* 设置页面 */
+.settings-list {
+  padding: 12px;
+  background: #fff;
+}
+
+.setting-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  cursor: pointer;
+}
+
+.setting-item input {
+  width: 16px;
+  height: 16px;
+}
+
+.settings-info {
+  padding: 12px;
+  font-size: 12px;
+  color: #666;
+}
+
+kbd {
+  background: #f0f0f0;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: monospace;
 }
 
 /* 底部统计 */
 .sidebar-footer {
-  padding: 10px 16px;
+  padding: 8px 12px;
   background: #fff;
   border-top: 1px solid #e0e0e0;
-  font-size: 12px;
+  font-size: 11px;
   color: #888;
   text-align: center;
 }
@@ -247,4 +456,38 @@ body {
   justify-content: center;
   padding: 20px;
   color: #888;
+}
+
+/* Toast 提示 */
+.sidebar-toast {
+  position: fixed;
+  bottom: 60px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: white;
+  background: #333;
+  opacity: 0;
+  transition: all 0.3s ease;
+  z-index: 10000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.sidebar-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.sidebar-toast.toast-success {
+  background: #4caf50;
+}
+
+.sidebar-toast.toast-error {
+  background: #f44336;
+}
+
+.sidebar-toast.toast-info {
+  background: #2196f3;
 }
