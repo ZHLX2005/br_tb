@@ -465,7 +465,7 @@ function setupGroupsListeners() {
         case 'openSidebar': {
           // 打开侧边栏
           try {
-            await chrome.sidePanel.open();
+            await chrome.sidePanel.open({ path: 'sidepanel/sidepanel.html' });
           } catch (err) {
             console.error('打开侧边栏失败:', err);
           }
