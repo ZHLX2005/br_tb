@@ -24,7 +24,7 @@
     "default_title": "TabBoard - 标签页管理"
   },
   "side_panel": {
-    "default_path": "sidepanel.html"
+    "default_path": "sidepanel/sidepanel.html"
   },
   "commands": {
     "add-current-tab": {
