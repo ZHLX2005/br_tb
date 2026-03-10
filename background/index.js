@@ -15,6 +15,20 @@ initializeDefaultData();
 initCommands();
 initRecording();
 
+// 点击扩展图标时打开侧边栏
+chrome.action.onClicked.addListener(async (tab) => {
+  try {
+    await chrome.sidePanel.open({ tabId: tab.id });
+  } catch (error) {
+    // 如果 sidePanel API 失败，则打开标签页
+    console.log('sidePanel open failed, fallback to tab:', error);
+    await chrome.tabs.create({
+      url: chrome.runtime.getURL('sidepanel/sidepanel.html'),
+      active: true
+    });
+  }
+});
+
 // 设置各模块的消息监听器
 setupSettingsListeners();
 setupGroupsListeners();
