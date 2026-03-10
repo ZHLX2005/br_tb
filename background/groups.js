@@ -439,6 +439,40 @@ function setupGroupsListeners() {
           break;
         }
 
+        case 'getAllData': {
+          // 获取所有数据（分组和标签）- 侧边栏使用
+          const allDataResult = await chrome.storage.local.get(['groups', 'tabs']);
+          sendResponse({
+            success: true,
+            groups: allDataResult.groups || [],
+            tabs: allDataResult.tabs || {}
+          });
+          break;
+        }
+
+        case 'clearGroup': {
+          // 清空指定分组 - 侧边栏使用
+          const clearGroupResult = await chrome.storage.local.get(['tabs']);
+          const clearGroupTabs = clearGroupResult.tabs || {};
+          if (clearGroupTabs[request.groupId]) {
+            clearGroupTabs[request.groupId] = [];
+            await chrome.storage.local.set({ tabs: clearGroupTabs });
+          }
+          sendResponse({ success: true });
+          break;
+        }
+
+        case 'openSidebar': {
+          // 打开侧边栏
+          try {
+            await chrome.sidePanel.open();
+          } catch (err) {
+            console.error('打开侧边栏失败:', err);
+          }
+          sendResponse({ success: true });
+          break;
+        }
+
         default:
           return false; // 未处理的消息
       }

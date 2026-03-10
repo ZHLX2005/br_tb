@@ -7,7 +7,7 @@ import { collectCurrentWindowTabs, collectOtherTabs, openTabboard } from './time
 
 // 快捷键命令处理
 export function initCommands() {
-  chrome.commands.onCommand.addListener((command) => {
+  chrome.commands.onCommand.addListener(async (command) => {
     switch (command) {
       case 'add-current-tab':
         addCurrentTabToDefaultGroup();
