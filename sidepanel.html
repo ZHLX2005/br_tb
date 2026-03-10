@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TabBoard 侧边栏</title>
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+  <div class="sidebar-container">
+    <header class="sidebar-header">
+      <h2>📋 TabBoard</h2>
+      <button id="refreshBtn" class="header-btn" title="刷新">🔄</button>
+    </header>
+
+    <!-- 分组选择器 -->
+    <div class="group-selector">
+      <label for="groupSelect">选择分组:</label>
+      <select id="groupSelect">
+        <option value="">-- 选择分组 --</option>
+      </select>
+    </div>
+
+    <!-- 当前分组信息 -->
+    <div id="currentGroupInfo" class="group-info" style="display: none;">
+      <div class="group-header">
+        <span id="groupColor" class="group-color"></span>
+        <span id="groupName" class="group-name"></span>
+        <span id="tabCount" class="tab-count"></span>
+      </div>
+      <div class="group-actions">
+        <button id="openAllBtn" class="action-btn" title="打开所有">📂 打开全部</button>
+        <button id="clearGroupBtn" class="action-btn danger" title="清空分组">🗑️ 清空</button>
+      </div>
+    </div>
+
+    <!-- 标签列表 -->
+    <div id="tabList" class="tab-list">
+      <div class="empty-hint">
+        <p>请选择一个分组查看标签</p>
+      </div>
+    </div>
+
+    <!-- 统计 -->
+    <footer class="sidebar-footer">
+      <span id="stats">加载中...</span>
+    </footer>
+  </div>
+
+  <script src="sidepanel.js"></script>
+</body>
+</html>
