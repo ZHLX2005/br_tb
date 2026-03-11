@@ -1,0 +1,53 @@
+{
+  "name": "ai-api",
+  "server": {
+    "http_endpoint": ":8080",
+    "disable_gray": true
+  },
+ "std_log":{
+      "level": "debug",
+      "format": "text",
+      "app_name":"ai-api",
+      "output": "stdout"  
+  },
+  "modules": [
+    {
+      "name": "chat_complete",
+      "config": {
+        "redis_storage": "default",
+        "models": {
+          "doubao-seed-1.6|Doubao-Seed-1.6|doubao-seed-1.6-thinking|doubao-pro-256k|doubao-pro-32k-1215-11|doubao-1.5-pro-32k": {
+            "type": "doubao",
+            "config": {
+              "api_key": "e13676d8-fc1c-4a00-8c87-5896b3c53e72",
+              "end_point_ids": [
+                "ep-20260304111943-xgztp"
+              ]
+            }
+          },
+          "doubao-seed-1.6-flash|doubao-seed-1.6-flash-250615|doubao-seed-1.6-flash-250715|doubao-seed-1.6-flash-250828|qwen-plus|qwen-plus-2025-07-28": {
+            "type": "doubao",
+            "config": {
+              "api_key": "e13676d8-fc1c-4a00-8c87-5896b3c53e72", 
+              "end_point_ids": [
+                "ep-20251215185035-nqhf4"           
+              ]
+            }
+          }
+          }
+        }
+      
+    }
+  ],
+  "workers": [],
+  "storage": {
+    "postgres": {
+      "alchemy_lab": "host=postgres7c7a6591e83f.rds-pg.ivolces.com  dbname=alchemy port=5432 user=alchemy password=tsKsRnG6we8BA34 sslmode=disable TimeZone=Asia/Shanghai"
+    },
+    "redis": {
+      "default": {
+        "address": "redis-cnlfzxsxryfgavcoz.redis.ivolces.com:6379"
+      }
+    }
+  }
+}

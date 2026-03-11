@@ -113,6 +113,196 @@ body {
   gap: 4px;
 }
 
+/* 手动添加表单 */
+.manual-add-form {
+  padding: 10px 12px;
+  background: #fff;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.manual-input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 13px;
+  margin-bottom: 8px;
+  box-sizing: border-box;
+}
+
+.manual-textarea {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 13px;
+  min-height: 60px;
+  resize: vertical;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+.manual-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  justify-content: flex-end;
+}
+
+.manual-actions .action-btn {
+  padding: 6px 12px;
+}
+
+.manual-actions .btn-primary {
+  background: #42a5f5;
+  color: white;
+}
+
+/* JSON 预览相关样式 */
+.manual-value-wrapper {
+  position: relative;
+}
+
+.json-preview {
+  display: none;
+  margin-top: 8px;
+  padding: 8px;
+  background: #f8f9fa;
+  border: 1px solid #42a5f5;
+  border-radius: 4px;
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  font-size: 11px;
+  max-height: 150px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.json-preview.show {
+  display: block;
+}
+
+.json-preview .json-key {
+  color: #881391;
+}
+
+.json-preview .json-string {
+  color: #0b7500;
+}
+
+.json-preview .json-number {
+  color: #1750eb;
+}
+
+.json-preview .json-boolean {
+  color: #0033b3;
+}
+
+.json-preview .json-null {
+  color: #808080;
+}
+
+.json-status {
+  font-size: 11px;
+  margin-right: auto;
+}
+
+.json-status.valid {
+  color: #4caf50;
+}
+
+.json-status.invalid {
+  color: #f44336;
+}
+
+.json-status.empty {
+  color: #888;
+}
+
+/* 导入库按钮样式 */
+.import-lib-btn {
+  margin-left: 8px;
+  padding: 4px 8px;
+  font-size: 11px;
+  background: #e3f2fd;
+  color: #1976d2;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.import-lib-btn:hover {
+  background: #bbdefb;
+}
+
+.lib-status {
+  font-size: 10px;
+  color: #888;
+  margin-left: 8px;
+}
+
+/* JSON 字段值样式 */
+.form-field-value.is-json {
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  font-size: 11px;
+  background: #f8f9fa;
+  padding: 6px 8px;
+  border-radius: 4px;
+  max-height: 120px;
+  overflow: auto;
+  white-space: pre;
+}
+
+/* 深色主题下的 JSON 样式 */
+@media (prefers-color-scheme: dark) {
+  .form-field-value.is-json {
+    background: #383838;
+  }
+
+  .json-preview .json-key {
+    color: #c792ea;
+  }
+
+  .json-preview .json-string {
+    color: #c3e88d;
+  }
+
+  .json-preview .json-number {
+    color: #f78c6c;
+  }
+
+  .json-preview .json-boolean {
+    color: #89ddff;
+  }
+
+  .json-preview .json-null {
+    color: #888;
+  }
+}
+
+/* 搜索框 */
+.search-box {
+  padding: 8px 12px;
+  background: #fff;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.search-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 20px;
+  font-size: 13px;
+  box-sizing: border-box;
+  background: #f5f5f5;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #42a5f5;
+  background: #fff;
+}
+
 /* 拾取器状态 */
 .picker-status {
   padding: 8px 12px;
@@ -374,15 +564,59 @@ body {
   border-bottom: none;
 }
 
+.form-field-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
 .form-field-label {
   font-size: 10px;
   color: #888;
-  margin-bottom: 2px;
+}
+
+.form-field-actions {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.form-field:hover .form-field-actions {
+  opacity: 1;
+}
+
+.field-btn {
+  background: none;
+  border: none;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+.field-btn:hover {
+  background: #e9ecef;
 }
 
 .form-field-value {
   font-size: 12px;
   word-break: break-all;
+  cursor: pointer;
+  white-space: pre-wrap;
+  font-family: monospace;
+  background: #f8f9fa;
+  padding: 4px 6px;
+  border-radius: 3px;
+  margin-top: 4px;
+}
+
+.form-field-value:hover {
+  background: #e3f2fd;
+  padding: 2px 4px;
+  margin: -2px -4px;
+  border-radius: 3px;
 }
 
 .form-item-actions {
@@ -490,4 +724,412 @@ kbd {
 
 .sidebar-toast.toast-info {
   background: #2196f3;
+}
+
+/* 编辑对话框 */
+.edit-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.edit-dialog {
+  background: white;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 360px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.edit-dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.edit-dialog-header h3 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.edit-dialog-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: #888;
+  padding: 0;
+  line-height: 1;
+}
+
+.edit-dialog-close:hover {
+  color: #333;
+}
+
+.edit-dialog-body {
+  padding: 16px;
+}
+
+.edit-field {
+  margin-bottom: 12px;
+}
+
+.edit-field:last-child {
+  margin-bottom: 0;
+}
+
+.edit-field label {
+  display: block;
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.edit-field input,
+.edit-field textarea {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 13px;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+.edit-field input:focus,
+.edit-field textarea:focus {
+  outline: none;
+  border-color: #42a5f5;
+}
+
+.edit-dialog-footer {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 12px 16px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.edit-dialog-footer button {
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.edit-dialog-footer .btn-cancel {
+  background: #f0f0f0;
+  border: none;
+  color: #666;
+}
+
+.edit-dialog-footer .btn-save {
+  background: #42a5f5;
+  border: none;
+  color: white;
+}
+
+/* 批量操作栏 */
+.batch-actions-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #fff3cd;
+  border-bottom: 1px solid #ffeeba;
+}
+
+#selectedCount {
+  font-size: 12px;
+  color: #856404;
+}
+
+.batch-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.batch-actions-bar .action-btn {
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
+/* 选择框 */
+.field-checkbox {
+  margin-right: 8px;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+/* 响应式优化 */
+@media (max-width: 400px) {
+  body {
+    font-size: 12px;
+  }
+
+  .sidebar-nav {
+    padding: 2px;
+    gap: 1px;
+  }
+
+  .nav-btn {
+    padding: 4px 2px;
+  }
+
+  .nav-icon {
+    font-size: 14px;
+  }
+
+  .nav-text {
+    font-size: 9px;
+  }
+
+  .page-header {
+    padding: 8px;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .page-header h3 {
+    font-size: 13px;
+  }
+
+  .group-selector select {
+    font-size: 12px;
+    padding: 4px 6px;
+  }
+
+  .manual-input,
+  .manual-textarea {
+    font-size: 12px;
+    padding: 6px;
+  }
+
+  .tab-item {
+    padding: 6px 8px;
+  }
+
+  .tab-title {
+    font-size: 11px;
+  }
+
+  .tab-url {
+    font-size: 9px;
+  }
+
+  .form-field {
+    padding: 6px;
+  }
+
+  .form-field-value {
+    font-size: 11px;
+  }
+
+  .action-btn {
+    padding: 4px 6px;
+    font-size: 11px;
+  }
+
+  .summary-value {
+    font-size: 14px;
+  }
+
+  .edit-dialog {
+    width: 95%;
+    max-width: none;
+  }
+
+  .toast-container {
+    left: 10px;
+    right: 10px;
+    transform: none;
+  }
+
+  .toast-container.show .sidebar-toast {
+    transform: none;
+  }
+}
+
+/* 触摸设备优化 */
+@media (hover: none) and (pointer: coarse) {
+  .nav-btn:active {
+    background: #e3f2fd;
+  }
+
+  .tab-delete {
+    opacity: 0.7;
+    padding: 4px 8px;
+  }
+
+  .form-field-actions {
+    opacity: 1;
+  }
+
+  .field-btn {
+    padding: 4px 6px;
+  }
+
+  .action-btn:active {
+    background: #e0e0e0;
+  }
+
+  .header-btn:active {
+    background: #e0e0e0;
+  }
+}
+
+/* 深色主题支持 */
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #1a1a1a;
+    color: #e0e0e0;
+  }
+
+  .sidebar-nav,
+  .page-header,
+  .manual-add-form,
+  .search-box,
+  .group-info,
+  .sidebar-footer,
+  .form-summary .summary-item {
+    background: #2d2d2d;
+    border-color: #404040;
+  }
+
+  .nav-btn {
+    color: #aaa;
+  }
+
+  .nav-btn.active {
+    background: #1e3a5f;
+    color: #64b5f6;
+  }
+
+  .nav-btn:hover {
+    background: #383838;
+  }
+
+  .manual-input,
+  .manual-textarea,
+  .search-input,
+  .group-selector select {
+    background: #383838;
+    border-color: #505050;
+    color: #e0e0e0;
+  }
+
+  .manual-input:focus,
+  .manual-textarea:focus,
+  .search-input:focus {
+    border-color: #42a5f5;
+  }
+
+  .tab-item,
+  .form-item,
+  .form-item-header {
+    background: #2d2d2d;
+  }
+
+  .tab-item:hover,
+  .form-item-header:hover {
+    background: #383838;
+  }
+
+  .tab-url,
+  .form-field-label,
+  .summary-label,
+  .sidebar-footer {
+    color: #888;
+  }
+
+  .tab-count,
+  .form-count,
+  .visit-badge {
+    background: #404040;
+    color: #aaa;
+  }
+
+  .picker-status {
+    background: #1e3a5f;
+    border-color: #1565c0;
+  }
+
+  .picker-hint {
+    color: #64b5f6;
+  }
+
+  .form-field {
+    border-color: #404040;
+  }
+
+  .edit-dialog {
+    background: #2d2d2d;
+    color: #e0e0e0;
+  }
+
+  .edit-dialog-header {
+    border-color: #404040;
+  }
+
+  .edit-field label {
+    color: #aaa;
+  }
+
+  .edit-field input,
+  .edit-field textarea {
+    background: #383838;
+    border-color: #505050;
+    color: #e0e0e0;
+  }
+
+  .edit-dialog-footer .btn-cancel {
+    background: #404040;
+    color: #aaa;
+  }
+
+  .edit-dialog-close {
+    color: #888;
+  }
+
+  .settings-list {
+    background: #2d2d2d;
+  }
+
+  .setting-item {
+    color: #e0e0e0;
+  }
+
+  .edit-dialog-overlay {
+    background: rgba(0, 0, 0, 0.7);
+  }
+
+  .batch-actions-bar {
+    background: #3d3115;
+    border-color: #5c4a1f;
+  }
+
+  #selectedCount {
+    color: #e0c060;
+  }
+
+  .batch-actions-bar .action-btn {
+    background: #404040;
+    color: #e0e0e0;
+  }
+
+  .batch-actions-bar .action-btn.danger {
+    background: #5c2020;
+    color: #ff8080;
+  }
 }
