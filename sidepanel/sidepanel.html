@@ -58,7 +58,40 @@
       <div id="page-forms" class="page">
         <div class="page-header">
           <h3>🎯 文本收集</h3>
-          <button id="startPickerBtn" class="header-btn" title="点击选择页面元素">🎯 拾取</button>
+          <div class="header-actions">
+            <button id="selectAllBtn" class="header-btn" title="全选">☑️</button>
+            <button id="addManualBtn" class="header-btn" title="手动添加">➕</button>
+            <button id="startPickerBtn" class="header-btn" title="点击选择页面元素">🎯 拾取</button>
+          </div>
+        </div>
+
+        <!-- 批量操作栏 -->
+        <div id="batchActionsBar" class="batch-actions-bar" style="display: none;">
+          <span id="selectedCount">已选择 0 项</span>
+          <div class="batch-buttons">
+            <button id="batchDeleteBtn" class="action-btn danger">批量删除</button>
+            <button id="batchExportBtn" class="action-btn">批量导出</button>
+            <button id="cancelSelectBtn" class="action-btn">取消</button>
+          </div>
+        </div>
+
+        <!-- 手动添加表单 -->
+        <div id="manualAddForm" class="manual-add-form" style="display: none;">
+          <input type="text" id="manualName" placeholder="名称/标签" class="manual-input">
+          <div class="manual-value-wrapper">
+            <textarea id="manualValue" placeholder="内容 (支持 JSON 格式自动检测)" class="manual-textarea"></textarea>
+            <div id="jsonPreview" class="json-preview"></div>
+          </div>
+          <div class="manual-actions">
+            <span id="jsonStatus" class="json-status"></span>
+            <button id="cancelAddBtn" class="action-btn">取消</button>
+            <button id="confirmAddBtn" class="action-btn btn-primary">添加</button>
+          </div>
+        </div>
+
+        <!-- 搜索框 -->
+        <div class="search-box">
+          <input type="text" id="searchInput" placeholder="搜索 URL 或内容..." class="search-input">
         </div>
 
         <div class="form-summary">
@@ -81,6 +114,7 @@
         </div>
 
         <div class="form-actions">
+          <button id="importFormsBtn" class="action-btn">📥 导入 JSON</button>
           <button id="exportFormsBtn" class="action-btn">📤 导出</button>
           <button id="clearFormsBtn" class="action-btn danger">🗑️ 清空</button>
         </div>
@@ -97,10 +131,23 @@
             <input type="checkbox" id="autoCollectForms" checked>
             <span>启用表单收集</span>
           </label>
+          <label class="setting-item">
+            <input type="checkbox" id="autoDetectJson" checked>
+            <span>自动检测 JSON 格式</span>
+          </label>
+          <label class="setting-item">
+            <button id="loadJsonLibBtn" class="import-lib-btn">📦 加载 JSON 增强库</button>
+            <span id="libStatus" class="lib-status"></span>
+          </label>
         </div>
 
         <div class="settings-info">
           <p>快捷键: <kbd>Alt+Shift+F</kbd> 收集表单</p>
+          <p>侧边栏内快捷键:</p>
+          <ul>
+            <li><kbd>Ctrl+F</kbd> 聚焦搜索框</li>
+            <li><kbd>Esc</kbd> 取消选择/关闭对话框</li>
+          </ul>
         </div>
       </div>
     </div>
