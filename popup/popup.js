@@ -182,6 +182,15 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('collectAndOpenBtn').addEventListener('click', collectAndOpen);
   document.getElementById('collectOtherTabsBtn').addEventListener('click', collectOtherTabs);
 
+  // 录制区域折叠功能
+  const recordingSection = document.querySelector('.section-recording');
+  const recordingToggle = document.getElementById('recordingToggle');
+  if (recordingToggle) {
+    recordingToggle.addEventListener('click', () => {
+      recordingSection.classList.toggle('collapsed');
+    });
+  }
+
   document.getElementById('closeAfterCollect').addEventListener('change', saveSettings);
   document.getElementById('closeAfterRestore').addEventListener('change', saveSettings);
   document.getElementById('excludeEdgeUrls').addEventListener('change', saveSettings);

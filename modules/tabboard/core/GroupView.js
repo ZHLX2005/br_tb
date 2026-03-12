@@ -76,6 +76,7 @@ class GroupView {
     actionsHeader.innerHTML = `
       <button class="board-action-btn add-group-btn" title="添加新分组">➕ 添加分组</button>
       <button class="board-action-btn filter-groups-btn" title="选择要显示的分组">🔍 筛选</button>
+      <button class="board-action-btn refresh-sort-btn" title="按点击次数刷新排序">🔄 刷新排序</button>
       <button class="board-action-btn open-all-groups-btn" title="打开所有分组">打开全部</button>
       <button class="board-action-btn clear-all-groups-btn" title="清空所有分组">清空</button>
       <button class="board-action-btn export-groups-btn" title="导出分组数据">导出</button>
@@ -136,6 +137,7 @@ class GroupView {
   _convertToJKanbanFormat(groupsToConvert = this.groups) {
     return groupsToConvert.map(group => {
       const groupTabs = this.tabs[group.id] || [];
+
       return {
         id: group.id,
         title: group.name,
@@ -418,6 +420,7 @@ class GroupView {
   _setupGroupActionButtons() {
     const addGroupBtn = document.querySelector('.add-group-btn');
     const filterBtn = document.querySelector('.filter-groups-btn');
+    const refreshSortBtn = document.querySelector('.refresh-sort-btn');
     const openAllBtn = document.querySelector('.open-all-groups-btn');
     const clearAllBtn = document.querySelector('.clear-all-groups-btn');
     const exportBtn = document.querySelector('.export-groups-btn');
@@ -429,6 +432,10 @@ class GroupView {
 
     if (filterBtn) {
       filterBtn.addEventListener('click', () => this._showGroupFilterDialog());
+    }
+
+    if (refreshSortBtn) {
+      refreshSortBtn.addEventListener('click', () => this._refreshAndSort());
     }
 
     if (openAllBtn) {
@@ -950,6 +957,18 @@ class GroupView {
 
     // 聚焦输入框
     document.getElementById('new-group-name').focus();
+  }
+
+  /**
+   * 刷新并按点击次数排序（持久化到存储）
+   */
+  async _refreshAndSort() {
+    // 调用 background 对数据进行排序并保存
+    await this.dataManager.sendMessage('sortTabsByVisitCount');
+
+    // 重新加载数据并渲染
+    await this.dataManager.loadData();
+    this.render();
   }
 
   /**
