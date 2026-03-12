@@ -233,17 +233,19 @@ class PopupSolution {
    */
   showToast(message, type = 'info') {
     const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
+    toast.className = `popup-toast popup-toast-${type}`;
     toast.textContent = message;
 
     const bgColor = type === 'success' ? '#66bb6a' :
                     type === 'error' ? '#ef5350' : '#42a5f5';
 
     toast.style.cssText = `
-      position: fixed;
+      position: absolute;
       top: 10px;
       left: 50%;
       transform: translateX(-50%);
+      width: auto;
+      max-width: calc(100% - 40px);
       padding: 10px 16px;
       background: ${bgColor};
       color: white;
@@ -252,6 +254,8 @@ class PopupSolution {
       z-index: 10000;
       animation: slideDown 0.3s ease;
       box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      text-align: center;
+      white-space: nowrap;
     `;
 
     document.querySelector('.container').appendChild(toast);
