@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TabBoard 侧边栏</title>
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+  <div class="sidebar-container">
+    <!-- 顶部导航 -->
+    <nav class="sidebar-nav">
+      <button class="nav-btn active" data-page="groups">
+        <span class="nav-icon">📋</span>
+        <span class="nav-text">分组</span>
+      </button>
+      <button class="nav-btn" data-page="forms">
+        <span class="nav-icon">📝</span>
+        <span class="nav-text">表单</span>
+      </button>
+      <button class="nav-btn" data-page="settings">
+        <span class="nav-icon">⚙️</span>
+        <span class="nav-text">设置</span>
+      </button>
+    </nav>
+
+    <!-- 页面容器 -->
+    <div class="page-container">
+      <!-- 分组页面 -->
+      <div id="page-groups" class="page active">
+        <div class="page-header">
+          <div class="group-selector">
+            <select id="groupSelect">
+              <option value="">-- 选择分组 --</option>
+            </select>
+          </div>
+          <button id="refreshGroupsBtn" class="header-btn" title="刷新">🔄</button>
+        </div>
+
+        <div id="currentGroupInfo" class="group-info" style="display: none;">
+          <div class="group-header">
+            <span id="groupColor" class="group-color"></span>
+            <span id="groupName" class="group-name"></span>
+            <span id="tabCount" class="tab-count"></span>
+          </div>
+          <div class="group-actions">
+            <button id="openAllBtn" class="action-btn">📂 打开全部</button>
+            <button id="clearGroupBtn" class="action-btn danger">🗑️ 清空</button>
+          </div>
+        </div>
+
+        <div id="tabList" class="tab-list">
+          <div class="empty-hint">请选择一个分组查看标签</div>
+        </div>
+      </div>
+
+      <!-- 文本收集页面 -->
+      <div id="page-forms" class="page">
+        <div class="page-header">
+          <h3>🎯 文本收集</h3>
+          <div class="header-actions">
+            <button id="selectAllBtn" class="header-btn" title="全选">☑️</button>
+            <button id="addManualBtn" class="header-btn" title="手动添加">➕</button>
+            <button id="startPickerBtn" class="header-btn" title="点击选择页面元素">🎯 拾取</button>
+          </div>
+        </div>
+
+        <!-- 批量操作栏 -->
+        <div id="batchActionsBar" class="batch-actions-bar" style="display: none;">
+          <span id="selectedCount">已选择 0 项</span>
+          <div class="batch-buttons">
+            <button id="batchDeleteBtn" class="action-btn danger">批量删除</button>
+            <button id="batchExportBtn" class="action-btn">批量导出</button>
+            <button id="cancelSelectBtn" class="action-btn">取消</button>
+          </div>
+        </div>
+
+        <!-- 手动添加表单 -->
+        <div id="manualAddForm" class="manual-add-form" style="display: none;">
+          <input type="text" id="manualName" placeholder="名称/标签" class="manual-input">
+          <div class="manual-value-wrapper">
+            <textarea id="manualValue" placeholder="内容 (支持 JSON 格式自动检测)" class="manual-textarea"></textarea>
+            <div id="jsonPreview" class="json-preview"></div>
+          </div>
+          <div class="manual-actions">
+            <span id="jsonStatus" class="json-status"></span>
+            <button id="cancelAddBtn" class="action-btn">取消</button>
+            <button id="confirmAddBtn" class="action-btn btn-primary">添加</button>
+          </div>
+        </div>
+
+        <!-- 搜索框 -->
+        <div class="search-box">
+          <input type="text" id="searchInput" placeholder="搜索 URL 或内容..." class="search-input">
+        </div>
+
+        <div class="form-summary">
+          <div class="summary-item">
+            <span class="summary-label">已收集网站</span>
+            <span id="siteCount" class="summary-value">0</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">已捕获元素</span>
+            <span id="elementCount" class="summary-value">0</span>
+          </div>
+        </div>
+
+        <div id="pickerStatus" class="picker-status" style="display: none;">
+          <span class="picker-hint">🎯 拾取中... 点击页面元素捕获，ESC 取消</span>
+        </div>
+
+        <div class="form-list" id="formList">
+          <div class="empty-hint">点击 🎯 按钮，在页面上选择元素</div>
+        </div>
+
+        <div class="form-actions">
+          <button id="importFormsBtn" class="action-btn">📥 导入 JSON</button>
+          <button id="exportFormsBtn" class="action-btn">📤 导出</button>
+          <button id="clearFormsBtn" class="action-btn danger">🗑️ 清空</button>
+        </div>
+      </div>
+
+      <!-- 设置页面 -->
+      <div id="page-settings" class="page">
+        <div class="page-header">
+          <h3>⚙️ 设置</h3>
+        </div>
+
+        <div class="settings-list">
+          <label class="setting-item">
+            <input type="checkbox" id="autoCollectForms" checked>
+            <span>启用表单收集</span>
+          </label>
+          <label class="setting-item">
+            <input type="checkbox" id="autoDetectJson" checked>
+            <span>自动检测 JSON 格式</span>
+          </label>
+          <label class="setting-item">
+            <button id="loadJsonLibBtn" class="import-lib-btn">📦 加载 JSON 增强库</button>
+            <span id="libStatus" class="lib-status"></span>
+          </label>
+        </div>
+
+        <div class="settings-info">
+          <p>快捷键: <kbd>Alt+Shift+F</kbd> 收集表单</p>
+          <p>侧边栏内快捷键:</p>
+          <ul>
+            <li><kbd>Ctrl+F</kbd> 聚焦搜索框</li>
+            <li><kbd>Esc</kbd> 取消选择/关闭对话框</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- 底部统计 -->
+    <footer class="sidebar-footer">
+      <span id="stats">加载中...</span>
+    </footer>
+  </div>
+
+  <script src="sidepanel.js"></script>
+</body>
+</html>
