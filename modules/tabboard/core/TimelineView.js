@@ -398,8 +398,25 @@ class TimelineView {
     if (!snapshot) return;
 
     const tabsContainer = btn.parentElement;
-    btn.remove();
+    const expandBtn = btn;
+    // 找到快照容器
+    const snapshotEl = tabsContainer.closest('.timeline-snapshot');
 
+    // 创建收起按钮
+    const collapseBtn = document.createElement('button');
+    collapseBtn.className = 'snapshot-collapse-btn';
+    collapseBtn.textContent = '收起 ▲';
+    collapseBtn.dataset.snapshotId = snapshotId;
+    collapseBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this._collapseSnapshot(snapshotId);
+    });
+
+    // 替换展开按钮
+    tabsContainer.insertBefore(collapseBtn, expandBtn);
+    expandBtn.remove();
+
+    // 显示所有标签
     const remainingTabs = snapshot.tabs.slice(3);
     remainingTabs.forEach(tab => {
       const tabRow = document.createElement('div');
@@ -407,19 +424,16 @@ class TimelineView {
       const markIcon = tab.marked ? '🔴' : '';
 
       tabRow.className = `snapshot-tab-row ${markedClass}`;
-      // 直接设置 dataset，不经过 HTML 字符串
       tabRow.dataset.url = tab.url;
       tabRow.dataset.snapshotId = snapshotId;
       tabRow.dataset.tabUrl = tab.url;
 
-      // 安全地设置 innerHTML（favicon 和 title 需要转义）
       tabRow.innerHTML = `
         <span class="tab-mark-indicator">${markIcon}</span>
         <img class="snapshot-tab-favicon" src="${this._escapeHtmlAttribute(tab.favicon || '')}" loading="lazy">
         <span class="snapshot-tab-title">${escapeHtml(tab.title)}</span>
       `;
 
-      // 添加点击和右键菜单事件
       tabRow.addEventListener('click', (e) => {
         if (e.button === 2) return;
         this.dataManager.sendMessage('openTab', { url: tab.url });
@@ -431,6 +445,42 @@ class TimelineView {
       });
 
       tabsContainer.appendChild(tabRow);
+    });
+  }
+
+  /**
+   * 收起快照的展开标签
+   */
+  _collapseSnapshot(snapshotId) {
+    const snapshot = this.snapshots.find(s => s.id === snapshotId);
+    if (!snapshot) return;
+
+    const snapshotEl = document.querySelector(`.timeline-snapshot[data-snapshot-id="${snapshotId}"]`);
+    if (!snapshotEl) return;
+
+    const tabsContainer = snapshotEl.querySelector('.snapshot-tabs');
+    const collapseBtn = tabsContainer.querySelector('.snapshot-collapse-btn');
+
+    // 恢复原始的"还有xx个标签"按钮
+    if (snapshot.tabs.length > 3) {
+      const moreCount = snapshot.tabs.length - 3;
+      const expandBtn = document.createElement('button');
+      expandBtn.className = 'snapshot-more-btn';
+      expandBtn.textContent = `还有 ${moreCount} 个标签... ▼`;
+      expandBtn.dataset.snapshotId = snapshotId;
+      expandBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this._expandSnapshot(expandBtn);
+      });
+      tabsContainer.insertBefore(expandBtn, collapseBtn);
+    }
+
+    collapseBtn.remove();
+
+    // 移除展开的标签行（保留前3个）
+    const allRows = tabsContainer.querySelectorAll('.snapshot-tab-row');
+    allRows.forEach((row, index) => {
+      if (index >= 3) row.remove();
     });
   }
 

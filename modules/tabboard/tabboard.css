@@ -699,6 +699,23 @@ body {
   background: var(--bg);
 }
 
+.snapshot-collapse-btn {
+  width: 100%;
+  padding: 3px;
+  margin-top: 2px;
+  border: 1px solid var(--border);
+  background: #fff3cd;
+  color: var(--text-light);
+  font-size: 10px;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: all 0.15s;
+}
+
+.snapshot-collapse-btn:hover {
+  background: #ffeeba;
+}
+
 /* Timeline scrollbar */
 .timeline-list::-webkit-scrollbar {
   width: 6px;
