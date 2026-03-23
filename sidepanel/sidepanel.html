@@ -22,6 +22,10 @@
         <span class="nav-icon">⚙️</span>
         <span class="nav-text">设置</span>
       </button>
+      <button class="nav-btn" data-page="tabsearch">
+        <span class="nav-icon">🔍</span>
+        <span class="nav-text">Tab搜索</span>
+      </button>
     </nav>
 
     <!-- 页面容器 -->
@@ -54,10 +58,10 @@
         </div>
       </div>
 
-      <!-- 文本收集页面 -->
+      <!-- 文本收集页面（自定义标签分组） -->
       <div id="page-forms" class="page">
         <div class="page-header">
-          <h3>🎯 文本收集</h3>
+          <h3>🎯 快速拾取</h3>
           <div class="header-actions">
             <button id="selectAllBtn" class="header-btn" title="全选">☑️</button>
             <button id="addManualBtn" class="header-btn" title="手动添加">➕</button>
@@ -75,11 +79,14 @@
           </div>
         </div>
 
-        <!-- 手动添加表单 -->
+        <!-- 手动添加/拾取表单 -->
         <div id="manualAddForm" class="manual-add-form" style="display: none;">
-          <input type="text" id="manualName" placeholder="名称/标签" class="manual-input">
+          <div class="quick-tag-row">
+            <input type="text" id="quickTagInput" placeholder="标签（可为空）" class="quick-tag-input">
+            <button id="pickAndTagBtn" class="action-btn btn-primary">🎯 拾取</button>
+          </div>
           <div class="manual-value-wrapper">
-            <textarea id="manualValue" placeholder="内容 (支持 JSON 格式自动检测)" class="manual-textarea"></textarea>
+            <textarea id="manualValue" placeholder="内容（支持 JSON 自动检测）" class="manual-textarea"></textarea>
             <div id="jsonPreview" class="json-preview"></div>
           </div>
           <div class="manual-actions">
@@ -89,18 +96,21 @@
           </div>
         </div>
 
-        <!-- 搜索框 -->
-        <div class="search-box">
-          <input type="text" id="searchInput" placeholder="搜索 URL 或内容..." class="search-input">
+        <!-- 搜索和标签筛选 -->
+        <div class="tag-filter-bar">
+          <input type="text" id="searchInput" placeholder="搜索内容..." class="tag-search-input">
+          <div id="tagFilterList" class="tag-filter-list">
+            <span class="tag-filter active" data-tag="">全部</span>
+          </div>
         </div>
 
         <div class="form-summary">
           <div class="summary-item">
-            <span class="summary-label">已收集网站</span>
-            <span id="siteCount" class="summary-value">0</span>
+            <span class="summary-label">标签</span>
+            <span id="tagCount" class="summary-value">0</span>
           </div>
           <div class="summary-item">
-            <span class="summary-label">已捕获元素</span>
+            <span class="summary-label">已捕获</span>
             <span id="elementCount" class="summary-value">0</span>
           </div>
         </div>
@@ -110,11 +120,11 @@
         </div>
 
         <div class="form-list" id="formList">
-          <div class="empty-hint">点击 🎯 按钮，在页面上选择元素</div>
+          <div class="empty-hint">点击 🎯 按钮拾取页面元素</div>
         </div>
 
         <div class="form-actions">
-          <button id="importFormsBtn" class="action-btn">📥 导入 JSON</button>
+          <button id="importFormsBtn" class="action-btn">📥 导入</button>
           <button id="exportFormsBtn" class="action-btn">📤 导出</button>
           <button id="clearFormsBtn" class="action-btn danger">🗑️ 清空</button>
         </div>
@@ -148,6 +158,36 @@
             <li><kbd>Ctrl+F</kbd> 聚焦搜索框</li>
             <li><kbd>Esc</kbd> 取消选择/关闭对话框</li>
           </ul>
+        </div>
+      </div>
+
+      <!-- Tab 搜索页面 -->
+      <div id="page-tabsearch" class="page">
+        <div class="page-header">
+          <h3>🔍 Tab 搜索</h3>
+          <div class="header-actions">
+            <button id="refreshTabsBtn" class="header-btn" title="刷新">🔄</button>
+          </div>
+        </div>
+
+        <!-- 搜索框 -->
+        <div class="tabsearch-search-box">
+          <input type="text" id="tabsearchInput" placeholder="输入关键词搜索... (支持模糊匹配)" class="tabsearch-input">
+        </div>
+
+        <!-- 搜索结果统计 -->
+        <div id="tabsearchStats" class="tabsearch-stats">
+          共 <span id="totalTabCount">0</span> 个标签页
+        </div>
+
+        <!-- Tab 列表 -->
+        <div id="tabsearchList" class="tabsearch-list">
+          <div class="empty-hint">输入关键词搜索标签页</div>
+        </div>
+
+        <!-- 底部提示 -->
+        <div class="tabsearch-footer">
+          <kbd>↑↓</kbd> 选择 · <kbd>Enter</kbd> 打开 · <kbd>Del</kbd> 关闭标签
         </div>
       </div>
     </div>

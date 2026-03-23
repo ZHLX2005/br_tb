@@ -199,7 +199,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         chrome.storage.local.set({ formData });
       });
     });
-  } else if (message.type === 'TABBOARD_PICK_CANCEL') {
+  } else if (message.type === 'PICK_CANCEL') {
     // 取消拾取，无需特殊处理
   }
 });
@@ -521,6 +521,116 @@ function setupGroupsListeners() {
           break;
         }
 
+        case 'startPicker': {
+          // 启动拾取器（支持标签）
+          try {
+            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            if (!tab || !tab.id) {
+              sendResponse({ success: false, error: 'No active tab' });
+              break;
+            }
+            if (!tab.url || tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('edge://') || tab.url.startsWith('about:')) {
+              sendResponse({ success: false, error: 'Cannot pick from special pages' });
+              break;
+            }
+
+            const tag = request.tag || '';
+
+            await chrome.scripting.executeScript({
+              target: { tabId: tab.id },
+              func: (pickerTag) => {
+                if (window.__tabboardPickerActive) return;
+                window.__tabboardPickerActive = true;
+
+                const overlay = document.createElement("div");
+                overlay.id = '__tabboard-picker-overlay';
+                overlay.style.cssText = "position:absolute;border:2px solid #42a5f5;background:rgba(66,165,245,0.1);pointer-events:none;z-index:999999";
+                document.body.appendChild(overlay);
+
+                const tooltip = document.createElement("div");
+                tooltip.id = '__tabboard-picker-tooltip';
+                tooltip.style.cssText = "position:fixed;background:black;color:white;font-size:12px;padding:4px 8px;border-radius:4px;z-index:1000000;pointer-events:none;font-family:system-ui";
+                document.body.appendChild(tooltip);
+
+                function onMove(e) {
+                  let el = document.elementFromPoint(e.clientX, e.clientY);
+                  if (!el || el === overlay || el === tooltip) return;
+                  const rect = el.getBoundingClientRect();
+                  overlay.style.top = (rect.top + window.scrollY) + "px";
+                  overlay.style.left = (rect.left + window.scrollX) + "px";
+                  overlay.style.width = rect.width + "px";
+                  overlay.style.height = rect.height + "px";
+                  tooltip.style.top = (rect.top + window.scrollY - 28) + "px";
+                  tooltip.style.left = (rect.left + window.scrollX) + "px";
+                  const tagName = el.tagName.toLowerCase();
+                  const id = el.id ? `#${el.id}` : '';
+                  tooltip.innerText = `<${tagName}${id}>`;
+                }
+
+                function onClick(e) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  let el = document.elementFromPoint(e.clientX, e.clientY);
+                  if (!el) return;
+
+                  let text = (el.innerText || el.textContent || '').trim();
+                  text = text.replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n').slice(0, 5000);
+
+                  const tagName = el.tagName.toLowerCase();
+                  const value = el.value || '';
+                  const placeholder = el.placeholder || '';
+                  const href = el.href || '';
+
+                  chrome.runtime.sendMessage({
+                    type: 'PICK_RESULT',
+                    data: {
+                      tagName,
+                      id: el.id || '',
+                      name: el.name || '',
+                      value,
+                      placeholder,
+                      text,
+                      href,
+                      sourceUrl: window.location.href,
+                      sourceTitle: document.title,
+                      tag: pickerTag,
+                      timestamp: new Date().toISOString()
+                    }
+                  });
+                  cleanup();
+                }
+
+                function cleanup() {
+                  document.removeEventListener('mousemove', onMove, true);
+                  document.removeEventListener('click', onClick, true);
+                  document.removeEventListener('keydown', onKeyDown, true);
+                  overlay.remove();
+                  tooltip.remove();
+                  window.__tabboardPickerActive = false;
+                }
+
+                function onKeyDown(e) {
+                  if (e.key === 'Escape') {
+                    cleanup();
+                    chrome.runtime.sendMessage({ type: 'PICK_CANCEL' });
+                  }
+                }
+
+                document.addEventListener('mousemove', onMove, true);
+                document.addEventListener('click', onClick, true);
+                document.addEventListener('keydown', onKeyDown, true);
+                tooltip.innerText = '点击选择元素，ESC 取消';
+              },
+              args: [tag]
+            });
+
+            sendResponse({ success: true });
+          } catch (error) {
+            sendResponse({ success: false, error: error.message });
+          }
+          break;
+        }
+
         case 'startElementPicker': {
           // 启动元素拾取器
           try {
@@ -610,7 +720,7 @@ function setupGroupsListeners() {
 
                   // 发送数据到 background
                   chrome.runtime.sendMessage({
-                    type: 'TABBOARD_PICK_RESULT',
+                    type: 'PICK_RESULT',
                     data: {
                       tagName,
                       id,
@@ -620,6 +730,8 @@ function setupGroupsListeners() {
                       placeholder,
                       text,
                       href,
+                      sourceUrl: window.location.href,
+                      sourceTitle: document.title,
                       timestamp: new Date().toISOString()
                     }
                   });
@@ -639,7 +751,7 @@ function setupGroupsListeners() {
                 function onKeyDown(e) {
                   if (e.key === 'Escape') {
                     cleanup();
-                    chrome.runtime.sendMessage({ type: 'TABBOARD_PICK_CANCEL' });
+                    chrome.runtime.sendMessage({ type: 'PICK_CANCEL' });
                   }
                 }
 
