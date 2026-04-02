@@ -11,6 +11,190 @@ class TimelineView {
     this.dataManager = dataManager;
     this.snapshots = [];
     this.filterMarkedOnly = false; // 筛选状态：是否只显示红色标记
+    this.searchQuery = ''; // 搜索关键词
+    this.searchInput = null;
+    this.initSearch();
+  }
+
+  /**
+   * 初始化搜索功能
+   */
+  initSearch() {
+    this.searchInput = document.getElementById('timelineSearch');
+    this.selectedIndex = -1;
+    this.currentResults = [];
+
+    if (this.searchInput) {
+      let debounceTimer;
+      this.searchInput.addEventListener('input', (e) => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+          this.searchQuery = e.target.value.trim();
+          this.selectedIndex = -1;
+          this._performSearch();
+        }, 150);
+      });
+
+      this.searchInput.addEventListener('keydown', (e) => {
+        if (!this.currentResults.length) return;
+
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          this.selectedIndex = (this.selectedIndex + 1) % this.currentResults.length;
+          this._updateSelection();
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          this.selectedIndex = this.selectedIndex <= 0 ? this.currentResults.length - 1 : this.selectedIndex - 1;
+          this._updateSelection();
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          if (this.selectedIndex >= 0 && this.currentResults[this.selectedIndex]) {
+            this._openSelected();
+          }
+        } else if (e.key === 'Escape') {
+          this._hideSearchDropdown();
+        }
+      });
+
+      // 点击其他地方关闭搜索结果
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('.timeline-search-container')) {
+          this._hideSearchDropdown();
+        }
+      });
+    }
+  }
+
+  /**
+   * 更新选中状态
+   */
+  _updateSelection() {
+    const items = document.querySelectorAll('.search-dropdown-item');
+    items.forEach((item, idx) => {
+      item.classList.toggle('selected', idx === this.selectedIndex);
+    });
+  }
+
+  /**
+   * 打开选中的项
+   */
+  _openSelected() {
+    if (this.selectedIndex >= 0 && this.currentResults[this.selectedIndex]) {
+      const item = this.currentResults[this.selectedIndex];
+      this.dataManager.sendMessage('openTab', { url: item.url });
+      this._hideSearchDropdown();
+      this.searchInput.value = '';
+    }
+  }
+
+  /**
+   * 隐藏搜索下拉框
+   */
+  _hideSearchDropdown() {
+    const dropdown = document.querySelector('.timeline-search-dropdown');
+    if (dropdown) dropdown.remove();
+  }
+
+  /**
+   * 显示搜索下拉框
+   */
+  _showSearchDropdown(results) {
+    this._hideSearchDropdown();
+    this.currentResults = results;
+    this.selectedIndex = -1;
+
+    const container = document.querySelector('.timeline-search-container');
+    if (!container) return;
+
+    const dropdown = document.createElement('div');
+    dropdown.className = 'timeline-search-dropdown';
+    dropdown.innerHTML = results.map((item, idx) => `
+      <div class="search-dropdown-item" data-url="${this._escapeHtmlAttribute(item.url)}" data-idx="${idx}">
+        <img class="search-dropdown-favicon" src="${this._escapeHtmlAttribute(item.favicon || '')}" onerror="this.style.display='none'">
+        <div class="search-dropdown-content">
+          <div class="search-dropdown-title">${this._highlightFuzzyMatch(item.title || '', this.searchQuery)}</div>
+          <div class="search-dropdown-url">${this._highlightFuzzyMatch(item.url || '', this.searchQuery)}</div>
+        </div>
+        <span class="search-dropdown-time">${formatSnapshotTime(item.timestamp)}</span>
+      </div>
+    `).join('');
+
+    container.appendChild(dropdown);
+
+    // 绑定点击事件
+    dropdown.querySelectorAll('.search-dropdown-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const url = item.dataset.url;
+        if (url) {
+          this.dataManager.sendMessage('openTab', { url });
+          this._hideSearchDropdown();
+          this.searchInput.value = '';
+        }
+      });
+    });
+  }
+
+  /**
+   * 执行搜索
+   */
+  async _performSearch() {
+    this._hideSearchDropdown();
+
+    if (!this.searchQuery) {
+      return;
+    }
+
+    // 前端直接搜索，避免网络延迟
+    const matchedItems = [];
+    for (const snapshot of this.snapshots) {
+      for (const tab of snapshot.tabs) {
+        if (this._fuzzyMatch(tab.title || '', this.searchQuery) ||
+            this._fuzzyMatch(tab.url || '', this.searchQuery)) {
+          matchedItems.push({ ...tab, timestamp: snapshot.timestamp });
+          if (matchedItems.length >= 5) break;
+        }
+      }
+      if (matchedItems.length >= 5) break;
+    }
+
+    if (matchedItems.length > 0) {
+      this._showSearchDropdown(matchedItems);
+    }
+  }
+
+  /**
+   * 有序连续字符串匹配（严格模式）
+   * query 必须在 text 中按顺序连续出现
+   * 例如: "gb" 匹配 "grab" 但不匹配 "github"
+   */
+  _fuzzyMatch(text, query) {
+    if (!text || !query) return false;
+    text = text.toLowerCase();
+    query = query.toLowerCase();
+
+    // 简单直接查找子串
+    return text.includes(query);
+  }
+
+  /**
+   * 有序连续字符串匹配高亮
+   * 严格匹配：query 必须在 text 中连续出现
+   */
+  _highlightFuzzyMatch(text, query) {
+    if (!query) return escapeHtml(text);
+
+    const lowerText = text.toLowerCase();
+    const lowerQuery = query.toLowerCase();
+    const idx = lowerText.indexOf(lowerQuery);
+
+    if (idx === -1) {
+      return escapeHtml(text);
+    }
+
+    // 高亮连续匹配的字符串
+    return escapeHtml(text.slice(0, idx)) +
+      `<mark class="search-highlight">${escapeHtml(text.slice(idx, idx + query.length))}</mark>` +
+      escapeHtml(text.slice(idx + query.length));
   }
 
   /**

@@ -1,6 +1,6 @@
 /**
- * TabBoard Side Panel - 侧边栏主入口
- * 所有控制器整合到一个文件中，避免 ES6 模块路径问题
+ * TabBoard Side Panel - Pin Panel
+ * 简化版：移除 JSON 检测，专注于快速 Pin 内容
  */
 
 // ==================== GroupsController ====================
@@ -60,6 +60,11 @@ class GroupsController {
     if (!this.currentGroupId) {
       groupInfo.style.display = 'none';
       tabList.innerHTML = '<div class="empty-hint">请选择一个分组查看标签</div>';
+      // 通知 PickedItemsController 清除标签
+      const pic = window.sidebarApp?.controllers?.pickedItems;
+      if (pic && this.currentGroupId === null) {
+        // 保持当前标签不变，只有在看全部时且用户没有手动选择标签时才受影响
+      }
       return;
     }
     const group = this.groups.find(g => g.id === this.currentGroupId);
@@ -71,6 +76,12 @@ class GroupsController {
     document.getElementById('tabCount').textContent = `${tabs.length} 个标签`;
     tabList.innerHTML = tabs.length === 0 ? '<div class="empty-hint">该分组暂无标签</div>' :
       tabs.map(t => `<div class="tab-item" data-url="${this.esc(t.url)}"><img class="tab-favicon" src="${this.esc(t.favicon||'')}" onerror="this.style.display='none'"><div class="tab-content"><div class="tab-title">${this.esc(t.title)}</div><div class="tab-url">${this.esc(t.url)}</div></div><button class="tab-delete" data-tab-id="${t.id}">×</button></div>`).join('');
+
+    // 自动设置 PickedItemsController 的标签
+    const pic = window.sidebarApp?.controllers?.pickedItems;
+    if (pic) {
+      pic.setCurrentTag(group.name);
+    }
   }
 
   openTab(url) { this.sendMessage({ action: 'openTab', url }); }
@@ -85,10 +96,9 @@ class PickedItemsController {
   constructor() {
     this.items = [];
     this.currentFilter = '';
-    this.currentTag = ''; // '' 表示全部，其他具体标签名
-    this.collapsedTags = new Set(); // 记录折叠的标签
-    this.selectMode = false;
-    this.selectedIds = new Set();
+    this.currentTag = '';  // 当前筛选的标签
+    this.selectedTag = '';  // 当前选中的标签（用于添加）
+    this.collapsedTags = new Set();
   }
 
   init() {
@@ -102,41 +112,138 @@ class PickedItemsController {
     this.render();
   }
 
-  onShow() { this.loadData(); }
+  onShow() {
+    this.loadData();
+    // 切换到 Pin 页面时，如果 GroupsController 有选中的分组，自动设置标签
+    const gc = window.sidebarApp?.controllers?.groups;
+    if (gc?.currentGroupId) {
+      const group = gc.groups.find(g => g.id === gc.currentGroupId);
+      if (group) {
+        this.selectedTag = group.name;
+        this.updateTagButton();
+      }
+    } else if (!this.selectedTag) {
+      // 如果没有选中分组且没有已选标签，显示"选择分组"
+      this.updateTagButton();
+    }
+  }
+
+  // 设置当前标签（供外部调用，如 GroupsController）
+  setCurrentTag(tag) {
+    this.selectedTag = tag;
+    this.updateTagButton();
+  }
+
+  updateTagButton() {
+    const label = document.getElementById('tagSelectLabel');
+    if (label) {
+      label.textContent = this.selectedTag || '选择分组';
+    }
+  }
 
   bindEvents() {
+    // 添加按钮
+    document.getElementById('quickAddBtn')?.addEventListener('click', () => this.addItem());
+    document.getElementById('quickPickBtn')?.addEventListener('click', () => this.pickWithCurrentTag());
+
+    // 拾取
     document.getElementById('startPickerBtn')?.addEventListener('click', () => this.startPicker());
-    document.getElementById('pickAndTagBtn')?.addEventListener('click', () => this.pickWithTag());
-    document.getElementById('addManualBtn')?.addEventListener('click', () => this.toggleManualForm());
-    document.getElementById('cancelAddBtn')?.addEventListener('click', () => this.hideManualForm());
-    document.getElementById('confirmAddBtn')?.addEventListener('click', () => this.addManualItem());
-    document.getElementById('manualValue')?.addEventListener('input', (e) => this.detectJson(e.target.value));
-    document.getElementById('searchInput')?.addEventListener('input', (e) => { this.currentFilter = e.target.value.toLowerCase(); this.render(); });
-    document.getElementById('selectAllBtn')?.addEventListener('click', () => this.toggleSelectMode());
-    document.getElementById('batchDeleteBtn')?.addEventListener('click', () => this.batchDelete());
-    document.getElementById('batchExportBtn')?.addEventListener('click', () => this.batchExport());
-    document.getElementById('cancelSelectBtn')?.addEventListener('click', () => this.cancelSelect());
+
+    // 标签选择按钮 - 切换下拉
+    document.getElementById('tagSelectBtn')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.toggleTagDropdown();
+    });
+
+    // 点击其他地方关闭下拉
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.tag-selector-row')) {
+        this.hideTagDropdown();
+      }
+    });
+
+    // 搜索
+    document.getElementById('searchInput')?.addEventListener('input', (e) => {
+      this.currentFilter = e.target.value.toLowerCase();
+      this.render();
+    });
+
+    // 导入导出清空
     document.getElementById('importFormsBtn')?.addEventListener('click', () => this.showImport());
     document.getElementById('exportFormsBtn')?.addEventListener('click', () => this.export());
     document.getElementById('clearFormsBtn')?.addEventListener('click', () => this.clearAll());
 
+    // 监听拾取结果
     chrome.runtime.onMessage.addListener((message) => {
       if (message.type === 'PICK_RESULT') this.handlePickResult(message.data);
       else if (message.type === 'PICK_CANCEL') this.hidePickerStatus();
     });
   }
 
-  startPicker() {
-    chrome.runtime.sendMessage({ action: 'startPicker' }, (r) => { if (r?.success) this.showPickerStatus(); });
+  toggleTagDropdown() {
+    const dropdown = document.getElementById('tagDropdown');
+    if (dropdown.style.display === 'none') {
+      this.renderTagDropdown();
+      dropdown.style.display = 'block';
+    } else {
+      this.hideTagDropdown();
+    }
   }
 
-  pickWithTag() {
-    const tag = document.getElementById('quickTagInput')?.value?.trim() || '';
-    chrome.runtime.sendMessage({ action: 'startPicker', tag }, (r) => {
-      if (r?.success) {
-        this.showPickerStatus();
-        document.getElementById('manualAddForm').style.display = 'block';
-      }
+  hideTagDropdown() {
+    const dropdown = document.getElementById('tagDropdown');
+    if (dropdown) dropdown.style.display = 'none';
+  }
+
+  getAllTags() {
+    const tags = new Set();
+    this.items.forEach(i => tags.add(i.tag || ''));
+    return Array.from(tags).sort();
+  }
+
+  renderTagDropdown() {
+    const list = document.getElementById('tagDropdownList');
+    const tags = this.getAllTags();
+
+    // 包括已有标签 + "无标签" 选项
+    let html = `<div class="tag-dropdown-item${!this.selectedTag ? ' selected' : ''}" data-tag="">
+        <span>选择分组</span>
+      </div>`;
+
+    if (tags.filter(t => t).length > 0) {
+      html += tags.filter(t => t).map(t => `
+        <div class="tag-dropdown-item${this.selectedTag === t ? ' selected' : ''}" data-tag="${this.esc(t)}">
+          <span>${this.esc(t)}</span>
+        </div>`).join('');
+    }
+
+    html += `<div class="tag-dropdown-item empty-tag-item${this.selectedTag === '__empty__' ? ' selected' : ''}" data-tag="__empty__">
+        <span>无标签</span>
+      </div>`;
+
+    list.innerHTML = html;
+
+    list.querySelectorAll('.tag-dropdown-item').forEach(item => {
+      item.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const tag = item.dataset.tag;
+        this.selectedTag = tag === '__empty__' ? '' : tag;
+        this.updateTagButton();
+        this.hideTagDropdown();
+        this.render(); // 重新渲染以更新筛选
+      });
+    });
+  }
+
+  startPicker() {
+    chrome.runtime.sendMessage({ action: 'startPicker', tag: this.selectedTag }, (r) => {
+      if (r?.success) this.showPickerStatus();
+    });
+  }
+
+  pickWithCurrentTag() {
+    chrome.runtime.sendMessage({ action: 'startPicker', tag: this.selectedTag }, (r) => {
+      if (r?.success) this.showPickerStatus();
     });
   }
 
@@ -145,101 +252,62 @@ class PickedItemsController {
 
   handlePickResult(data) {
     this.hidePickerStatus();
-    const tag = document.getElementById('quickTagInput')?.value?.trim() || '';
-    const value = data.text || data.value || '';
+    const tag = this.selectedTag || '';
+    const content = data.text || data.value || '';
+
     const item = {
       id: 'p-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9),
-      tag, content: value, contentType: this.detectContentType(value),
-      sourceUrl: data.sourceUrl || '', sourceTitle: data.sourceTitle || '',
-      timestamp: new Date().toISOString(), favorite: false
+      tag,
+      content,
+      sourceUrl: data.sourceUrl || '',
+      sourceTitle: data.sourceTitle || '',
+      timestamp: new Date().toISOString()
     };
+
     this.items.unshift(item);
     this.save();
     this.render();
     this.toast('已添加', 'success');
   }
 
-  detectContentType(v) {
-    const t = v.trim();
-    if ((t.startsWith('{') || t.startsWith('[')) && !isNaN(Date.parse(t.slice(1, -1)))) {
-      try { JSON.parse(t); return 'json'; } catch {} // not really json but lets not break
+  async addItem() {
+    const tag = this.selectedTag || '';
+    const content = document.getElementById('quickContent').value.trim();
+
+    if (!content) {
+      this.toast('请输入内容', 'error');
+      return;
     }
-    if (t.startsWith('{') || t.startsWith('[')) { try { JSON.parse(t); return 'json'; } catch {} }
-    return 'text';
-  }
 
-  toggleManualForm() {
-    const form = document.getElementById('manualAddForm');
-    form.style.display = form.style.display === 'none' ? 'block' : 'none';
-    if (form.style.display !== 'none') document.getElementById('quickTagInput').focus();
-  }
-
-  hideManualForm() {
-    document.getElementById('manualAddForm').style.display = 'none';
-    document.getElementById('quickTagInput').value = '';
-    document.getElementById('manualValue').value = '';
-    document.getElementById('jsonPreview')?.classList.remove('show');
-  }
-
-  async addManualItem() {
-    const tag = document.getElementById('quickTagInput').value.trim();
-    const content = document.getElementById('manualValue').value.trim();
-    if (!content) { this.toast('请输入内容', 'error'); return; }
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    // 手动输入不携带 sourceUrl 和 sourceTitle
     const item = {
       id: 'p-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9),
-      tag, content, contentType: this.detectContentType(content),
-      sourceUrl: tab?.url || '', sourceTitle: tab?.title || '',
-      timestamp: new Date().toISOString(), favorite: false
+      tag,
+      content,
+      sourceUrl: '',
+      sourceTitle: '',
+      timestamp: new Date().toISOString()
     };
+
     this.items.unshift(item);
     this.save();
-    this.hideManualForm();
     this.render();
+
+    // 清空表单
+    document.getElementById('quickContent').value = '';
+
     this.toast('已添加', 'success');
   }
 
-  detectJson(value) {
-    const previewEl = document.getElementById('jsonPreview');
-    const statusEl = document.getElementById('jsonStatus');
-    const t = value.trim();
-    if (!t) { previewEl?.classList.remove('show'); if (statusEl) statusEl.textContent = ''; return null; }
-    try {
-      const parsed = JSON.parse(t);
-      previewEl.innerHTML = this.formatJson(parsed);
-      previewEl?.classList.add('show');
-      if (statusEl) { statusEl.textContent = '✓ JSON'; statusEl.className = 'json-status valid'; }
-      return parsed;
-    } catch {
-      previewEl?.classList.remove('show');
-      if (statusEl) statusEl.textContent = '';
-      return null;
-    }
+  getAllTags() {
+    const tags = new Set();
+    this.items.forEach(i => tags.add(i.tag || ''));
+    return Array.from(tags).sort();
   }
 
-  formatJson(obj, indent = 0) {
-    const s = '  '.repeat(indent);
-    if (obj === null) return '<span class="json-null">null</span>';
-    if (typeof obj === 'boolean') return `<span class="json-boolean">${obj}</span>`;
-    if (typeof obj === 'number') return `<span class="json-number">${obj}</span>`;
-    if (typeof obj === 'string') return `<span class="json-string">"${this.esc(obj)}"</span>`;
-    if (Array.isArray(obj)) {
-      if (obj.length === 0) return '[]';
-      return `[\n${obj.map(i => s + '  ' + this.formatJson(i, indent + 1)).join(',\n')}\n${s}]`;
-    }
-    if (typeof obj === 'object') {
-      const keys = Object.keys(obj);
-      if (keys.length === 0) return '{}';
-      return `{\n${keys.map(k => `${s}  <span class="json-key">"${this.esc(k)}"</span>: ${this.formatJson(obj[k], indent + 1)}`).join(',\n')}\n${s}}`;
-    }
-    return String(obj);
-  }
-
-  getAllTags() { return Array.from(new Set(this.items.map(i => i.tag || ''))).sort(); }
   getFilteredItems() {
     return this.items.filter(item => {
       const itemTag = item.tag || '';
-      // __all__ 全部，__empty__ 无标签，其他具体标签名
       let matchTag = false;
       if (this.currentTag === '__all__' || this.currentTag === '') {
         matchTag = true;
@@ -250,8 +318,7 @@ class PickedItemsController {
       }
       const matchFilter = !this.currentFilter ||
         item.content.toLowerCase().includes(this.currentFilter) ||
-        itemTag.toLowerCase().includes(this.currentFilter) ||
-        (item.sourceTitle || '').toLowerCase().includes(this.currentFilter);
+        itemTag.toLowerCase().includes(this.currentFilter);
       return matchTag && matchFilter;
     });
   }
@@ -265,14 +332,13 @@ class PickedItemsController {
   render() {
     this.renderTagFilters();
     document.getElementById('tagCount').textContent = this.getAllTags().filter(t => t).length;
-    document.getElementById('elementCount').textContent = this.items.length;
+    document.getElementById('itemCount').textContent = this.items.length;
     this.renderItems();
   }
 
   renderTagFilters() {
     const container = document.getElementById('tagFilterList');
     const tags = this.getAllTags();
-    // 使用特殊标记区分全部(__all__)和无标签(__empty__)
     const allActive = this.currentTag === '__all__' || this.currentTag === '' ? 'active' : '';
     const emptyActive = this.currentTag === '__empty__' ? 'active' : '';
     container.innerHTML = `<span class="tag-filter ${allActive}" data-tag="__all__">全部</span>` +
@@ -284,48 +350,70 @@ class PickedItemsController {
     }));
   }
 
+  renderTagSelect() {
+    const select = document.getElementById('tagSelect');
+    const tags = this.getAllTags();
+    select.innerHTML = '<option value="">选择已有标签</option>' +
+      tags.filter(t => t).map(t => `<option value="${this.esc(t)}">${this.esc(t)}</option>`).join('');
+  }
+
   renderItems() {
     const formList = document.getElementById('formList');
     const filtered = this.getFilteredItems();
     const grouped = this.getGroupedItems(filtered);
     const tagNames = Object.keys(grouped).sort((a, b) => (a === '' ? 1 : b === '' ? -1 : a.localeCompare(b)));
-    if (!tagNames.length) { formList.innerHTML = '<div class="empty-hint">点击 🎯 按钮拾取页面元素</div>'; return; }
+
+    if (!tagNames.length) {
+      formList.innerHTML = '<div class="empty-hint">🎯 拾取或输入内容添加</div>';
+      return;
+    }
+
     formList.innerHTML = tagNames.map(tag => {
       const items = grouped[tag];
       const isCollapsed = this.collapsedTags.has(tag);
-      const collapseIcon = isCollapsed ? '▶' : '▼';
       return `<div class="form-group">
         <div class="form-group-header" data-tag="${this.esc(tag)}">
-          <span class="collapse-icon">${collapseIcon}</span>
+          <span class="collapse-icon">${isCollapsed ? '▶' : '▼'}</span>
           <div class="form-group-title">
             <span class="form-group-tag${tag ? '' : ' empty-tag'}">${this.esc(tag) || '（无标签）'}</span>
-            <span class="form-group-count">${items.length} 项</span>
+            <span class="form-group-count">${items.length}</span>
           </div>
           <div class="form-group-actions">
             <button class="group-edit-btn" data-tag="${this.esc(tag)}" title="编辑标签">✏️</button>
-            <button class="group-delete-btn" data-tag="${this.esc(tag)}" title="删除全部">🗑️</button>
+            <button class="group-delete-btn" data-tag="${this.esc(tag)}" title="删除">🗑️</button>
           </div>
         </div>
         <div class="form-group-items" style="display: ${isCollapsed ? 'none' : 'block'}">${items.map(i => this.renderItem(i)).join('')}</div>
       </div>`;
     }).join('');
+
     this.bindItemEvents();
   }
 
   renderItem(item) {
-    const display = item.contentType === 'json' ? this.esc(item.content).slice(0, 200) : this.esc(item.content).slice(0, 200);
-    const badge = item.contentType === 'json' ? '<span class="json-badge" style="font-size:9px;background:#e3f2fd;color:#1976d2;padding:1px 4px;border-radius:3px;margin-left:4px;">JSON</span>' : '';
-    return `<div class="form-field" data-id="${item.id}"><div class="form-field-header"><span class="form-field-label">${badge} ${item.sourceTitle ? this.esc(item.sourceTitle).slice(0, 30) : '手动添加'}</span><div class="form-field-actions"><button class="field-btn copy-btn" data-content="${this.esc(item.content)}" title="复制">📋</button><button class="field-btn edit-btn" data-id="${item.id}" title="编辑">✏️</button><button class="field-btn delete-btn" data-id="${item.id}" title="删除">🗑️</button></div></div><div class="form-field-value ${item.contentType === 'json' ? 'is-json' : ''}" data-id="${item.id}">${display}</div></div>`;
+    const display = this.esc(item.content).slice(0, 200);
+    const sourceInfo = item.sourceTitle ? `<span class="form-field-label">${this.esc(item.sourceTitle).slice(0, 30)}</span>` : '';
+    return `<div class="form-field" data-id="${item.id}">
+      <div class="form-field-header">
+        ${sourceInfo}
+        <div class="form-field-actions">
+          <button class="field-btn copy-btn" data-content="${this.esc(item.content)}" title="复制">📋</button>
+          <button class="field-btn edit-btn" data-id="${item.id}" title="编辑">✏️</button>
+          <button class="field-btn delete-btn" data-id="${item.id}" title="删除">🗑️</button>
+        </div>
+      </div>
+      <div class="form-field-value" data-id="${item.id}">${display}</div>
+    </div>`;
   }
 
   bindItemEvents() {
     const formList = document.getElementById('formList');
 
-    // 分组折叠/展开
+    // 分组折叠
     formList.querySelectorAll('.form-group-header').forEach(header => {
       header.addEventListener('click', (e) => {
         const btn = e.target.closest('.group-edit-btn, .group-delete-btn');
-        if (btn) return; // 不处理按钮点击
+        if (btn) return;
         const tag = header.dataset.tag;
         if (this.collapsedTags.has(tag)) {
           this.collapsedTags.delete(tag);
@@ -339,29 +427,50 @@ class PickedItemsController {
       });
     });
 
-    formList.querySelectorAll('.copy-btn').forEach(btn => btn.addEventListener('click', async (e) => { e.stopPropagation(); await navigator.clipboard.writeText(btn.dataset.content); this.toast('已复制', 'success'); }));
-    formList.querySelectorAll('.edit-btn').forEach(btn => btn.addEventListener('click', (e) => { e.stopPropagation(); const item = this.items.find(i => i.id === btn.dataset.id); if (item) this.showEditDialog(item); }));
-    formList.querySelectorAll('.delete-btn').forEach(btn => btn.addEventListener('click', (e) => { e.stopPropagation(); this.items = this.items.filter(i => i.id !== btn.dataset.id); this.save(); this.render(); this.toast('已删除', 'success'); }));
-    formList.querySelectorAll('.form-field-value').forEach(el => {
-      el.addEventListener('click', async () => { const item = this.items.find(i => i.id === el.dataset.id); if (item) { await navigator.clipboard.writeText(item.content); this.toast('已复制', 'success'); } });
-      el.addEventListener('dblclick', (e) => { e.stopPropagation(); const item = this.items.find(i => i.id === el.dataset.id); if (item) this.showEditDialog(item); });
-    });
+    // 复制
+    formList.querySelectorAll('.copy-btn').forEach(btn => btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await navigator.clipboard.writeText(btn.dataset.content);
+      this.toast('已复制', 'success');
+    }));
+
+    // 编辑
+    formList.querySelectorAll('.edit-btn').forEach(btn => btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const item = this.items.find(i => i.id === btn.dataset.id);
+      if (item) this.showEditDialog(item);
+    }));
+
+    // 删除
+    formList.querySelectorAll('.delete-btn').forEach(btn => btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.items = this.items.filter(i => i.id !== btn.dataset.id);
+      this.save();
+      this.render();
+      this.toast('已删除', 'success');
+    }));
+
+    // 值点击复制
+    formList.querySelectorAll('.form-field-value').forEach(el => el.addEventListener('click', async () => {
+      const item = this.items.find(i => i.id === el.dataset.id);
+      if (item) { await navigator.clipboard.writeText(item.content); this.toast('已复制', 'success'); }
+    }));
+
+    // 编辑标签
     formList.querySelectorAll('.group-edit-btn').forEach(btn => btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const oldTag = btn.dataset.tag;
       const newTag = prompt('输入新标签名:', oldTag);
       if (newTag !== null && newTag !== oldTag) {
         this.items.forEach(i => { if ((i.tag || '') === oldTag) i.tag = newTag; });
-        // 更新折叠状态
-        if (this.collapsedTags.has(oldTag)) {
-          this.collapsedTags.delete(oldTag);
-          this.collapsedTags.add(newTag);
-        }
+        if (this.collapsedTags.has(oldTag)) { this.collapsedTags.delete(oldTag); this.collapsedTags.add(newTag); }
         this.save();
         this.render();
-        this.toast('已更新标签', 'success');
+        this.toast('已更新', 'success');
       }
     }));
+
+    // 删除标签组
     formList.querySelectorAll('.group-delete-btn').forEach(btn => btn.addEventListener('click', (e) => {
       e.stopPropagation();
       if (confirm('确定删除该标签下所有项?')) {
@@ -381,7 +490,14 @@ class PickedItemsController {
     const dialog = document.createElement('div');
     dialog.id = 'editDialog';
     dialog.className = 'edit-dialog-overlay';
-    dialog.innerHTML = `<div class="edit-dialog"><div class="edit-dialog-header"><h3>编辑条目</h3><button class="edit-dialog-close">&times;</button></div><div class="edit-dialog-body"><div class="edit-field"><label>标签</label><input type="text" id="editTag" value="${this.esc(item.tag || '')}"></div><div class="edit-field"><label>内容</label><textarea id="editContent" style="min-height:100px">${this.esc(item.content)}</textarea></div></div><div class="edit-dialog-footer"><button class="btn-cancel">取消</button><button class="btn-save">保存</button></div></div>`;
+    dialog.innerHTML = `<div class="edit-dialog">
+      <div class="edit-dialog-header"><h3>编辑</h3><button class="edit-dialog-close">&times;</button></div>
+      <div class="edit-dialog-body">
+        <div class="edit-field"><label>标签</label><input type="text" id="editTag" value="${this.esc(item.tag || '')}"></div>
+        <div class="edit-field"><label>内容</label><textarea id="editContent" style="min-height:100px">${this.esc(item.content)}</textarea></div>
+      </div>
+      <div class="edit-dialog-footer"><button class="btn-cancel">取消</button><button class="btn-save">保存</button></div>
+    </div>`;
     document.body.appendChild(dialog);
     const close = () => dialog.remove();
     dialog.querySelector('.edit-dialog-close').addEventListener('click', close);
@@ -389,7 +505,6 @@ class PickedItemsController {
     dialog.querySelector('.btn-save').addEventListener('click', () => {
       item.tag = document.getElementById('editTag').value.trim();
       item.content = document.getElementById('editContent').value;
-      item.contentType = this.detectContentType(item.content);
       this.save();
       this.render();
       close();
@@ -398,32 +513,9 @@ class PickedItemsController {
     dialog.addEventListener('click', (e) => { if (e.target === dialog) close(); });
   }
 
-  toggleSelectMode() {
-    this.selectMode = !this.selectMode;
-    document.getElementById('batchActionsBar').style.display = this.selectMode ? 'flex' : 'none';
-  }
-
-  cancelSelect() {
-    this.selectMode = false;
-    this.selectedIds.clear();
-    document.getElementById('batchActionsBar').style.display = 'none';
-    this.render();
-  }
-
-  batchDelete() {
-    if (!this.selectedIds.size) return;
-    this.items = this.items.filter(i => !this.selectedIds.has(i.id));
-    this.save();
-    this.render();
-    this.cancelSelect();
-    this.toast('已删除', 'success');
-  }
-
-  batchExport() {
-    if (!this.selectedIds.size) return;
-    const selected = this.items.filter(i => this.selectedIds.has(i.id));
-    const blob = new Blob([JSON.stringify({ version: '1.0', items: selected }, null, 2)], { type: 'application/json' });
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `picked-${new Date().toISOString().slice(0, 10)}.json`; a.click();
+  export() {
+    const blob = new Blob([JSON.stringify({ version: '1.0', items: this.items }, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `pins-${new Date().toISOString().slice(0, 10)}.json`; a.click();
   }
 
   showImport() {
@@ -446,11 +538,6 @@ class PickedItemsController {
       } catch { this.toast('导入失败', 'error'); }
     };
     input.click();
-  }
-
-  export() {
-    const blob = new Blob([JSON.stringify({ version: '1.0', items: this.items }, null, 2)], { type: 'application/json' });
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `picked-${new Date().toISOString().slice(0, 10)}.json`; a.click();
   }
 
   async clearAll() {
@@ -533,10 +620,6 @@ class TabSearchController {
     if (!this.filteredTabs.length) return;
     this.selectedIndex = (this.selectedIndex + delta + this.filteredTabs.length) % this.filteredTabs.length;
     this.render();
-    this.scrollToSelected();
-  }
-
-  scrollToSelected() {
     const list = document.getElementById('tabsearchList');
     const selected = list?.querySelector('.tabsearch-item.selected');
     if (selected) selected.scrollIntoView({ block: 'nearest' });
@@ -587,8 +670,8 @@ class TabSearchController {
     const list = document.getElementById('tabsearchList');
     if (!list) return;
     const query = document.getElementById('tabsearchInput')?.value.trim().toLowerCase() || '';
-    if (!this.filteredTabs.length) { list.innerHTML = '<div class="tabsearch-no-result"><div class="tabsearch-no-result-icon">🔍</div><div class="tabsearch-no-result-text">' + (query ? '未找到匹配的标签页' : '没有打开的标签页') + '</div></div>'; return; }
-    list.innerHTML = this.filteredTabs.map((tab, idx) => `<div class="tabsearch-item ${idx === this.selectedIndex ? 'selected' : ''}" data-index="${idx}" data-tab-id="${tab.id}"><img class="tabsearch-favicon" src="${tab.favicon}" onerror="this.style.display='none'"><div class="tabsearch-content"><div class="tabsearch-title">${this.highlightMatch(tab.title, query)}</div><div class="tabsearch-url">${this.highlightMatch(tab.url, query)}</div></div><span class="tabsearch-window">窗口 ${tab.windowId}</span><button class="tabsearch-close" data-tab-id="${tab.id}" title="关闭">×</button></div>`).join('');
+    if (!this.filteredTabs.length) { list.innerHTML = '<div class="empty-hint">没有打开的标签页</div>'; return; }
+    list.innerHTML = this.filteredTabs.map((tab, idx) => `<div class="tabsearch-item ${idx === this.selectedIndex ? 'selected' : ''}" data-index="${idx}"><img class="tabsearch-favicon" src="${tab.favicon}" onerror="this.style.display='none'"><div class="tabsearch-content"><div class="tabsearch-title">${this.highlightMatch(tab.title, query)}</div><div class="tabsearch-url">${this.highlightMatch(tab.url, query)}</div></div><span class="tabsearch-window">窗口 ${tab.windowId}</span><button class="tabsearch-close" data-tab-id="${tab.id}" title="关闭">×</button></div>`).join('');
   }
 
   esc(t) { if (!t) return ''; const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
