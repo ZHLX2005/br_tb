@@ -40,17 +40,18 @@ export async function initializeDefaultData() {
         closeAfterCollect: false,
         closeAfterRestore: false,
         excludeEdgeUrls: false,
-        lastView: 'timeline'
+        lastView: 'timeline',
+        visibleGroups: result.groups ? result.groups.map(g => g.id) : []
       }
     });
   } else if (result.settings.lastView === undefined) {
     // 为已有设置添加 lastView 字段
-    await chrome.storage.local.set({
-      settings: {
-        ...result.settings,
-        lastView: 'timeline'
-      }
-    });
+    const newSettings = { ...result.settings, lastView: 'timeline' };
+    // 确保 visibleGroups 也存在
+    if (!result.settings.visibleGroups) {
+      newSettings.visibleGroups = result.groups ? result.groups.map(g => g.id) : [];
+    }
+    await chrome.storage.local.set({ settings: newSettings });
   }
 
   // 初始化录制状态（独立存储，与分组分离）

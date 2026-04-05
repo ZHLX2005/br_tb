@@ -347,12 +347,8 @@ function setupGroupsListeners() {
 
           addGroups.push(addedGroup);
 
-          // 确保新分组默认可见
-          if (!addSettings.visibleGroups) {
-            addSettings.visibleGroups = addGroups.map(g => g.id);
-          } else {
-            addSettings.visibleGroups.push(addedGroup.id);
-          }
+          // 确保新分组默认可见 - 始终保持 visibleGroups 包含所有分组
+          addSettings.visibleGroups = addGroups.map(g => g.id);
 
           await chrome.storage.local.set({ groups: addGroups, settings: addSettings });
           sendResponse({ success: true });
