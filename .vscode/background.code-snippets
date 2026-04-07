@@ -1,0 +1,71 @@
+{
+  // Chrome Extension Message Router Pattern
+  "bg-message-listener": {
+    "prefix": "bg-listener",
+    "body": [
+      "chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {",
+      "  const { action } = message;",
+      "  switch (action) {",
+      "    case '${1:actionName}': {",
+      "      // Handle action",
+      "      sendResponse({ success: true });",
+      "      break;",
+      "    }",
+      "    default:",
+      "      sendResponse({ success: false, error: 'Unknown action' });",
+      "  }",
+      "  return true; // Keep message channel open for async responses",
+      "});"
+    ],
+    "description": "Chrome Extension background message listener with action routing"
+  },
+
+  // ES6 Module Background Entry Pattern
+  "bg-module-entry": {
+    "prefix": "bg-module-entry",
+    "body": [
+      "import { setupListener } from './${1:module}.js';",
+      "",
+      "// Initialize modules",
+      "setupListener();",
+      "",
+      "console.log('[App] Background Service Worker started');"
+    ],
+    "description": "ES6 module background entry point"
+  },
+
+  // Storage Helper Pattern
+  "storage-get": {
+    "prefix": "storage-get",
+    "body": [
+      "const result = await chrome.storage.local.get(['${1:key}']);",
+      "const data = result.${1:key} || ${2:defaultValue};"
+    ],
+    "description": "Chrome storage.local get with default value"
+  },
+
+  // Storage Set Pattern
+  "storage-set": {
+    "prefix": "storage-set",
+    "body": [
+      "await chrome.storage.local.set({ ${1:key}: ${2:value} });"
+    ],
+    "description": "Chrome storage.local set"
+  },
+
+  // SidePanel Open Pattern
+  "sidepanel-open": {
+    "prefix": "sidepanel-open",
+    "body": [
+      "chrome.sidePanel.open({ tabId: tab.id })",
+      "  .catch(() => {",
+      "    // Fallback: open in new tab",
+      "    chrome.tabs.create({",
+      "      url: chrome.runtime.getURL('${1:path}'),",
+      "      active: true",
+      "    });",
+      "  });"
+    ],
+    "description": "Open sidepanel with fallback to tab"
+  }
+}
