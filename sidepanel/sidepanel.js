@@ -120,17 +120,22 @@ class PickedItemsController {
       const group = gc.groups.find(g => g.id === gc.currentGroupId);
       if (group) {
         this.selectedTag = group.name;
+        this.currentTag = group.name; // 同步筛选标签
         this.updateTagButton();
+        this.render(); // 重新渲染以显示该分组的记录
       }
     } else if (!this.selectedTag) {
       // 如果没有选中分组且没有已选标签，显示"选择分组"
+      this.currentTag = ''; // 筛选全部
       this.updateTagButton();
+      this.render();
     }
   }
 
   // 设置当前标签（供外部调用，如 GroupsController）
   setCurrentTag(tag) {
     this.selectedTag = tag;
+    this.currentTag = tag; // 同步筛选标签
     this.updateTagButton();
   }
 
@@ -227,7 +232,9 @@ class PickedItemsController {
       item.addEventListener('click', (e) => {
         e.stopPropagation();
         const tag = item.dataset.tag;
-        this.selectedTag = tag === '__empty__' ? '' : tag;
+        const actualTag = tag === '__empty__' ? '' : tag;
+        this.selectedTag = actualTag;
+        this.currentTag = actualTag; // 同步筛选标签
         this.updateTagButton();
         this.hideTagDropdown();
         this.render(); // 重新渲染以更新筛选
@@ -236,13 +243,17 @@ class PickedItemsController {
   }
 
   startPicker() {
-    chrome.runtime.sendMessage({ action: 'startPicker', tag: this.selectedTag }, (r) => {
+    const inputTag = document.getElementById('quickTagInput')?.value?.trim() || '';
+    const tag = inputTag || this.selectedTag || '';
+    chrome.runtime.sendMessage({ action: 'startPicker', tag }, (r) => {
       if (r?.success) this.showPickerStatus();
     });
   }
 
   pickWithCurrentTag() {
-    chrome.runtime.sendMessage({ action: 'startPicker', tag: this.selectedTag }, (r) => {
+    const inputTag = document.getElementById('quickTagInput')?.value?.trim() || '';
+    const tag = inputTag || this.selectedTag || '';
+    chrome.runtime.sendMessage({ action: 'startPicker', tag }, (r) => {
       if (r?.success) this.showPickerStatus();
     });
   }
@@ -271,7 +282,9 @@ class PickedItemsController {
   }
 
   async addItem() {
-    const tag = this.selectedTag || '';
+    // 优先使用输入框的内容，否则使用下拉选择的标签
+    const inputTag = document.getElementById('quickTagInput')?.value?.trim() || '';
+    const tag = inputTag || this.selectedTag || '';
     const content = document.getElementById('quickContent').value.trim();
 
     if (!content) {
@@ -295,6 +308,7 @@ class PickedItemsController {
 
     // 清空表单
     document.getElementById('quickContent').value = '';
+    document.getElementById('quickTagInput').value = '';
 
     this.toast('已添加', 'success');
   }
@@ -345,7 +359,11 @@ class PickedItemsController {
       `<span class="tag-filter ${emptyActive}" data-tag="__empty__">无标签</span>` +
       tags.filter(t => t).map(t => `<span class="tag-filter ${this.currentTag === t ? 'active' : ''}" data-tag="${this.esc(t)}">${this.esc(t)}</span>`).join('');
     container.querySelectorAll('.tag-filter').forEach(el => el.addEventListener('click', () => {
-      this.currentTag = el.dataset.tag;
+      const tag = el.dataset.tag;
+      // 全部或空标签都清除筛选
+      this.currentTag = (tag === '__all__' || tag === '__empty__' || tag === '') ? '' : tag;
+      this.selectedTag = this.currentTag; // 同步添加标签
+      this.updateTagButton();
       this.render();
     }));
   }
