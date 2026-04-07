@@ -123,10 +123,12 @@ body {
 .tag-selector-row {
   position: relative;
   margin-bottom: 8px;
+  display: flex;
+  gap: 8px;
 }
 
 .tag-select-btn {
-  width: 100%;
+  flex: 1;
   padding: 10px 12px;
   border: 1px solid #ddd;
   border-radius: 6px;
@@ -140,6 +142,19 @@ body {
 }
 
 .tag-select-btn:hover {
+  border-color: #42a5f5;
+}
+
+.quick-tag-input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.quick-tag-input:focus {
+  outline: none;
   border-color: #42a5f5;
 }
 
