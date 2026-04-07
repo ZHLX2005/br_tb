@@ -1,0 +1,209 @@
+{
+  // Generate ID Pattern
+  "generate-id": {
+    "prefix": "gen-id",
+    "body": [
+      "generateId() {",
+      "  return 'id-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);",
+      "}"
+    ],
+    "description": "Generate unique ID with timestamp"
+  },
+
+  // Debounce Utility
+  "debounce": {
+    "prefix": "debounce-fn",
+    "body": [
+      "debounce(fn, delay) {",
+      "  let timer;",
+      "  return (...args) => {",
+      "    clearTimeout(timer);",
+      "    timer = setTimeout(() => fn(...args), delay);",
+      "  };",
+      "}"
+    ],
+    "description": "Debounce function utility"
+  },
+
+  // Throttle Utility
+  "throttle": {
+    "prefix": "throttle-fn",
+    "body": [
+      "throttle(fn, limit) {",
+      "  let inThrottle;",
+      "  return (...args) => {",
+      "    if (!inThrottle) {",
+      "      fn(...args);",
+      "      inThrottle = true;",
+      "      setTimeout(() => inThrottle = false, limit);",
+      "    }",
+      "  };",
+      "}"
+    ],
+    "description": "Throttle function utility"
+  },
+
+  // Safe JSON Parse
+  "safe-parse": {
+    "prefix": "safe-parse",
+    "body": [
+      "try {",
+      "  const data = JSON.parse(text);",
+      "  // Process data",
+      "} catch (error) {",
+      "  console.error('JSON parse error:', error);",
+      "  this.toast?.('Parse error', 'error');",
+      "}"
+    ],
+    "description": "Safe JSON parse with error handling"
+  },
+
+  // Clipboard Copy
+  "clipboard-copy": {
+    "prefix": "clipboard-copy",
+    "body": [
+      "async copyToClipboard(text) {",
+      "  try {",
+      "    await navigator.clipboard.writeText(text);",
+      "    return true;",
+      "  } catch (error) {",
+      "    console.error('Copy failed:', error);",
+      "    return false;",
+      "  }",
+      "}"
+    ],
+    "description": "Copy to clipboard with error handling"
+  },
+
+  // Array Remove Item
+  "array-remove": {
+    "prefix": "array-remove",
+    "body": [
+      "this.items = this.items.filter(i => i.id !== itemId);"
+    ],
+    "description": "Remove item from array by ID"
+  },
+
+  // Array Update Item
+  "array-update": {
+    "prefix": "array-update",
+    "body": [
+      "const index = this.items.findIndex(i => i.id === itemId);",
+      "if (index !== -1) {",
+      "  this.items[index] = { ...this.items[index], ...updates };",
+      "  this.save();",
+      "  this.render();",
+      "}"
+    ],
+    "description": "Update item in array by ID"
+  },
+
+  // Check Empty Object
+  "is-empty": {
+    "prefix": "is-empty",
+    "body": [
+      "const isEmpty = obj => Object.keys(obj).length === 0;"
+    ],
+    "description": "Check if object is empty"
+  },
+
+  // Format Date
+  "format-date": {
+    "prefix": "format-date",
+    "body": [
+      "formatDate(date) {",
+      "  return new Date(date).toLocaleString();",
+      "}"
+    ],
+    "description": "Format date to locale string"
+  },
+
+  // Scroll Into View
+  "scroll-into-view": {
+    "prefix": "scroll-into-view",
+    "body": [
+      "scrollToSelected() {",
+      "  const list = document.getElementById('${1:listId}');",
+      "  const selected = list?.querySelector('.${2:selected-class}');",
+      "  if (selected) selected.scrollIntoView({ block: 'nearest' });",
+      "}"
+    ],
+    "description": "Scroll selected item into view"
+  },
+
+  // Optional Chaining Helper
+  "safe-access": {
+    "prefix": "safe-access",
+    "body": [
+      "const value = obj?.prop1?.prop2 ?? 'default';"
+    ],
+    "description": "Safe property access with optional chaining"
+  },
+
+  // Class Toggle
+  "class-toggle": {
+    "prefix": "class-toggle",
+    "body": [
+      "element.classList.toggle('active', shouldBeActive);"
+    ],
+    "description": "Toggle CSS class conditionally"
+  },
+
+  // Query Selector Helper
+  "qs": {
+    "prefix": "qs",
+    "body": [
+      "const el = document.querySelector('${1:selector}');",
+      "if (!el) return;"
+    ],
+    "description": "Query selector with null check"
+  },
+
+  // Event Stop Propagation
+  "stop-propagation": {
+    "prefix": "stop-prop",
+    "body": [
+      "e.stopPropagation();"
+    ],
+    "description": "Stop event propagation"
+  },
+
+  // Prevent Default
+  "prevent-default": {
+    "prefix": "prevent-default",
+    "body": [
+      "e.preventDefault();"
+    ],
+    "description": "Prevent default event behavior"
+  },
+
+  // Async IIFE
+  "async-iife": {
+    "prefix": "async-iife",
+    "body": [
+      "(async () => {",
+      "  try {",
+      "    const result = await someAsyncCall();",
+      "    // Process result",
+      "  } catch (error) {",
+      "    console.error('Error:', error);",
+      "  }",
+      "})();"
+    ],
+    "description": "Async immediately invoked function expression"
+  },
+
+  // URL Filter Pattern
+  "url-filter": {
+    "prefix": "url-filter",
+    "body": [
+      "const isValidUrl = url =>",
+      "  url &&",
+      "  !url.startsWith('chrome://') &&",
+      "  !url.startsWith('chrome-extension://') &&",
+      "  !url.startsWith('edge://') &&",
+      "  !url.startsWith('about:');"
+    ],
+    "description": "Filter out browser internal URLs"
+  }
+}

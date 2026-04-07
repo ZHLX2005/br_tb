@@ -1,0 +1,168 @@
+{
+  // DataManager with Observer Pattern
+  "data-manager": {
+    "prefix": "data-manager",
+    "body": [
+      "class DataManager {",
+      "  constructor() {",
+      "    this.data = { ${1:data} };",
+      "    this.listeners = [];",
+      "  }",
+      "",
+      "  async loadData() {",
+      "    const result = await chrome.storage.local.get(Object.keys(this.data));",
+      "    Object.keys(result).forEach(key => {",
+      "      if (key in result) {",
+      "        this.data[key] = result[key];",
+      "      }",
+      "    });",
+      "    this.notifyListeners();",
+      "    return this.data;",
+      "  }",
+      "",
+      "  // Getters",
+      "  get ${2:prop}() { return this.data.${2:prop}; }",
+      "",
+      "  // Observer pattern",
+      "  onDataChange(callback) {",
+      "    this.listeners.push(callback);",
+      "    return () => { this.listeners = this.listeners.filter(cb => cb !== callback); };",
+      "  }",
+      "",
+      "  notifyListeners() {",
+      "    this.listeners.forEach(cb => cb(this.data));",
+      "  }",
+      "}",
+      "",
+      "export default DataManager;"
+    ],
+    "description": "DataManager with observer pattern for chrome.storage"
+  },
+
+  // Search with Debounce Pattern
+  "debounced-search": {
+    "prefix": "debounced-search",
+    "body": [
+      "initSearch() {",
+      "  this.searchInput = document.getElementById('${1:searchInputId}');",
+      "  this.selectedIndex = -1;",
+      "  this.currentResults = [];",
+      "",
+      "  if (this.searchInput) {",
+      "    let debounceTimer;",
+      "    this.searchInput.addEventListener('input', (e) => {",
+      "      clearTimeout(debounceTimer);",
+      "      debounceTimer = setTimeout(() => {",
+      "        this.searchQuery = e.target.value.trim();",
+      "        this.selectedIndex = -1;",
+      "        this._performSearch();",
+      "      }, 150);",
+      "    });",
+      "",
+      "    this.searchInput.addEventListener('keydown', (e) => {",
+      "      if (!this.currentResults.length) return;",
+      "      if (e.key === 'ArrowDown') {",
+      "        e.preventDefault();",
+      "        this.selectedIndex = (this.selectedIndex + 1) % this.currentResults.length;",
+      "        this._updateSelection();",
+      "      } else if (e.key === 'ArrowUp') {",
+      "        e.preventDefault();",
+      "        this.selectedIndex = this.selectedIndex <= 0 ?",
+      "          this.currentResults.length - 1 : this.selectedIndex - 1;",
+      "        this._updateSelection();",
+      "      } else if (e.key === 'Enter') {",
+      "        e.preventDefault();",
+      "        this._openSelected();",
+      "      } else if (e.key === 'Escape') {",
+      "        this._hideDropdown();",
+      "      }",
+      "    });",
+      "  }",
+      "}"
+    ],
+    "description": "Debounced search with keyboard navigation"
+  },
+
+  // Highlight Match Pattern
+  "highlight-match": {
+    "prefix": "highlight-match",
+    "body": [
+      "highlightMatch(text, query) {",
+      "  if (!query) return this.esc(text);",
+      "  const escaped = this.esc(text);",
+      "  const regex = new RegExp(`(\\${query.replace(/[.*+?^\\${}()|[\\]\\\\]/g, '\\\\$&')})`, 'gi');",
+      "  return escaped.replace(regex, '<mark>\\$1</mark>');",
+      "}"
+    ],
+    "description": "Highlight search match in text"
+  },
+
+  // Collapse Expand Pattern
+  "collapse-expand": {
+    "prefix": "collapse-expand",
+    "body": [
+      "// In constructor:",
+      "this.collapsedItems = new Set();",
+      "",
+      "// Toggle collapse",
+      "toggleCollapse(id) {",
+      "  if (this.collapsedItems.has(id)) {",
+      "    this.collapsedItems.delete(id);",
+      "  } else {",
+      "    this.collapsedItems.add(id);",
+      "  }",
+      "  this.render();",
+      "}",
+      "",
+      "// In render:",
+      "// \\${isCollapsed ? '▶' : '▼'} collapse icon",
+      "// style=\"display: \\${isCollapsed ? 'none' : 'block'}\" for content"
+    ],
+    "description": "Collapse/expand toggle pattern"
+  },
+
+  // Map Render Pattern
+  "map-render": {
+    "prefix": "map-render",
+    "body": [
+      "renderItems() {",
+      "  const container = document.getElementById('${1:containerId}');",
+      "  if (!this.items.length) {",
+      "    container.innerHTML = '<div class=\"empty-hint\">No items</div>';",
+      "    return;",
+      "  }",
+      "  container.innerHTML = this.items.map(item =>",
+      "    `<div class=\"item\" data-id=\"\\${item.id}\">",
+      "      <div class=\"item-title\">\\${this.esc(item.title)}</div>",
+      "    </div>`",
+      "  ).join('');",
+      "  this.bindItemEvents();",
+      "}"
+    ],
+    "description": "Map array to HTML and render"
+  },
+
+  // Form Field Builder
+  "form-field": {
+    "prefix": "form-field",
+    "body": [
+      "renderItem(item) {",
+      "  const display = this.esc(item.content).slice(0, 200);",
+      "  const sourceInfo = item.sourceTitle ?",
+      "    `<span class=\"field-label\">\\${this.esc(item.sourceTitle).slice(0, 30)}</span>` : '';",
+      "  return `<div class=\"form-field\" data-id=\"\\${item.id}\">",
+      "    <div class=\"form-field-header\">",
+      "      \\${sourceInfo}",
+      "      <div class=\"form-field-actions\">",
+      "        <button class=\"field-btn copy-btn\" data-content=\"\\${this.esc(item.content)}\" title=\"Copy\">📋</button>",
+      "        <button class=\"field-btn edit-btn\" data-id=\"\\${item.id}\" title=\"Edit\">✏️</button>",
+      "        <button class=\"field-btn delete-btn\" data-id=\"\\${item.id}\" title=\"Delete\">🗑️</button>",
+      "      </div>",
+      "    </div>",
+      "    <div class=\"form-field-value\" data-id=\"\\${item.id}\">\\${display}</div>",
+      "  </div>`;",
+      "}"
+    ],
+    "description": "Render form field with actions"
+  }
+}
