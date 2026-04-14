@@ -87,6 +87,23 @@
   background: #bbdefb;
 }
 
+/* 分组来源的标签页 - 浅绿色背景区分 */
+.focus-search-item.group-source {
+  background: #f0fdf4;
+}
+
+.focus-search-item.group-source:hover {
+  background: #dcfce7;
+}
+
+.focus-search-item.group-source.selected {
+  background: #dcfce7;
+}
+
+.focus-search-item.group-source.selected:hover {
+  background: #bbf7d0;
+}
+
 /* 标签页图标 */
 .focus-search-favicon {
   width: 20px;
