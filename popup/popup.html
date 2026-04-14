@@ -3,91 +3,101 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TabBoard 设置</title>
+  <title>TabBoard</title>
   <link rel="stylesheet" href="popup.css">
   <link rel="stylesheet" href="../shared/ModalDialog.css">
 </head>
 <body>
-  <div class="container">
-    <header class="header">
-      <h1>📋 TabBoard</h1>
-    </header>
-
-    <!-- 快速操作 -->
-    <section class="section section-actions">
-      <button id="collectAndOpenBtn" class="btn-action btn-action-primary">
-        <span class="btn-icon">📋</span>
-        <span class="btn-text">收集并打开看板</span>
-      </button>
-      <button id="collectOtherTabsBtn" class="btn-action">
-        <span class="btn-icon">📄</span>
-        <span class="btn-text">收集其他标签页</span>
-      </button>
-      <button id="openTabboardBtn" class="btn-action">
-        <span class="btn-icon">📁</span>
-        <span class="btn-text">打开看板</span>
-      </button>
-      <button id="openSidebarBtn" class="btn-action">
-        <span class="btn-icon">🗂️</span>
-        <span class="btn-text">打开侧边栏</span>
-      </button>
-    </section>
-
-    <!-- 自动录制 (折叠) -->
-    <section class="section section-recording">
-      <div class="section-toggle" id="recordingToggle">
-        <h2>🎙️ 自动录制</h2>
-        <span class="toggle-icon">▼</span>
-      </div>
-      <div id="recordingContent" class="recording-content">
-        <div id="solutionContainer">
-          <!-- 解决方案录制UI动态生成 -->
+  <div class="app">
+    <!-- 顶部导航 -->
+    <nav class="top-nav" id="topNav">
+      <div class="nav-tabs">
+        <div class="nav-tab active" data-page="actions">
+          <span class="nav-tab-icon">⚡</span>
+          <span class="nav-tab-label">快捷操作</span>
+        </div>
+        <div class="nav-tab" data-page="groups">
+          <span class="nav-tab-icon">📂</span>
+          <span class="nav-tab-label">分组管理</span>
+        </div>
+        <div class="nav-tab" data-page="focussearch">
+          <span class="nav-tab-icon">🔍</span>
+          <span class="nav-tab-label">专注搜索</span>
         </div>
       </div>
-    </section>
+    </nav>
 
-    <!-- 分组管理 -->
-    <section class="section">
-      <div class="section-header">
-        <h2>分组管理</h2>
-        <button id="addGroupBtn" class="btn btn-small">+ 新建</button>
-      </div>
-      <div id="groupsList" class="groups-list">
-        <!-- 分组列表动态生成 -->
-      </div>
-    </section>
+    <!-- 页面容器 -->
+    <div class="page-container">
 
-    <!-- 专注搜索分组 -->
-    <section class="section section-focus-search">
-      <div class="section-toggle" id="focusSearchToggle">
-        <h2>🔍 专注搜索分组</h2>
-        <span class="toggle-icon">▼</span>
+      <!-- 快捷操作页 -->
+      <div class="page active" id="page-actions">
+        <div class="page-section">
+          <div class="quick-actions-grid">
+            <button id="collectAndOpenBtn" class="quick-action-btn primary">
+              <span class="qa-icon">📋</span>
+              <span class="qa-label">收集并打开看板</span>
+            </button>
+            <button id="collectOtherTabsBtn" class="quick-action-btn">
+              <span class="qa-icon">📄</span>
+              <span class="qa-label">收集其他标签页</span>
+            </button>
+            <button id="openTabboardBtn" class="quick-action-btn">
+              <span class="qa-icon">📁</span>
+              <span class="qa-label">打开看板</span>
+            </button>
+            <button id="openSidebarBtn" class="quick-action-btn">
+              <span class="qa-icon">🗂️</span>
+              <span class="qa-label">打开侧边栏</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="page-section">
+          <div class="section-title">🎙️ 自动录制</div>
+          <div id="solutionContainer"></div>
+        </div>
+
+        <div class="page-section">
+          <div class="section-title">⚙️ 基础设置</div>
+          <div class="settings-list">
+            <label class="setting-row">
+              <input type="checkbox" id="closeAfterCollect">
+              <span>收集后关闭标签页</span>
+            </label>
+            <label class="setting-row">
+              <input type="checkbox" id="closeAfterRestore">
+              <span>恢复后删除分组</span>
+            </label>
+            <label class="setting-row">
+              <input type="checkbox" id="excludeEdgeUrls">
+              <span>排除 edge:// 页面</span>
+            </label>
+          </div>
+        </div>
       </div>
-      <div id="focusSearchContent" class="focus-search-content">
-        <p class="focus-search-hint">勾选的分组将参与专注搜索（Alt+Shift+S）</p>
+
+      <!-- 分组管理页 -->
+      <div class="page" id="page-groups">
+        <div class="page-header-row">
+          <span class="page-section-title">📂 分组列表</span>
+          <button id="addGroupBtn" class="btn btn-small">+ 新建</button>
+        </div>
+        <div id="groupsList" class="groups-list">
+          <!-- 动态生成 -->
+        </div>
+      </div>
+
+      <!-- 专注搜索页 -->
+      <div class="page" id="page-focussearch">
+        <div class="page-section-title">🔍 专注搜索分组</div>
+        <p class="focus-hint">点击 × 从专注搜索中移除，添加到分组管理中</p>
         <div id="focusSearchGroupsList" class="focus-search-groups-list">
           <!-- 动态生成 -->
         </div>
       </div>
-    </section>
 
-    <!-- 设置 -->
-    <section class="section section-settings">
-      <div class="settings-row">
-        <label class="setting-item">
-          <input type="checkbox" id="closeAfterCollect">
-          <span>收集后关闭</span>
-        </label>
-        <label class="setting-item">
-          <input type="checkbox" id="closeAfterRestore">
-          <span>恢复后删除</span>
-        </label>
-        <label class="setting-item">
-          <input type="checkbox" id="excludeEdgeUrls">
-          <span>排除 edge://</span>
-        </label>
-      </div>
-    </section>
+    </div>
   </div>
 
   <!-- 添加分组对话框 -->
@@ -100,9 +110,7 @@
       </div>
       <div class="form-group">
         <label>分组颜色</label>
-        <div id="colorPicker" class="color-picker">
-          <!-- 颜色选项动态生成 -->
-        </div>
+        <div id="colorPicker" class="color-picker"></div>
       </div>
       <div class="dialog-actions">
         <button id="cancelAddGroup" class="btn btn-secondary">取消</button>

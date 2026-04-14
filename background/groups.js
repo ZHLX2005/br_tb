@@ -576,39 +576,62 @@ function setupGroupsListeners() {
         }
 
         case 'getAllOpenTabs': {
-          // 获取专注搜索分组设置
-          const settingsResult = await chrome.storage.local.get(['settings', 'tabs']);
+          // 模糊搜索的上下文来自两个来源：
+          // 1. 当前浏览器打开的所有 tabs
+          // 2. 勾选的分组里的 tabs（focusSearchGroups）
+          // 两者合并后作为搜索候选集
+
+          const [browserTabsResult, settingsResult] = await Promise.all([
+            chrome.tabs.query({}),
+            chrome.storage.local.get(['settings', 'tabs'])
+          ]);
+
           const settings = settingsResult.settings || {};
-          const focusSearchGroupIds = settings.focusSearchGroups || null;
+          const focusSearchGroupIds = settings.focusSearchGroups || [];
           const storedTabs = settingsResult.tabs || {};
 
-          // 如果配置了专注搜索分组，只返回这些分组的标签
-          let tabsToReturn = [];
-          if (focusSearchGroupIds && focusSearchGroupIds.length > 0) {
+          // 来源1: 浏览器当前 tabs
+          const browserTabs = browserTabsResult
+            .filter(t => t.id && t.url && !t.url.startsWith('chrome:') && !t.url.startsWith('edge:'))
+            .map(t => ({
+              id: `browser_${t.id}`,
+              title: t.title || '无标题',
+              url: t.url || '',
+              favicon: t.favIconUrl || '',
+              windowId: t.windowId,
+              active: t.active,
+              source: 'browser'
+            }));
+
+          // 来源2: 勾选的分组 tabs
+          let groupTabs = [];
+          if (focusSearchGroupIds.length > 0) {
             for (const groupId of focusSearchGroupIds) {
               if (storedTabs[groupId] && Array.isArray(storedTabs[groupId])) {
-                tabsToReturn = tabsToReturn.concat(storedTabs[groupId]);
-              }
-            }
-          } else {
-            for (const groupId in storedTabs) {
-              if (Array.isArray(storedTabs[groupId])) {
-                tabsToReturn = tabsToReturn.concat(storedTabs[groupId]);
+                groupTabs = groupTabs.concat(storedTabs[groupId].map(t => ({
+                  id: `group_${t.id}`,
+                  title: t.title || '无标题',
+                  url: t.url || '',
+                  favicon: t.favicon || '',
+                  windowId: null,
+                  active: false,
+                  source: 'group',
+                  groupId
+                })));
               }
             }
           }
 
-          sendResponse({
-            success: true,
-            tabs: tabsToReturn.map(t => ({
-              id: t.id,
-              title: t.title || '无标题',
-              url: t.url || '',
-              favicon: t.favicon || '',
-              windowId: null,
-              active: false
-            }))
+          // 合并两个来源，去重（按 URL 去重）
+          const allTabs = [...browserTabs, ...groupTabs];
+          const seen = new Set();
+          const deduped = allTabs.filter(tab => {
+            if (seen.has(tab.url)) return false;
+            seen.add(tab.url);
+            return true;
           });
+
+          sendResponse({ success: true, tabs: deduped });
           break;
         }
 
