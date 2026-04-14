@@ -16,10 +16,11 @@ async function loadGroups() {
   const response = await chrome.runtime.sendMessage({ action: 'getGroups' });
   if (!response.success) return;
 
-  // 获取设置以获取可见分组列表
+  // 获取设置以获取可见分组列表和专注搜索分组
   const settingsResponse = await chrome.runtime.sendMessage({ action: 'getSettings' });
   const settings = settingsResponse.settings || {};
   const visibleGroups = new Set(settings.visibleGroups || []);
+  const focusSearchGroups = settings.focusSearchGroups || [];
 
   const groupsList = document.getElementById('groupsList');
 
@@ -31,17 +32,19 @@ async function loadGroups() {
     return;
   }
 
-  groupsList.innerHTML = visibleGroupsList.map(group => `
-    <div class="group-item" style="border-left-color: ${group.color}">
+  groupsList.innerHTML = visibleGroupsList.map(group => {
+    const isInFocusSearch = focusSearchGroups.includes(group.id);
+    return `<div class="group-item" style="border-left-color: ${group.color}">
       <div class="group-color" style="background: ${group.color}"></div>
       <div class="group-name">${escapeHtml(group.name)}</div>
       ${group.isDefault ? '<span class="group-default-badge">目标</span>' : ''}
+      ${isInFocusSearch ? '<span class="focus-search-badge">🔍</span>' : `<button class="add-to-focus" data-id="${group.id}">+搜索</button>`}
       <div class="group-actions-buttons">
         ${!group.isDefault ? `<button class="set-default" data-id="${group.id}">设为目标</button>` : ''}
         <button class="delete" data-id="${group.id}">删除</button>
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 
   // 绑定事件
   document.querySelectorAll('.set-default').forEach(btn => {
@@ -51,6 +54,28 @@ async function loadGroups() {
   document.querySelectorAll('.delete').forEach(btn => {
     btn.addEventListener('click', () => deleteGroup(btn.dataset.id));
   });
+
+  document.querySelectorAll('.add-to-focus').forEach(btn => {
+    btn.addEventListener('click', () => addToFocusSearch(btn.dataset.id));
+  });
+}
+
+// 添加分组到专注搜索
+async function addToFocusSearch(groupId) {
+  const settingsResponse = await chrome.runtime.sendMessage({ action: 'getSettings' });
+  const settings = settingsResponse.settings || {};
+  const focusSearchGroups = settings.focusSearchGroups || [];
+
+  if (!focusSearchGroups.includes(groupId)) {
+    focusSearchGroups.push(groupId);
+    await chrome.runtime.sendMessage({
+      action: 'updateSettings',
+      settings: { focusSearchGroups }
+    });
+  }
+
+  loadGroups();
+  loadFocusSearchGroups();
 }
 
 // 加载设置
@@ -181,24 +206,38 @@ async function loadFocusSearchGroups() {
   const tabs = tabsResponse.tabs || {};
 
   const container = document.getElementById('focusSearchGroupsList');
-  if (groupsResponse.groups.length === 0) {
-    container.innerHTML = '<div class="empty-state">暂无分组</div>';
+
+  // 只显示已在 focusSearchGroups 中勾选的分组
+  const enabledGroups = groupsResponse.groups.filter(group => {
+    return enabledGroupIds.includes(group.id);
+  });
+
+  if (enabledGroups.length === 0) {
+    container.innerHTML = '<div class="empty-state">暂未选择任何分组<br><small>请到分组管理中添加</small></div>';
     return;
   }
 
-  container.innerHTML = groupsResponse.groups.map(group => {
-    const isEnabled = enabledGroupIds.includes(group.id);
+  container.innerHTML = enabledGroups.map(group => {
     const tabCount = tabs[group.id] ? tabs[group.id].length : 0;
-    return `<label class="focus-search-group-item">
-      <input type="checkbox" value="${group.id}" ${isEnabled ? 'checked' : ''}>
-      <span class="focus-search-color-dot" style="background:${group.color}"></span>
-      <span class="focus-search-group-name">${escapeHtml(group.name)}</span>
-      <span class="focus-search-group-count">${tabCount}个</span>
-    </label>`;
+    return `<div class="focus-group-item">
+      <span class="focus-color-dot" style="background:${group.color}"></span>
+      <span class="focus-group-name">${escapeHtml(group.name)}</span>
+      <span class="focus-group-count">${tabCount}个</span>
+      <button class="focus-group-remove" data-id="${group.id}">×</button>
+    </div>`;
   }).join('');
 
-  container.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-    cb.addEventListener('change', saveFocusSearchGroups);
+  // 移除按钮事件
+  container.querySelectorAll('.focus-group-remove').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const groupId = btn.dataset.id;
+      const newEnabled = enabledGroupIds.filter(id => id !== groupId);
+      chrome.runtime.sendMessage({
+        action: 'updateSettings',
+        settings: { focusSearchGroups: newEnabled }
+      });
+      loadFocusSearchGroups();
+    });
   });
 }
 
@@ -235,29 +274,23 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('collectAndOpenBtn').addEventListener('click', collectAndOpen);
   document.getElementById('collectOtherTabsBtn').addEventListener('click', collectOtherTabs);
 
-  // 录制区域折叠功能
-  const recordingSection = document.querySelector('.section-recording');
-  const recordingToggle = document.getElementById('recordingToggle');
-  if (recordingToggle) {
-    recordingToggle.addEventListener('click', () => {
-      recordingSection.classList.toggle('collapsed');
-    });
-  }
-
+  // 设置复选框事件
   document.getElementById('closeAfterCollect').addEventListener('change', saveSettings);
   document.getElementById('closeAfterRestore').addEventListener('change', saveSettings);
   document.getElementById('excludeEdgeUrls').addEventListener('change', saveSettings);
 
-  // 专注搜索分组折叠
-  const focusSearchSection = document.querySelector('.section-focus-search');
-  const focusSearchToggle = document.getElementById('focusSearchToggle');
-  if (focusSearchToggle) {
-    focusSearchToggle.addEventListener('click', () => {
-      focusSearchSection.classList.toggle('collapsed');
-    });
-  }
-
   loadFocusSearchGroups();
+
+  // Tab导航切换（悬浮触发）
+  document.querySelectorAll('.nav-tab').forEach(tab => {
+    tab.addEventListener('mouseenter', () => {
+      const pageId = tab.dataset.page;
+      document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById('page-' + pageId).classList.add('active');
+    });
+  });
 
   // 点击对话框外部关闭
   document.getElementById('addGroupDialog').addEventListener('click', (e) => {
