@@ -229,12 +229,13 @@ function renderResults(query) {
     if (!r || !r.tab || r.tab.id == null) continue;
     var tab = r.tab;
     var isSelected = i === selectedIndex ? ' selected' : '';
+    var isGroup = tab.source === 'group' ? ' group-source' : '';
     var favicon = safeUrl(tab.favIconUrl);
     var faviconHtml = favicon ? '<img class="focus-search-favicon" src="' + favicon + '" onerror="this.style.opacity=\'0\'">' : '';
     var title = highlightMatch(tab.title || '\u65e0\u6807\u9898', query);
     var url = highlightMatch(tab.url || '', query);
     htmlParts.push(
-      '<div class="focus-search-item' + isSelected + '" data-index="' + i + '">' +
+      '<div class="focus-search-item' + isSelected + isGroup + '" data-index="' + i + '">' +
       faviconHtml +
       '<div class="focus-search-content">' +
       '<div class="focus-search-title">' + title + '</div>' +
@@ -273,6 +274,13 @@ chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
   if (message.action === 'showFocusSearch') {
     if (overlayEl) closeOverlay();
     createOverlay();
+
+    // 打开后把焦点移到浮层输入框，防止按键继续写入原来的输入框
+    setTimeout(() => {
+      const input = document.getElementById('focus-search-input');
+      if (input) input.focus();
+    }, 10);
+
     sendResponse({ success: true });
   }
   return true;
