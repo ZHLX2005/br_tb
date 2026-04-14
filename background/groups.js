@@ -576,23 +576,37 @@ function setupGroupsListeners() {
         }
 
         case 'getAllOpenTabs': {
-          const tabs = await chrome.tabs.query({});
-          const filteredTabs = tabs.filter(t =>
-            t.url &&
-            !t.url.startsWith('chrome://') &&
-            !t.url.startsWith('chrome-extension://') &&
-            !t.url.startsWith('about:') &&
-            !t.url.startsWith('edge://')
-          );
+          // 获取专注搜索分组设置
+          const settingsResult = await chrome.storage.local.get(['settings', 'tabs']);
+          const settings = settingsResult.settings || {};
+          const focusSearchGroupIds = settings.focusSearchGroups || null;
+          const storedTabs = settingsResult.tabs || {};
+
+          // 如果配置了专注搜索分组，只返回这些分组的标签
+          let tabsToReturn = [];
+          if (focusSearchGroupIds && focusSearchGroupIds.length > 0) {
+            for (const groupId of focusSearchGroupIds) {
+              if (storedTabs[groupId] && Array.isArray(storedTabs[groupId])) {
+                tabsToReturn = tabsToReturn.concat(storedTabs[groupId]);
+              }
+            }
+          } else {
+            for (const groupId in storedTabs) {
+              if (Array.isArray(storedTabs[groupId])) {
+                tabsToReturn = tabsToReturn.concat(storedTabs[groupId]);
+              }
+            }
+          }
+
           sendResponse({
             success: true,
-            tabs: filteredTabs.map(t => ({
+            tabs: tabsToReturn.map(t => ({
               id: t.id,
               title: t.title || '无标题',
               url: t.url || '',
-              favicon: t.favIconUrl || '',
-              windowId: t.windowId,
-              active: t.active
+              favicon: t.favicon || '',
+              windowId: null,
+              active: false
             }))
           });
           break;
@@ -600,11 +614,16 @@ function setupGroupsListeners() {
 
         case 'focusSearchSwitchTab': {
           try {
-            if (request.tabId) {
-              await chrome.tabs.update(request.tabId, { active: true });
-            }
-            if (request.windowId) {
-              await chrome.windows.update(request.windowId, { focused: true });
+            if (request.url) {
+              // 先尝试找到已打开的标签页
+              const tabs = await chrome.tabs.query({ url: request.url });
+              if (tabs && tabs.length > 0) {
+                await chrome.tabs.update(tabs[0].id, { active: true });
+                await chrome.windows.update(tabs[0].windowId, { focused: true });
+              } else {
+                // 没找到，创建新标签页
+                await chrome.tabs.create({ url: request.url, active: true });
+              }
             }
           } catch (e) {
             console.error('[FocusSearch] Failed to switch tab:', e);

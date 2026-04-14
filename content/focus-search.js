@@ -178,8 +178,7 @@ async function jumpToSelected() {
   try {
     chrome.runtime.sendMessage({
       action: 'focusSearchSwitchTab',
-      tabId: tab.id,
-      windowId: tab.windowId
+      url: tab.url
     });
   } catch (e) {
     console.error('[FocusSearch] Failed to switch tab:', e);
