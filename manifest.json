@@ -54,6 +54,12 @@
       "suggested_key": {
         "default": "Alt+Shift+O"
       }
+    },
+    "focus-search": {
+      "description": "打开专注搜索浮层",
+      "suggested_key": {
+        "default": "Alt+Shift+S"
+      }
     }
   },
   "web_accessible_resources": [
