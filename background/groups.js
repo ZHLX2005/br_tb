@@ -592,7 +592,7 @@ function setupGroupsListeners() {
 
           // 来源1: 浏览器当前 tabs
           const browserTabs = browserTabsResult
-            .filter(t => t.id && t.url && !t.url.startsWith('chrome:') && !t.url.startsWith('edge:'))
+            .filter(t => t.id && t.url && !t.url.startsWith('chrome:') && !t.url.startsWith('chrome-extension:') && t.url !== 'edge://newtab')
             .map(t => ({
               id: `browser_${t.id}`,
               title: t.title || '无标题',
