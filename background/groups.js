@@ -160,7 +160,7 @@ async function addToHistoryGroup(tabInfo) {
   if (!url || !title) return false;
 
   // 过滤无效 URL
-  if (url.startsWith('chrome://') || url.startsWith('chrome-extension://') || url.startsWith('about:')) {
+  if (url.startsWith('chrome://') || url.startsWith('chrome-extension://') || url.startsWith('edge://') || url.startsWith('about:')) {
     return false;
   }
 
