@@ -168,6 +168,51 @@ async function saveSettings() {
   await chrome.runtime.sendMessage({ action: 'updateSettings', settings });
 }
 
+// 加载专注搜索分组
+async function loadFocusSearchGroups() {
+  const groupsResponse = await chrome.runtime.sendMessage({ action: 'getGroups' });
+  if (!groupsResponse.success) return;
+
+  const settingsResponse = await chrome.runtime.sendMessage({ action: 'getSettings' });
+  const settings = settingsResponse.settings || {};
+  const enabledGroupIds = settings.focusSearchGroups || [];
+
+  const tabsResponse = await chrome.runtime.sendMessage({ action: 'getAllData' });
+  const tabs = tabsResponse.tabs || {};
+
+  const container = document.getElementById('focusSearchGroupsList');
+  if (groupsResponse.groups.length === 0) {
+    container.innerHTML = '<div class="empty-state">暂无分组</div>';
+    return;
+  }
+
+  container.innerHTML = groupsResponse.groups.map(group => {
+    const isEnabled = enabledGroupIds.includes(group.id);
+    const tabCount = tabs[group.id] ? tabs[group.id].length : 0;
+    return `<label class="focus-search-group-item">
+      <input type="checkbox" value="${group.id}" ${isEnabled ? 'checked' : ''}>
+      <span class="focus-search-color-dot" style="background:${group.color}"></span>
+      <span class="focus-search-group-name">${escapeHtml(group.name)}</span>
+      <span class="focus-search-group-count">${tabCount}个</span>
+    </label>`;
+  }).join('');
+
+  container.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+    cb.addEventListener('change', saveFocusSearchGroups);
+  });
+}
+
+// 保存专注搜索分组选择
+async function saveFocusSearchGroups() {
+  const checkboxes = document.querySelectorAll('#focusSearchGroupsList input[type="checkbox"]:checked');
+  const enabledGroupIds = Array.from(checkboxes).map(cb => cb.value);
+
+  await chrome.runtime.sendMessage({
+    action: 'updateSettings',
+    settings: { focusSearchGroups: enabledGroupIds }
+  });
+}
+
 // HTML转义
 function escapeHtml(text) {
   const div = document.createElement('div');
@@ -202,6 +247,17 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('closeAfterCollect').addEventListener('change', saveSettings);
   document.getElementById('closeAfterRestore').addEventListener('change', saveSettings);
   document.getElementById('excludeEdgeUrls').addEventListener('change', saveSettings);
+
+  // 专注搜索分组折叠
+  const focusSearchSection = document.querySelector('.section-focus-search');
+  const focusSearchToggle = document.getElementById('focusSearchToggle');
+  if (focusSearchToggle) {
+    focusSearchToggle.addEventListener('click', () => {
+      focusSearchSection.classList.toggle('collapsed');
+    });
+  }
+
+  loadFocusSearchGroups();
 
   // 点击对话框外部关闭
   document.getElementById('addGroupDialog').addEventListener('click', (e) => {

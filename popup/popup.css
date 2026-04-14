@@ -442,6 +442,63 @@ body {
   padding: 6px;
 }
 
+/* 专注搜索分组 */
+.section-focus-search {
+  padding: 0;
+  overflow: hidden;
+}
+
+.focus-search-hint {
+  font-size: 11px;
+  color: var(--text-light);
+  margin-bottom: 8px;
+}
+
+.focus-search-groups-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 80px;
+  overflow-y: auto;
+}
+
+.focus-search-group-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.focus-search-group-item:hover {
+  background: var(--primary-light);
+}
+
+.focus-search-group-item input[type="checkbox"] {
+  accent-color: var(--primary);
+}
+
+.focus-search-color-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.focus-search-group-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.focus-search-group-count {
+  font-size: 10px;
+  color: var(--text-light);
+}
+
 /* 录制空闲状态 */
 .solution-idle {
   text-align: center;
