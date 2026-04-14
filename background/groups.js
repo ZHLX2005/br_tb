@@ -598,6 +598,21 @@ function setupGroupsListeners() {
           break;
         }
 
+        case 'focusSearchSwitchTab': {
+          try {
+            if (request.tabId) {
+              await chrome.tabs.update(request.tabId, { active: true });
+            }
+            if (request.windowId) {
+              await chrome.windows.update(request.windowId, { focused: true });
+            }
+          } catch (e) {
+            console.error('[FocusSearch] Failed to switch tab:', e);
+          }
+          sendResponse({ success: true });
+          break;
+        }
+
         case 'clearGroup': {
           // 清空指定分组 - 侧边栏使用
           const clearGroupResult = await chrome.storage.local.get(['tabs']);
