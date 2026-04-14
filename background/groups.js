@@ -126,6 +126,76 @@ async function addCurrentTabToDefaultGroup() {
   }
 }
 
+// ========== History 分组管理 ==========
+
+const HISTORY_GROUP_NAME = 'History';
+const HISTORY_GROUP_COLOR = '#9e9e9e'; // 灰色
+
+/**
+ * 获取或创建 History 分组
+ */
+async function getOrCreateHistoryGroup() {
+  const result = await chrome.storage.local.get(['groups']);
+  const groups = result.groups || [];
+  let historyGroup = groups.find(g => g.name === HISTORY_GROUP_NAME);
+
+  if (!historyGroup) {
+    historyGroup = {
+      id: generateId(),
+      name: HISTORY_GROUP_NAME,
+      color: HISTORY_GROUP_COLOR,
+      isDefault: false
+    };
+    groups.push(historyGroup);
+    await chrome.storage.local.set({ groups });
+  }
+  return historyGroup;
+}
+
+/**
+ * 添加标签到 History 分组
+ */
+async function addToHistoryGroup(tabInfo) {
+  const { title, url, favicon } = tabInfo;
+  if (!url || !title) return false;
+
+  // 过滤无效 URL
+  if (url.startsWith('chrome://') || url.startsWith('chrome-extension://') || url.startsWith('about:')) {
+    return false;
+  }
+
+  const historyGroup = await getOrCreateHistoryGroup();
+  const result = await chrome.storage.local.get(['tabs']);
+  const tabs = result.tabs || {};
+
+  if (!tabs[historyGroup.id]) {
+    tabs[historyGroup.id] = [];
+  }
+
+  // 检查是否已存在（按 URL 去重）
+  const exists = tabs[historyGroup.id].some(t => t.url === url);
+  if (!exists) {
+    tabs[historyGroup.id].unshift({
+      id: generateId(),
+      title: title,
+      url: url,
+      favicon: favicon || '',
+      timestamp: new Date().toISOString(),
+      visitCount: 1,
+      lastVisit: new Date().toISOString()
+    });
+
+    // 限制 History 分组最多 200 条
+    if (tabs[historyGroup.id].length > 200) {
+      tabs[historyGroup.id] = tabs[historyGroup.id].slice(0, 200);
+    }
+
+    await chrome.storage.local.set({ tabs });
+    return true;
+  }
+  return false;
+}
+
 // 打开标签页管理看板
 async function openTabboard() {
   // 检查是否已经打开了看板
@@ -153,7 +223,9 @@ export {
   addTabToGroup,
   getDefaultGroupId,
   openTabboard,
-  setupGroupsListeners
+  setupGroupsListeners,
+  getOrCreateHistoryGroup,
+  addToHistoryGroup
 };
 
 // 元素拾取器消息处理
@@ -490,6 +562,38 @@ function setupGroupsListeners() {
             success: true,
             groups: allDataResult.groups || [],
             tabs: allDataResult.tabs || {}
+          });
+          break;
+        }
+
+        case 'addToHistoryGroup': {
+          const { tabInfo } = request;
+          if (tabInfo) {
+            await addToHistoryGroup(tabInfo);
+          }
+          sendResponse({ success: true });
+          break;
+        }
+
+        case 'getAllOpenTabs': {
+          const tabs = await chrome.tabs.query({});
+          const filteredTabs = tabs.filter(t =>
+            t.url &&
+            !t.url.startsWith('chrome://') &&
+            !t.url.startsWith('chrome-extension://') &&
+            !t.url.startsWith('about:') &&
+            !t.url.startsWith('edge://')
+          );
+          sendResponse({
+            success: true,
+            tabs: filteredTabs.map(t => ({
+              id: t.id,
+              title: t.title || '无标题',
+              url: t.url || '',
+              favicon: t.favIconUrl || '',
+              windowId: t.windowId,
+              active: t.active
+            }))
           });
           break;
         }
