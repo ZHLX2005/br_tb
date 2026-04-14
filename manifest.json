@@ -43,12 +43,6 @@
         "default": "Alt+Shift+C"
       }
     },
-    "collect-other-tabs": {
-      "description": "收集除了当前页面外的其他所有标签页",
-      "suggested_key": {
-        "default": "Alt+Shift+X"
-      }
-    },
     "open-tabboard": {
       "description": "打开标签页管理看板",
       "suggested_key": {

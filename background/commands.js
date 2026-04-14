@@ -3,7 +3,7 @@
  */
 
 import { addCurrentTabToDefaultGroup } from './groups.js';
-import { collectCurrentWindowTabs, collectOtherTabs, openTabboard } from './timeline.js';
+import { collectCurrentWindowTabs, openTabboard } from './timeline.js';
 
 async function triggerFocusSearch() {
   try {
@@ -17,11 +17,23 @@ async function triggerFocusSearch() {
       return;
     }
 
-    // 动态注入 focus-search.js
-    await chrome.scripting.executeScript({
+    // 检查是否已注入（通过页面变量检测）
+    const alreadyInjected = await chrome.scripting.executeScript({
       target: { tabId: activeTab.id },
-      files: ['content/focus-search.js']
-    });
+      func: () => window.__focusSearchReady === true
+    }).then(results => results?.[0] === true).catch(() => false);
+
+    if (!alreadyInjected) {
+      // 动态注入 CSS 和 JS
+      await chrome.scripting.executeScript({
+        target: { tabId: activeTab.id },
+        files: ['content/focus-search.js']
+      });
+      await chrome.scripting.insertCSS({
+        target: { tabId: activeTab.id },
+        files: ['content/focus-search.css']
+      });
+    }
 
     // 发送显示消息 - defer to allow content script to register listener
     setTimeout(() => {
@@ -45,9 +57,6 @@ function initCommands() {
         break;
       case 'collect-all-tabs':
         collectCurrentWindowTabs();
-        break;
-      case 'collect-other-tabs':
-        collectOtherTabs();
         break;
       case 'open-tabboard':
         openTabboard();
