@@ -64,6 +64,18 @@ function escapeHtml(text) {
   return d.innerHTML;
 }
 
+// Safe URL for img src - only allow http/https/data schemes
+function safeUrl(url) {
+  if (!url) return '';
+  try {
+    const parsed = new URL(url);
+    if (['http:', 'https:', 'data:'].includes(parsed.protocol)) {
+      return url;
+    }
+  } catch {}
+  return '';
+}
+
 // ========== 浮层核心逻辑==========
 
 let allTabs = [];
@@ -231,7 +243,7 @@ function renderResults(query) {
          data-index="${idx}"
          data-tab-id="${tab.id}">
       <img class="focus-search-favicon"
-           src="${escapeHtml(tab.favIconUrl || '')}"
+           src="${safeUrl(tab.favIconUrl)}"
            onerror="this.style.opacity='0'">
       <div class="focus-search-content">
         <div class="focus-search-title">${highlightMatch(tab.title || '无标题', query)}</div>
