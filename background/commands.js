@@ -23,8 +23,12 @@ async function triggerFocusSearch() {
       files: ['content/focus-search.js']
     });
 
-    // 发送显示消息
-    await chrome.tabs.sendMessage(activeTab.id, { action: 'showFocusSearch' });
+    // 发送显示消息 - defer to allow content script to register listener
+    setTimeout(() => {
+      chrome.tabs.sendMessage(activeTab.id, { action: 'showFocusSearch' }).catch(() => {
+        // Silently ignore if tab was closed or navigation happened
+      });
+    }, 0);
   } catch (e) {
     console.error('[FocusSearch] Failed to trigger:', e);
   }
