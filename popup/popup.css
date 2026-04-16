@@ -289,10 +289,23 @@ body {
   background: var(--primary-light);
 }
 
+.focus-group-item.enabled {
+  border-color: var(--primary);
+  background: var(--primary-light);
+}
+
 .focus-group-item input[type="checkbox"] {
   accent-color: var(--primary);
   width: 14px;
   height: 14px;
+}
+
+.focus-group-checkbox-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  cursor: pointer;
 }
 
 .focus-color-dot {
