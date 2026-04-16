@@ -153,6 +153,15 @@ export function init() {
   setupGroupsListeners();
 }
 
+// 导出函数供 commands.js 等模块使用
+export {
+  addCurrentTabToDefaultGroup,
+  addTabToGroup,
+  getDefaultGroupId,
+  openTabboard,
+  setupGroupsListeners
+};
+
 // 元素拾取器消息处理
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'TABBOARD_PICK_RESULT') {
