@@ -6,7 +6,7 @@
 
 import { loadGroups, setDefaultGroup, deleteGroup, addToFocusSearch, addGroup, getSelectedColor } from './modules/groups.js';
 import { loadSettings, bindSettingsListeners } from './modules/settings.js';
-import { loadFocusSearchGroups, removeFromFocusSearch } from './modules/focusSearch.js';
+import { loadFocusSearchGroups, toggleFocusSearchGroup } from './modules/focusSearch.js';
 import { bindQuickActionsListeners } from './modules/quickActions.js';
 import { renderColorPicker, resetColorPicker } from './modules/colorPicker.js';
 import { showToast } from './modules/utils.js';
@@ -91,18 +91,18 @@ async function handleAddToFocus(groupId) {
     onAddToFocus: handleAddToFocus
   });
   await loadFocusSearchGroups({
-    onRemove: handleRemoveFromFocusSearch
+    onToggle: handleToggleFocusSearch
   });
   showToast(document.querySelector('.app'), '已添加到专注搜索', 'success');
 }
 
 /**
- * 从专注搜索移除处理
+ * 切换专注搜索分组
  */
-async function handleRemoveFromFocusSearch(groupId, currentGroupIds) {
-  await removeFromFocusSearch(groupId, currentGroupIds);
+async function handleToggleFocusSearch(groupId, enabled) {
+  await toggleFocusSearchGroup(groupId, enabled);
   await loadFocusSearchGroups({
-    onRemove: handleRemoveFromFocusSearch
+    onToggle: handleToggleFocusSearch
   });
 }
 
@@ -172,7 +172,7 @@ async function init() {
       onAddToFocus: handleAddToFocus
     }),
     loadFocusSearchGroups({
-      onRemove: handleRemoveFromFocusSearch
+      onToggle: handleToggleFocusSearch
     })
   ]);
 
