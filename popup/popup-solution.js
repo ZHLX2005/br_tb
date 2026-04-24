@@ -4,6 +4,8 @@
  * 与 popup.js 隔离，独立管理解决方案录制相关 UI
  */
 
+import { showToast, escapeHtml } from './modules/utils.js';
+
 class PopupSolution {
   constructor() {
     this.container = document.getElementById('solutionContainer');
@@ -129,7 +131,7 @@ class PopupSolution {
           <div class="recording-info">
             <div class="recording-group">
               <span class="label">录制名称:</span>
-              <span class="group-name">${this.escapeHtml(recordingName || '未命名')}</span>
+              <span class="group-name">${escapeHtml(recordingName || '未命名')}</span>
             </div>
             <div class="recording-count">
               <span class="label">已记录:</span>
@@ -220,31 +222,10 @@ class PopupSolution {
   }
 
   /**
-   * HTML转义
-   */
-  escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  }
-
-  /**
    * 显示提示消息
    */
   showToast(message, type = 'info') {
-    const toast = document.createElement('div');
-    const typeClass = type === 'success' ? 'popup-toast-success' :
-                     type === 'error' ? 'popup-toast-error' : 'popup-toast-info';
-    toast.className = `popup-toast ${typeClass}`;
-    toast.textContent = message;
-
-    const container = document.querySelector('.container');
-    container.appendChild(toast);
-
-    setTimeout(() => {
-      toast.classList.add('popup-toast-exit');
-      setTimeout(() => toast.remove(), 300);
-    }, 2000);
+    showToast(document.querySelector('.app'), message, type);
   }
 
   /**
