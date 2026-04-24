@@ -1,13 +1,12 @@
 /**
- * 存储模块
- * 负责数据初始化和设置相关的消息处理
+ * 初始化模块
  */
 
 import { generateId, DEFAULT_COLORS } from './utils.js';
 
-// ========== 数据初始化 ==========
-
+// 初始化默认数据
 export async function initializeDefaultData() {
+  // 一次性获取所有需要初始化的数据
   const result = await chrome.storage.local.get([
     'groups',
     'tabs',
@@ -30,6 +29,7 @@ export async function initializeDefaultData() {
     await chrome.storage.local.set({ tabs: {} });
   }
 
+  // Timeline 存储 - 快照列表
   if (!result.timelineSnapshots) {
     await chrome.storage.local.set({ timelineSnapshots: [] });
   }
@@ -45,13 +45,16 @@ export async function initializeDefaultData() {
       }
     });
   } else if (result.settings.lastView === undefined) {
+    // 为已有设置添加 lastView 字段
     const newSettings = { ...result.settings, lastView: 'timeline' };
+    // 确保 visibleGroups 也存在
     if (!result.settings.visibleGroups) {
       newSettings.visibleGroups = result.groups ? result.groups.map(g => g.id) : [];
     }
     await chrome.storage.local.set({ settings: newSettings });
   }
 
+  // 初始化录制状态（独立存储，与分组分离）
   if (!result.recordingState) {
     await chrome.storage.local.set({
       recordingState: {
@@ -64,14 +67,14 @@ export async function initializeDefaultData() {
     });
   }
 
+  // 初始化录制列表存储（独立于 groups 和 tabs）
   if (!result.recordings) {
     await chrome.storage.local.set({ recordings: [] });
   }
 }
 
-// ========== 设置消息处理 ==========
-
-function setupSettingsListeners() {
+// 设置相关的消息监听器
+export function setupSettingsListeners() {
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'getSettings' || request.action === 'updateSettings') {
       (async () => {
@@ -93,10 +96,4 @@ function setupSettingsListeners() {
     }
     return false;
   });
-}
-
-// ========== 模块初始化 ==========
-
-export function init() {
-  setupSettingsListeners();
 }
