@@ -9,6 +9,7 @@ import { initRecording } from './recording.js';
 import { setupGroupsListeners } from './groups.js';
 import { setupTimelineListeners } from './timeline.js';
 import { setupRecordingListeners } from './recording.js';
+import { setupFocusListeners } from './focus.js';
 
 // 初始化各模块
 initializeDefaultData();
