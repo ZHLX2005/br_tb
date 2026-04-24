@@ -260,11 +260,15 @@ async function openTabboard() {
   }
 }
 
-// ========== 模块初始化 ==========
-
-export function init() {
-  setupTimelineListeners();
-}
+// 导出函数供外部使用
+export {
+  collectCurrentWindowTabs,
+  collectOtherTabs,
+  collectAndOpenTabboard,
+  openTabboard,
+  setupTimelineListeners,
+  fuzzySearchSnapshots
+};
 
 /**
  * 有序字符串模糊搜索

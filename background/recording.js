@@ -110,12 +110,11 @@ async function openRecordingPage() {
   }
 }
 
-// ========== 模块初始化 ==========
-
-export function init() {
-  initRecording();
-  setupRecordingListeners();
-}
+// 导出函数供外部使用
+export {
+  openRecordingPage,
+  setupRecordingListeners
+};
 
 // 设置录制相关的消息监听器
 function setupRecordingListeners() {
