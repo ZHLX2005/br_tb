@@ -35,5 +35,6 @@ setupSettingsListeners();
 setupGroupsListeners();
 setupTimelineListeners();
 setupRecordingListeners();
+setupFocusListeners();
 
 console.log('[TabBoard] Background Service Worker 已启动');
