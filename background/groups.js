@@ -336,7 +336,6 @@ function setupGroupsListeners() {
           const addGroupResult = await chrome.storage.local.get(['groups', 'settings']);
           const addGroups = addGroupResult.groups || [];
           const addSettings = addGroupResult.settings || {};
-          const { DEFAULT_COLORS } = await import('./utils.js');
 
           const addedGroup = {
             id: generateId(),
