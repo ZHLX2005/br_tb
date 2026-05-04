@@ -20,18 +20,28 @@ function fuzzyMatchOrdered(text, query) {
 
 // ========== 评分和排序 ==========
 
+function getSearchableUrl(url) {
+  if (!url) return '';
+  try {
+    var parsed = new URL(url);
+    return parsed.hostname + parsed.pathname;
+  } catch (e) {
+    return url.substring(0, 60);
+  }
+}
+
 function scoreTab(tab, query) {
-  if (!query) return 2;
-  const q = query.toLowerCase();
-  const title = tab.title || '';
-  const url = tab.url || '';
-  if (title.toLowerCase() === q) return 100;
-  if (title.toLowerCase().startsWith(q)) return 80;
-  if (title.toLowerCase().includes(q)) return 60;
-  if (url.toLowerCase().includes(q)) return 40;
-  if (fuzzyMatchOrdered(title, q)) return 20;
-  if (fuzzyMatchOrdered(url, q)) return 10;
-  return 0;
+  var audibleBonus = tab.audible ? 200 : 0;
+  if (!query) return 2 + audibleBonus;
+  var q = query.toLowerCase();
+  var title = (tab.title || '').toLowerCase();
+  var cleanUrl = getSearchableUrl(tab.url).toLowerCase();
+  if (title === q) return 100 + audibleBonus;
+  if (title.startsWith(q)) return 80 + audibleBonus;
+  if (title.includes(q)) return 60 + audibleBonus;
+  if (cleanUrl.includes(q)) return 40 + audibleBonus;
+  if (fuzzyMatchOrdered(title, q)) return 20 + audibleBonus;
+  return audibleBonus > 0 ? audibleBonus : 0;
 }
 
 function filterAndSortTabs(tabs, query) {
@@ -230,13 +240,17 @@ function renderResults(query) {
     var tab = r.tab;
     var isSelected = i === selectedIndex ? ' selected' : '';
     var isGroup = tab.source === 'group' ? ' group-source' : '';
+    var audibleIcon = tab.audible ? '<span class="focus-search-audible" title="\u6b63\u5728\u64ad\u653e\u97f3\u9891">\ud83d\udd0a</span>' : '';
     var favicon = safeUrl(tab.favIconUrl);
     var faviconHtml = favicon ? '<img class="focus-search-favicon" src="' + favicon + '" onerror="this.style.opacity=\'0\'">' : '';
     var title = highlightMatch(tab.title || '\u65e0\u6807\u9898', query);
-    var url = highlightMatch(tab.url || '', query);
+    var rawUrl = tab.url || '';
+    var displayUrl = rawUrl.length > 50 ? rawUrl.substring(0, 50) + '...' : rawUrl;
+    var url = highlightMatch(displayUrl, query);
     htmlParts.push(
       '<div class="focus-search-item' + isSelected + isGroup + '" data-index="' + i + '">' +
       faviconHtml +
+      audibleIcon +
       '<div class="focus-search-content">' +
       '<div class="focus-search-title">' + title + '</div>' +
       '<div class="focus-search-url">' + url + '</div>' +
