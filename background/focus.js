@@ -83,6 +83,7 @@ async function handleGetAllOpenTabs() {
       favicon: t.favIconUrl || '',
       windowId: t.windowId,
       active: t.active,
+      audible: !!t.audible,
       source: 'browser'
     }));
 

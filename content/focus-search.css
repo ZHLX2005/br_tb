@@ -7,7 +7,7 @@
   height: 100vh;
   background: rgba(0, 0, 0, 0.5);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   z-index: 2147483647;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -21,6 +21,7 @@
   width: 560px;
   max-width: 90vw;
   max-height: 480px;
+  margin-top: 15vh;
   display: flex;
   flex-direction: column;
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.24);
@@ -110,6 +111,19 @@
   height: 20px;
   object-fit: contain;
   flex-shrink: 0;
+}
+
+/* 音频播放指示 */
+.focus-search-audible {
+  font-size: 12px;
+  flex-shrink: 0;
+  line-height: 1;
+  animation: focus-audible-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes focus-audible-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
 /* 标签页内容 */
