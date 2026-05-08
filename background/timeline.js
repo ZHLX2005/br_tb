@@ -4,6 +4,7 @@
  */
 
 import { generateId, showToast, DEFAULT_COLORS } from './utils.js';
+import SearchHelper from '../modules/tabboard/core/SearchHelper.js';
 
 // 收集当前窗口所有标签页到 Timeline（创建快照）
 async function collectCurrentWindowTabs() {
@@ -266,56 +267,14 @@ export {
   collectOtherTabs,
   collectAndOpenTabboard,
   openTabboard,
-  setupTimelineListeners,
-  fuzzySearchSnapshots
+  setupTimelineListeners
 };
 
 /**
- * 有序字符串模糊搜索
- * 例如: "gb" 可以匹配 "github", "gitee", "web"
- * @param {string} text - 待搜索的文本
- * @param {string} query - 查询字符串
- * @returns {boolean} 是否匹配
- */
-function fuzzyMatchOrdered(text, query) {
-  if (!text || !query) return true;
-  text = text.toLowerCase();
-  query = query.toLowerCase();
-
-  let textIdx = 0;
-  let queryIdx = 0;
-
-  while (textIdx < text.length && queryIdx < query.length) {
-    if (text[textIdx] === query[queryIdx]) {
-      queryIdx++;
-    }
-    textIdx++;
-  }
-
-  return queryIdx === query.length;
-}
-
-/**
- * 搜索快照列表
- * @param {Array} snapshots - 快照数组
- * @param {string} query - 搜索关键词
- * @returns {Array} 匹配的快照数组
+ * 搜索快照列表（委托给 SearchHelper）
  */
 function fuzzySearchSnapshots(snapshots, query) {
-  if (!query || !query.trim()) {
-    return snapshots;
-  }
-
-  const keywords = query.trim().split(/\s+/).filter(k => k);
-
-  return snapshots.filter(snapshot => {
-    // 搜索标签页的标题和URL
-    return snapshot.tabs.some(tab => {
-      const titleMatch = fuzzyMatchOrdered(tab.title || '', query);
-      const urlMatch = fuzzyMatchOrdered(tab.url || '', query);
-      return titleMatch || urlMatch;
-    });
-  });
+  return SearchHelper.searchSnapshots(snapshots, query);
 }
 
 // 设置 Timeline 相关的消息监听器

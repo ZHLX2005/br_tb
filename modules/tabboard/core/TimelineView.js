@@ -5,6 +5,7 @@
 
 import { escapeHtml, formatSnapshotTime, exportData, importData } from './Utils.js';
 import { modal } from '../../../shared/ModalDialog.js';
+import SearchHelper from './SearchHelper.js';
 
 class TimelineView {
   constructor(dataManager) {
@@ -112,8 +113,8 @@ class TimelineView {
       <div class="search-dropdown-item" data-url="${this._escapeHtmlAttribute(item.url)}" data-idx="${idx}">
         <img class="search-dropdown-favicon" src="${this._escapeHtmlAttribute(item.favicon || '')}" onerror="this.style.display='none'">
         <div class="search-dropdown-content">
-          <div class="search-dropdown-title">${this._highlightFuzzyMatch(item.title || '', this.searchQuery)}</div>
-          <div class="search-dropdown-url">${this._highlightFuzzyMatch(item.url || '', this.searchQuery)}</div>
+          <div class="search-dropdown-title">${SearchHelper.highlightExact(item.title || '', this.searchQuery)}</div>
+          <div class="search-dropdown-url">${SearchHelper.highlightExact(item.url || '', this.searchQuery)}</div>
         </div>
         <span class="search-dropdown-time">${formatSnapshotTime(item.timestamp)}</span>
       </div>
@@ -144,12 +145,12 @@ class TimelineView {
       return;
     }
 
-    // 前端直接搜索，避免网络延迟
     const matchedItems = [];
     for (const snapshot of this.snapshots) {
       for (const tab of snapshot.tabs) {
-        if (this._fuzzyMatch(tab.title || '', this.searchQuery) ||
-            this._fuzzyMatch(tab.url || '', this.searchQuery)) {
+        if (SearchHelper.containsMatch(tab.title || '', this.searchQuery) ||
+            SearchHelper.fuzzyMatch(tab.title || '', this.searchQuery) ||
+            SearchHelper.containsMatch(tab.url || '', this.searchQuery)) {
           matchedItems.push({ ...tab, timestamp: snapshot.timestamp });
           if (matchedItems.length >= 5) break;
         }
@@ -160,41 +161,6 @@ class TimelineView {
     if (matchedItems.length > 0) {
       this._showSearchDropdown(matchedItems);
     }
-  }
-
-  /**
-   * 有序连续字符串匹配（严格模式）
-   * query 必须在 text 中按顺序连续出现
-   * 例如: "gb" 匹配 "grab" 但不匹配 "github"
-   */
-  _fuzzyMatch(text, query) {
-    if (!text || !query) return false;
-    text = text.toLowerCase();
-    query = query.toLowerCase();
-
-    // 简单直接查找子串
-    return text.includes(query);
-  }
-
-  /**
-   * 有序连续字符串匹配高亮
-   * 严格匹配：query 必须在 text 中连续出现
-   */
-  _highlightFuzzyMatch(text, query) {
-    if (!query) return escapeHtml(text);
-
-    const lowerText = text.toLowerCase();
-    const lowerQuery = query.toLowerCase();
-    const idx = lowerText.indexOf(lowerQuery);
-
-    if (idx === -1) {
-      return escapeHtml(text);
-    }
-
-    // 高亮连续匹配的字符串
-    return escapeHtml(text.slice(0, idx)) +
-      `<mark class="search-highlight">${escapeHtml(text.slice(idx, idx + query.length))}</mark>` +
-      escapeHtml(text.slice(idx + query.length));
   }
 
   /**
