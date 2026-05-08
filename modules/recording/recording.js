@@ -323,7 +323,7 @@ class RecordingPage {
       // 未录制
       statusSection.innerHTML = `
         <div class="idle-state">
-          <div class="idle-icon">🎯</div>
+          <div class="idle-icon"></div>
           <div class="idle-title">自动录制标签页</div>
           <div class="idle-desc">启动录制后，所有打开的标签页将自动保存到录制列表</div>
           <button id="startRecordingBtn" class="btn btn-primary">开始录制</button>
@@ -346,7 +346,7 @@ class RecordingPage {
     if (this.recordings.length === 0) {
       listContainer.innerHTML = `
         <div class="empty-state">
-          <div class="empty-icon">📁</div>
+          <div class="empty-icon"></div>
           <div class="empty-text">暂无录制记录</div>
         </div>
       `;
@@ -387,8 +387,8 @@ class RecordingPage {
               </div>
             </div>
             <div class="recording-actions">
-              <button class="btn edit-btn" data-id="${recording.id}" data-name="${this._escapeHtmlAttribute(recording.name)}">✏️ 重命名</button>
-              <button class="btn open-btn" data-id="${recording.id}">📂 打开</button>
+              <button class="btn edit-btn" data-id="${recording.id}" data-name="${this._escapeHtmlAttribute(recording.name)}">重命名</button>
+              <button class="btn open-btn" data-id="${recording.id}">打开</button>
               <button class="btn btn-danger delete-btn" data-id="${recording.id}">删除</button>
             </div>
           </div>

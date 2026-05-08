@@ -151,7 +151,7 @@ class PopupSolution {
       this.container.innerHTML = `
         <div class="solution-idle">
           <div class="idle-header">
-            <div class="idle-icon">🎯</div>
+            <div class="idle-icon"></div>
             <div class="idle-title">自动录制标签页</div>
             <div class="idle-desc">启动录制后，所有打开的标签页将自动保存到录制列表</div>
           </div>

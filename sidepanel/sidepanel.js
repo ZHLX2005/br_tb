@@ -382,7 +382,7 @@ class PickedItemsController {
     const tagNames = Object.keys(grouped).sort((a, b) => (a === '' ? 1 : b === '' ? -1 : a.localeCompare(b)));
 
     if (!tagNames.length) {
-      formList.innerHTML = '<div class="empty-hint">🎯 拾取或输入内容添加</div>';
+      formList.innerHTML = '<div class="empty-hint">拾取或输入内容添加</div>';
       return;
     }
 
@@ -397,8 +397,8 @@ class PickedItemsController {
             <span class="form-group-count">${items.length}</span>
           </div>
           <div class="form-group-actions">
-            <button class="group-edit-btn" data-tag="${this.esc(tag)}" title="编辑标签">✏️</button>
-            <button class="group-delete-btn" data-tag="${this.esc(tag)}" title="删除">🗑️</button>
+            <button class="group-edit-btn" data-tag="${this.esc(tag)}" title="编辑标签">Edit</button>
+            <button class="group-delete-btn" data-tag="${this.esc(tag)}" title="删除">Del</button>
           </div>
         </div>
         <div class="form-group-items" style="display: ${isCollapsed ? 'none' : 'block'}">${items.map(i => this.renderItem(i)).join('')}</div>
@@ -415,9 +415,9 @@ class PickedItemsController {
       <div class="form-field-header">
         ${sourceInfo}
         <div class="form-field-actions">
-          <button class="field-btn copy-btn" data-content="${this.esc(item.content)}" title="复制">📋</button>
-          <button class="field-btn edit-btn" data-id="${item.id}" title="编辑">✏️</button>
-          <button class="field-btn delete-btn" data-id="${item.id}" title="删除">🗑️</button>
+          <button class="field-btn copy-btn" data-content="${this.esc(item.content)}" title="复制">Copy</button>
+          <button class="field-btn edit-btn" data-id="${item.id}" title="编辑">Edit</button>
+          <button class="field-btn delete-btn" data-id="${item.id}" title="删除">Del</button>
         </div>
       </div>
       <div class="form-field-value" data-id="${item.id}">${display}</div>

@@ -203,7 +203,7 @@ class TimelineView {
         // 有数据但筛选后为空
         timelineList.innerHTML = `
           <div class="timeline-empty-filter">
-            <div class="empty-icon">🔍</div>
+            <div class="empty-icon"></div>
             <p>没有标记的标签</p>
           </div>
         `;
@@ -267,8 +267,8 @@ class TimelineView {
             <span class="snapshot-count">${snapshot.tabs.length} 个标签</span>
           </div>
           <div class="snapshot-actions">
-            <button class="snapshot-action-btn restore-snapshot" data-id="${snapshot.id}" title="恢复此快照">📂 恢复</button>
-            <button class="snapshot-action-btn delete-snapshot" data-id="${snapshot.id}" title="删除快照">🗑️</button>
+            <button class="snapshot-action-btn restore-snapshot" data-id="${snapshot.id}" title="恢复此快照">恢复</button>
+            <button class="snapshot-action-btn delete-snapshot" data-id="${snapshot.id}" title="删除快照">Del</button>
           </div>
         </div>
         <div class="snapshot-tabs">
@@ -288,7 +288,7 @@ class TimelineView {
    */
   _renderTabRow(tab, snapshotId) {
     const markedClass = tab.marked ? 'marked' : '';
-    const markIcon = tab.marked ? '🔴' : '';
+    const markIcon = tab.marked ? '●' : '';
 
     // 对 data 属性不使用 escapeHtml，避免 URL 转义导致匹配失败
     return `
@@ -418,16 +418,16 @@ class TimelineView {
     menu.className = 'context-menu';
     menu.innerHTML = `
       <div class="context-menu-item" data-action="${isMarked ? 'unmark' : 'mark'}">
-        <span class="menu-icon">${isMarked ? '⚪' : '🔴'}</span>
+        <span class="menu-icon">${isMarked ? '○' : '●'}</span>
         <span>${isMarked ? '取消标记' : '标记为重要'}</span>
       </div>
       <div class="context-menu-divider"></div>
       <div class="context-menu-item" data-action="open">
-        <span class="menu-icon">🔗</span>
+        <span class="menu-icon">[Link]</span>
         <span>打开链接</span>
       </div>
       <div class="context-menu-item" data-action="copy">
-        <span class="menu-icon">📋</span>
+        <span class="menu-icon">[Copy]</span>
         <span>复制链接</span>
       </div>
     `;
@@ -571,7 +571,7 @@ class TimelineView {
     remainingTabs.forEach(tab => {
       const tabRow = document.createElement('div');
       const markedClass = tab.marked ? 'marked' : '';
-      const markIcon = tab.marked ? '🔴' : '';
+      const markIcon = tab.marked ? '●' : '';
 
       tabRow.className = `snapshot-tab-row ${markedClass}`;
       tabRow.dataset.url = tab.url;

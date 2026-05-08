@@ -74,9 +74,9 @@ class GroupView {
     const actionsHeader = document.createElement('div');
     actionsHeader.className = 'board-actions-header';
     actionsHeader.innerHTML = `
-      <button class="board-action-btn add-group-btn" title="添加新分组">➕ 添加分组</button>
-      <button class="board-action-btn filter-groups-btn" title="选择要显示的分组">🔍 筛选</button>
-      <button class="board-action-btn refresh-sort-btn" title="按点击次数刷新排序">🔄 刷新排序</button>
+      <button class="board-action-btn add-group-btn" title="添加新分组">+ 添加分组</button>
+      <button class="board-action-btn filter-groups-btn" title="选择要显示的分组">筛选</button>
+      <button class="board-action-btn refresh-sort-btn" title="按点击次数刷新排序">刷新排序</button>
       <button class="board-action-btn open-all-groups-btn" title="打开所有分组">打开全部</button>
       <button class="board-action-btn clear-all-groups-btn" title="清空所有分组">清空</button>
       <button class="board-action-btn export-groups-btn" title="导出分组数据">导出</button>
@@ -144,7 +144,7 @@ class GroupView {
         class: `kanban-board-${getColorClass(group.color)}`,
         item: groupTabs.map(tab => {
           const visitCount = tab.visitCount || 0;
-          const visitBadge = visitCount > 0 ? `<span class="kanban-item-visits" title="访问次数">👁 ${visitCount}</span>` : '';
+          const visitBadge = visitCount > 0 ? `<span class="kanban-item-visits" title="访问次数">${visitCount} views</span>` : '';
 
           return {
             id: tab.id,
@@ -231,9 +231,9 @@ class GroupView {
         const actions = document.createElement('div');
         actions.className = 'board-actions';
         actions.innerHTML = `
-          <button class="board-action-btn open-all" data-board-id="${boardId}" title="打开所有">📂</button>
-          <button class="board-action-btn clear-group" data-board-id="${boardId}" title="清空分组">🗑️</button>
-          <button class="board-action-btn delete-group" data-board-id="${boardId}" title="删除分组">❌</button>
+          <button class="board-action-btn open-all" data-board-id="${boardId}" title="打开所有">Open</button>
+          <button class="board-action-btn clear-group" data-board-id="${boardId}" title="清空分组">Clear</button>
+          <button class="board-action-btn delete-group" data-board-id="${boardId}" title="删除分组">Del</button>
         `;
         header.appendChild(actions);
       }
@@ -588,7 +588,7 @@ class GroupView {
             padding: 4px 8px;
             opacity: 0.6;
             transition: opacity 0.2s;
-          " title="编辑分组名称">✏️</button>
+          " title="编辑分组名称">Edit</button>
         </div>
       `;
     }).join('');
@@ -703,7 +703,7 @@ class GroupView {
     `;
 
     const saveBtn = document.createElement('button');
-    saveBtn.textContent = '✓';
+    saveBtn.textContent = 'OK';
     saveBtn.className = 'save-group-name-btn';
     saveBtn.style.cssText = `
       background: #007bff;
@@ -721,7 +721,7 @@ class GroupView {
     saveBtn.title = '保存';
 
     const cancelBtn = document.createElement('button');
-    cancelBtn.textContent = '✕';
+    cancelBtn.textContent = 'Cancel';
     cancelBtn.className = 'cancel-group-name-btn';
     cancelBtn.style.cssText = `
       background: #6c757d;

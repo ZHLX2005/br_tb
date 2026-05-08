@@ -45,7 +45,7 @@ export async function loadGroups({ onDelete, onSetDefault, onAddToFocus } = {}) 
       <div class="group-color" style="background: ${group.color}"></div>
       <div class="group-name">${escapeHtml(group.name)}</div>
       ${group.isDefault ? '<span class="group-default-badge">目标</span>' : ''}
-      ${isInFocusSearch ? '<span class="focus-search-badge">🔍</span>' : `<button class="add-to-focus" data-id="${group.id}">+搜索</button>`}
+      ${isInFocusSearch ? '<span class="focus-search-badge">Search</span>' : `<button class="add-to-focus" data-id="${group.id}">+搜索</button>`}
       <div class="group-actions-buttons">
         ${!group.isDefault ? `<button class="set-default" data-id="${group.id}">设为目标</button>` : ''}
         <button class="delete" data-id="${group.id}">删除</button>
