@@ -9,13 +9,21 @@ function fuzzyMatchOrdered(text, query) {
   if (!text || !query) return true;
   text = text.toLowerCase();
   query = query.toLowerCase();
-  let textIdx = 0;
-  let queryIdx = 0;
+  var textIdx = 0;
+  var queryIdx = 0;
+  var firstMatch = -1;
+  var lastMatch = -1;
   while (textIdx < text.length && queryIdx < query.length) {
-    if (text[textIdx] === query[queryIdx]) queryIdx++;
+    if (text[textIdx] === query[queryIdx]) {
+      if (firstMatch === -1) firstMatch = textIdx;
+      lastMatch = textIdx;
+      queryIdx++;
+    }
     textIdx++;
   }
-  return queryIdx === query.length;
+  if (queryIdx !== query.length) return false;
+  var span = lastMatch - firstMatch + 1;
+  return span <= query.length * 2.5;
 }
 
 // ========== 评分和排序 ==========
@@ -30,26 +38,29 @@ function getSearchableUrl(url) {
   }
 }
 
-function scoreTab(tab, query) {
+function matchTab(tab, query) {
   var audibleBonus = tab.audible ? 200 : 0;
-  if (!query) return 2 + audibleBonus;
+  if (!query) return { score: 2 + audibleBonus, matchType: '' };
   var q = query.toLowerCase();
   var title = (tab.title || '').toLowerCase();
   var cleanUrl = getSearchableUrl(tab.url).toLowerCase();
-  if (title === q) return 100 + audibleBonus;
-  if (title.startsWith(q)) return 80 + audibleBonus;
-  if (title.includes(q)) return 60 + audibleBonus;
-  if (cleanUrl.includes(q)) return 40 + audibleBonus;
-  if (fuzzyMatchOrdered(title, q)) return 20 + audibleBonus;
-  return audibleBonus > 0 ? audibleBonus : 0;
+  if (title === q) return { score: 100 + audibleBonus, matchType: 'exact' };
+  if (title.startsWith(q)) return { score: 80 + audibleBonus, matchType: 'prefix' };
+  if (title.includes(q)) return { score: 60 + audibleBonus, matchType: 'contains' };
+  if (cleanUrl.includes(q)) return { score: 40 + audibleBonus, matchType: 'url' };
+  if (fuzzyMatchOrdered(title, q)) return { score: 20 + audibleBonus, matchType: 'fuzzy' };
+  return { score: audibleBonus > 0 ? audibleBonus : 0, matchType: '' };
 }
 
 function filterAndSortTabs(tabs, query) {
   if (!query.trim()) {
-    return tabs.map(function(t) { return { tab: t, score: 2 }; });
+    return tabs.map(function(t) { return { tab: t, score: 2, matchType: '' }; });
   }
   return tabs
-    .map(function(t) { return { tab: t, score: scoreTab(t, query) }; })
+    .map(function(t) {
+      var m = matchTab(t, query);
+      return { tab: t, score: m.score, matchType: m.matchType };
+    })
     .filter(function(r) { return r.score > 0; })
     .sort(function(a, b) { return b.score - a.score; });
 }
@@ -72,6 +83,23 @@ function highlightMatch(text, query) {
   var escaped = escapeHtml(text);
   var regex = new RegExp('(' + escapeRegex(query) + ')', 'gi');
   return escaped.replace(regex, '<mark>$1</mark>');
+}
+
+function highlightFuzzy(text, query) {
+  if (!text || !query) return escapeHtml(text);
+  var lowerText = text.toLowerCase();
+  var lowerQuery = query.toLowerCase();
+  var result = '';
+  var queryIdx = 0;
+  for (var i = 0; i < text.length; i++) {
+    if (queryIdx < lowerQuery.length && lowerText[i] === lowerQuery[queryIdx]) {
+      result += '<mark>' + escapeHtml(text[i]) + '</mark>';
+      queryIdx++;
+    } else {
+      result += escapeHtml(text[i]);
+    }
+  }
+  return result;
 }
 
 function safeUrl(url) {
@@ -243,17 +271,36 @@ function renderResults(query) {
     var audibleIcon = tab.audible ? '<span class="focus-search-audible" title="\u6b63\u5728\u64ad\u653e\u97f3\u9891">\ud83d\udd0a</span>' : '';
     var favicon = safeUrl(tab.favIconUrl);
     var faviconHtml = favicon ? '<img class="focus-search-favicon" src="' + favicon + '" onerror="this.style.opacity=\'0\'">' : '';
-    var title = highlightMatch(tab.title || '\u65e0\u6807\u9898', query);
+    var title = r.matchType === 'fuzzy'
+      ? highlightFuzzy(tab.title || '\u65e0\u6807\u9898', query)
+      : highlightMatch(tab.title || '\u65e0\u6807\u9898', query);
+
     var rawUrl = tab.url || '';
-    var displayUrl = rawUrl.length > 50 ? rawUrl.substring(0, 50) + '...' : rawUrl;
-    var url = highlightMatch(displayUrl, query);
+    var TRUNCATE = 50;
+    var shortUrl = rawUrl.length > TRUNCATE ? rawUrl.substring(0, TRUNCATE) + '...' : rawUrl;
+    var urlClass = 'focus-search-url';
+    var urlHtml;
+    if (!query) {
+      urlHtml = escapeHtml(shortUrl);
+    } else {
+      var ql = query.toLowerCase();
+      if (shortUrl.toLowerCase().indexOf(ql) !== -1) {
+        urlHtml = highlightMatch(shortUrl, query);
+      } else if (rawUrl.toLowerCase().indexOf(ql) !== -1) {
+        urlHtml = highlightMatch(rawUrl, query);
+        urlClass += ' expand';
+      } else {
+        urlHtml = escapeHtml(shortUrl);
+      }
+    }
+
     htmlParts.push(
       '<div class="focus-search-item' + isSelected + isGroup + '" data-index="' + i + '">' +
       faviconHtml +
       audibleIcon +
       '<div class="focus-search-content">' +
       '<div class="focus-search-title">' + title + '</div>' +
-      '<div class="focus-search-url">' + url + '</div>' +
+      '<div class="' + urlClass + '">' + urlHtml + '</div>' +
       '</div></div>'
     );
   }

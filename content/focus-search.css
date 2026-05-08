@@ -159,6 +159,13 @@
   text-overflow: ellipsis;
 }
 
+.focus-search-url.expand {
+  white-space: normal;
+  word-break: break-all;
+  overflow: visible;
+  line-height: 1.4;
+}
+
 /* 底部快捷键提示 */
 .focus-search-footer {
   padding: 10px 16px;
