@@ -15,6 +15,8 @@
   --card-bg: #ffffff;
   --danger: #ef5350;
   --success: #66bb6a;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-md: 0 2px 6px rgba(0,0,0,0.08);
 
   /* 分组颜色 */
   --color-red: #ff6b6b;
@@ -55,35 +57,34 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
+  padding: 8px 12px;
   background: white;
-  border-bottom: 2px solid var(--primary-light);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 
 .header-left {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .header h1 {
-  font-size: 18px;
+  font-size: 16px;
   color: var(--primary-dark);
 }
 
 .stats {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-light);
-  padding: 4px 10px;
+  padding: 2px 8px;
   background: var(--primary-light);
-  border-radius: 12px;
+  border-radius: 10px;
 }
 
 .header-actions {
   display: flex;
-  gap: 6px;
+  gap: 4px;
 }
 
 /* Header Right - Navigation */
@@ -95,20 +96,20 @@ body {
 
 .view-nav {
   display: flex;
-  gap: 4px;
+  gap: 2px;
   background: var(--bg);
-  padding: 4px;
-  border-radius: 8px;
+  padding: 3px;
+  border-radius: 6px;
 }
 
 .nav-btn {
-  padding: 6px 10px;
-  font-size: 16px;
+  padding: 5px 10px;
+  font-size: 12px;
   border: none;
   background: transparent;
   cursor: pointer;
-  border-radius: 6px;
-  transition: all 0.2s;
+  border-radius: 5px;
+  transition: all 0.15s;
   opacity: 0.6;
 }
 
@@ -120,18 +121,18 @@ body {
 .nav-btn.active {
   opacity: 1;
   background: white;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.08);
 }
 
 /* Buttons */
 .btn {
-  padding: 6px 12px;
+  padding: 5px 10px;
   border: none;
-  border-radius: 6px;
-  font-size: 13px;
+  border-radius: 4px;
+  font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.15s;
 }
 
 .btn-primary {
@@ -146,7 +147,6 @@ body {
 .btn-secondary {
   background: #f0f0f0;
   color: var(--text);
-  padding: 8px;
 }
 
 .btn-secondary:hover {
@@ -171,11 +171,11 @@ body {
 
 .board-actions-header .board-action-btn {
   padding: 4px 10px;
-  font-size: 12px;
+  font-size: 11px;
   border: 1px solid var(--border);
   border-radius: 4px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.15s;
   background: white;
   color: var(--text);
 }
@@ -187,7 +187,7 @@ body {
 /* jKanban 看板样式覆盖 */
 .kanban-container {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   height: 100%;
   align-items: stretch;
 }
@@ -196,8 +196,8 @@ body {
 .kanban-board {
   flex-shrink: 0;
   background: var(--card-bg);
-  border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
   display: flex;
   flex-direction: column;
   border: 1px solid var(--border);
@@ -209,74 +209,74 @@ body {
 /* 看板标题 */
 .kanban-title-board {
   padding: 10px 12px;
-  border-top-left-radius: 10px;
-  border-top-right-radius: 10px;
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 13px;
   flex-shrink: 0;
   position: relative;
 }
 
 /* 分组颜色 */
 .kanban-board-red .kanban-title-board {
-  background: linear-gradient(135deg, var(--color-red)15, transparent);
+  background: linear-gradient(135deg, rgba(255,107,107,0.1), transparent);
   border-bottom: 2px solid var(--color-red);
   color: var(--color-red);
 }
 
 .kanban-board-teal .kanban-title-board {
-  background: linear-gradient(135deg, var(--color-teal)15, transparent);
+  background: linear-gradient(135deg, rgba(78,205,196,0.1), transparent);
   border-bottom: 2px solid var(--color-teal);
   color: var(--color-teal);
 }
 
 .kanban-board-blue .kanban-title-board {
-  background: linear-gradient(135deg, var(--color-blue)15, transparent);
+  background: linear-gradient(135deg, rgba(69,183,209,0.1), transparent);
   border-bottom: 2px solid var(--color-blue);
   color: var(--color-blue);
 }
 
 .kanban-board-yellow .kanban-title-board {
-  background: linear-gradient(135deg, var(--color-yellow)15, transparent);
+  background: linear-gradient(135deg, rgba(249,202,36,0.12), transparent);
   border-bottom: 2px solid var(--color-yellow);
   color: #b8940d;
 }
 
 .kanban-board-purple .kanban-title-board {
-  background: linear-gradient(135deg, var(--color-purple)15, transparent);
+  background: linear-gradient(135deg, rgba(108,92,231,0.1), transparent);
   border-bottom: 2px solid var(--color-purple);
   color: var(--color-purple);
 }
 
 .kanban-board-purple-light .kanban-title-board {
-  background: linear-gradient(135deg, var(--color-purple-light)15, transparent);
+  background: linear-gradient(135deg, rgba(162,155,254,0.1), transparent);
   border-bottom: 2px solid var(--color-purple-light);
   color: var(--color-purple-light);
 }
 
 .kanban-board-pink .kanban-title-board {
-  background: linear-gradient(135deg, var(--color-pink)15, transparent);
+  background: linear-gradient(135deg, rgba(253,121,168,0.1), transparent);
   border-bottom: 2px solid var(--color-pink);
   color: var(--color-pink);
 }
 
 .kanban-board-green .kanban-title-board {
-  background: linear-gradient(135deg, var(--color-green)15, transparent);
+  background: linear-gradient(135deg, rgba(0,184,148,0.1), transparent);
   border-bottom: 2px solid var(--color-green);
   color: var(--color-green);
 }
 
 .kanban-board-orange .kanban-title-board {
-  background: linear-gradient(135deg, var(--color-orange)15, transparent);
+  background: linear-gradient(135deg, rgba(225,112,85,0.1), transparent);
   border-bottom: 2px solid var(--color-orange);
   color: var(--color-orange);
 }
 
 .kanban-board-sky .kanban-title-board {
-  background: linear-gradient(135deg, var(--color-sky)15, transparent);
+  background: linear-gradient(135deg, rgba(116,185,255,0.1), transparent);
   border-bottom: 2px solid var(--color-sky);
   color: var(--color-sky);
 }
@@ -289,19 +289,17 @@ body {
 }
 
 .board-action-btn {
-  padding: 4px 6px;
-  font-size: 12px;
+  padding: 3px 6px;
+  font-size: 11px;
   border: none;
-  border-radius: 4px;
+  border-radius: 3px;
   cursor: pointer;
-  background: white;
+  background: rgba(255,255,255,0.8);
   color: var(--text-light);
-  transition: all 0.2s;
-  opacity: 0.7;
+  transition: all 0.15s;
 }
 
 .board-action-btn:hover {
-  opacity: 1;
   background: var(--primary);
   color: white;
 }
@@ -314,7 +312,7 @@ body {
   overflow-x: hidden;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 /* 标签卡片 */
@@ -324,13 +322,13 @@ body {
   border-radius: 6px;
   padding: 0;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.15s;
   position: relative;
 }
 
 .kanban-item:hover {
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-  transform: translateY(-2px);
+  box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+  transform: translateY(-1px);
 }
 
 .kanban-item.gu-mirror {
@@ -348,7 +346,7 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .kanban-item-favicon {
@@ -360,7 +358,7 @@ body {
 .kanban-item-title {
   flex: 1;
   min-width: 0;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--text);
   overflow: hidden;
@@ -383,7 +381,7 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .kanban-item-time {
@@ -400,14 +398,14 @@ body {
   border: none;
   background: transparent;
   color: var(--text-light);
-  font-size: 16px;
+  font-size: 14px;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: 3px;
   display: flex;
   align-items: center;
   justify-content: center;
   opacity: 0;
-  transition: all 0.2s;
+  transition: all 0.15s;
   padding: 0;
   line-height: 1;
 }
@@ -433,37 +431,37 @@ body {
 }
 
 .empty-icon {
-  font-size: 64px;
-  margin-bottom: 16px;
-  opacity: 0.5;
+  font-size: 48px;
+  margin-bottom: 12px;
+  opacity: 0.4;
 }
 
 .empty-state h2 {
-  font-size: 20px;
+  font-size: 18px;
   color: var(--text);
   margin-bottom: 8px;
 }
 
 .empty-state p {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--text-light);
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .shortcuts-hint {
   display: flex;
-  gap: 16px;
+  gap: 12px;
   justify-content: center;
   flex-wrap: wrap;
 }
 
 .shortcuts-hint kbd {
-  padding: 6px 12px;
+  padding: 5px 10px;
   background: var(--primary-light);
   color: var(--primary-dark);
-  border-radius: 6px;
-  font-family: monospace;
-  font-size: 13px;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 12px;
 }
 
 /* Scrollbar */
@@ -515,7 +513,7 @@ body {
   }
 }
 
-/* Timeline View Styles - 快照模式 - 朴素密集风格 */
+/* Timeline View Styles - 快照模式 */
 .view-container {
   flex: 1;
   display: flex;
@@ -536,12 +534,13 @@ body {
 
 .timeline-search-input {
   width: 100%;
-  padding: 8px 14px;
+  padding: 8px 12px;
   border: 1px solid var(--border);
   border-radius: 6px;
   font-size: 13px;
   box-sizing: border-box;
   background: var(--bg);
+  transition: all 0.15s;
 }
 
 .timeline-search-input:focus {
@@ -565,10 +564,10 @@ body {
 }
 
 .timeline-action-btn {
-  padding: 3px 8px;
+  padding: 4px 10px;
   font-size: 11px;
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: 4px;
   cursor: pointer;
   transition: all 0.15s;
   background: white;
@@ -591,17 +590,17 @@ body {
   background: #e54847;
 }
 
-/* 快照列表 - 朴素密集风格 */
+/* 快照列表 */
 .timeline-snapshots-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .timeline-snapshot {
   background: white;
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: 6px;
   overflow: hidden;
 }
 
@@ -609,7 +608,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 6px;
+  padding: 8px 10px;
   background: var(--bg);
   border-bottom: 1px solid var(--border);
 }
@@ -617,33 +616,34 @@ body {
 .snapshot-info {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 
 .snapshot-time {
-  font-size: 11px;
+  font-size: 12px;
+  font-weight: 600;
   color: var(--text);
 }
 
 .snapshot-count {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--text-light);
   background: white;
-  padding: 1px 4px;
-  border-radius: 2px;
+  padding: 2px 6px;
+  border-radius: 3px;
   border: 1px solid var(--border);
 }
 
 .snapshot-actions {
   display: flex;
-  gap: 3px;
+  gap: 4px;
 }
 
 .snapshot-action-btn {
-  padding: 2px 5px;
-  font-size: 10px;
+  padding: 3px 8px;
+  font-size: 11px;
   border: 1px solid var(--border);
-  border-radius: 2px;
+  border-radius: 3px;
   cursor: pointer;
   transition: all 0.15s;
   background: white;
@@ -651,38 +651,39 @@ body {
 }
 
 .snapshot-action-btn:hover {
-  background: var(--bg);
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
 }
 
 .snapshot-tabs {
-  padding: 2px 4px;
+  padding: 6px 8px;
   display: flex;
   flex-direction: column;
-  gap: 0;
+  gap: 2px;
 }
 
 .snapshot-tab-row {
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 2px 4px;
+  gap: 6px;
+  padding: 4px 6px;
   cursor: pointer;
-  transition: background 0.1s;
-  border-radius: 2px;
+  transition: all 0.1s;
+  border-radius: 4px;
 }
 
 .snapshot-tab-row:hover {
   background: var(--bg);
 }
 
-/* 红色标记的标签 */
 .snapshot-tab-row.marked {
   background: rgba(239, 83, 80, 0.08);
   border-left: 3px solid var(--danger);
 }
 
 .snapshot-tab-row.marked:hover {
-  background: rgba(239, 83, 80, 0.15);
+  background: rgba(239, 83, 80, 0.12);
 }
 
 /* 标记指示器 */
@@ -702,7 +703,7 @@ body {
 .snapshot-tab-title {
   flex: 1;
   min-width: 0;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -711,36 +712,39 @@ body {
 
 .snapshot-more-btn {
   width: 100%;
-  padding: 3px;
-  margin-top: 2px;
-  border: 1px solid var(--border);
-  background: white;
+  padding: 5px;
+  margin-top: 4px;
+  border: 1px dashed var(--border);
+  background: transparent;
   color: var(--text-light);
-  font-size: 10px;
+  font-size: 11px;
   cursor: pointer;
-  border-radius: 2px;
+  border-radius: 4px;
   transition: all 0.15s;
 }
 
 .snapshot-more-btn:hover {
   background: var(--bg);
+  border-color: var(--primary);
+  color: var(--primary);
 }
 
 .snapshot-collapse-btn {
   width: 100%;
-  padding: 3px;
-  margin-top: 2px;
-  border: 1px solid var(--border);
-  background: #fff3cd;
-  color: var(--text-light);
-  font-size: 10px;
+  padding: 5px;
+  margin-top: 4px;
+  border: 1px solid rgba(249, 202, 36, 0.3);
+  background: #fff8e1;
+  color: #b8940d;
+  font-size: 11px;
+  font-weight: 600;
   cursor: pointer;
-  border-radius: 2px;
+  border-radius: 4px;
   transition: all 0.15s;
 }
 
 .snapshot-collapse-btn:hover {
-  background: #ffeeba;
+  background: #ffecb3;
 }
 
 /* 搜索高亮样式 */
@@ -781,14 +785,14 @@ body {
 /* 搜索下拉框 */
 .timeline-search-dropdown {
   position: absolute;
-  top: 100%;
-  left: 16px;
-  right: 16px;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
   background: var(--card-bg);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  max-height: 300px;
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 12px;
+  box-shadow: var(--shadow-xl);
+  max-height: 320px;
   overflow-y: auto;
   z-index: 100;
 }
@@ -796,10 +800,10 @@ body {
 .search-dropdown-item {
   display: flex;
   align-items: center;
-  padding: 8px 12px;
+  padding: 12px 14px;
   cursor: pointer;
-  border-bottom: 1px solid var(--border);
-  transition: background 0.15s;
+  border-bottom: 1px solid rgba(0,0,0,0.04);
+  transition: all 0.15s ease;
 }
 
 .search-dropdown-item:last-child {
@@ -808,18 +812,20 @@ body {
 
 .search-dropdown-item:hover,
 .search-dropdown-item.selected {
-  background: var(--bg);
+  background: linear-gradient(135deg, var(--primary-light) 0%, #e8f4fd 100%);
 }
 
 .search-dropdown-item.selected {
   border-left: 3px solid var(--primary);
+  padding-left: 11px;
 }
 
 .search-dropdown-favicon {
-  width: 16px;
-  height: 16px;
-  margin-right: 10px;
+  width: 18px;
+  height: 18px;
+  margin-right: 12px;
   flex-shrink: 0;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.1));
 }
 
 .search-dropdown-content {
@@ -829,6 +835,7 @@ body {
 
 .search-dropdown-title {
   font-size: 13px;
+  font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -840,6 +847,7 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  margin-top: 2px;
 }
 
 .search-dropdown-source {
@@ -900,52 +908,53 @@ body {
 /* 右键菜单样式 */
 .context-menu {
   position: fixed;
-  background: white;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-  padding: 4px;
+  background: linear-gradient(135deg, #ffffff 0%, #fafbfc 100%);
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 12px;
+  box-shadow: var(--shadow-xl);
+  padding: 6px;
   z-index: 10000;
-  min-width: 150px;
-  animation: contextMenuFadeIn 0.15s ease;
+  min-width: 160px;
+  animation: contextMenuFadeIn 0.2s ease;
 }
 
 @keyframes contextMenuFadeIn {
   from {
     opacity: 0;
-    transform: scale(0.95);
+    transform: scale(0.95) translateY(-4px);
   }
   to {
     opacity: 1;
-    transform: scale(1);
+    transform: scale(1) translateY(0);
   }
 }
 
 .context-menu-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
+  gap: 10px;
+  padding: 10px 14px;
   cursor: pointer;
-  border-radius: 4px;
-  transition: background 0.1s;
+  border-radius: 8px;
+  transition: all 0.15s ease;
   font-size: 13px;
   color: var(--text);
 }
 
 .context-menu-item:hover {
-  background: var(--bg);
+  background: linear-gradient(135deg, var(--primary-light) 0%, #e8f4fd 100%);
+  color: var(--primary);
 }
 
 .context-menu-divider {
   height: 1px;
-  background: var(--border);
-  margin: 4px 0;
+  background: rgba(0,0,0,0.06);
+  margin: 6px 0;
 }
 
 .menu-icon {
   font-size: 14px;
-  width: 16px;
+  width: 18px;
   text-align: center;
 }
 
@@ -955,15 +964,28 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 60px 20px;
+  padding: 80px 20px;
   text-align: center;
   color: var(--text-light);
 }
 
 .timeline-empty-filter .empty-icon {
-  font-size: 48px;
-  margin-bottom: 12px;
+  width: 64px;
+  height: 64px;
+  margin-bottom: 16px;
+  opacity: 0.3;
+  background: linear-gradient(135deg, var(--primary-light) 0%, var(--secondary) 100%);
+  border-radius: 50%;
+}
+
+.timeline-empty-filter .empty-icon::before {
+  content: '';
+  width: 30px;
+  height: 30px;
+  background: var(--primary);
   opacity: 0.4;
+  border-radius: 6px;
+  transform: rotate(45deg);
 }
 
 /* Toast动画 */

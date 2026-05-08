@@ -11,15 +11,15 @@
     <!-- 顶部导航 -->
     <nav class="sidebar-nav">
       <button class="nav-btn active" data-page="groups">
-        <span class="nav-icon">📋</span>
+        <span class="nav-icon"></span>
         <span class="nav-text">分组</span>
       </button>
       <button class="nav-btn" data-page="forms">
-        <span class="nav-icon">📌</span>
+        <span class="nav-icon"></span>
         <span class="nav-text">Pin</span>
       </button>
       <button class="nav-btn" data-page="tabsearch">
-        <span class="nav-icon">🔍</span>
+        <span class="nav-icon"></span>
         <span class="nav-text">Tab搜索</span>
       </button>
     </nav>
@@ -34,7 +34,7 @@
               <option value="">-- 选择分组 --</option>
             </select>
           </div>
-          <button id="refreshGroupsBtn" class="header-btn" title="刷新">🔄</button>
+          <button id="refreshGroupsBtn" class="header-btn" title="刷新">Refresh</button>
         </div>
 
         <div id="currentGroupInfo" class="group-info" style="display: none;">
@@ -44,8 +44,8 @@
             <span id="tabCount" class="tab-count"></span>
           </div>
           <div class="group-actions">
-            <button id="openAllBtn" class="action-btn">📂 打开全部</button>
-            <button id="clearGroupBtn" class="action-btn danger">🗑️ 清空</button>
+            <button id="openAllBtn" class="action-btn">打开全部</button>
+            <button id="clearGroupBtn" class="action-btn danger">清空</button>
           </div>
         </div>
 
@@ -57,9 +57,9 @@
       <!-- Pin 页面 -->
       <div id="page-forms" class="page">
         <div class="page-header">
-          <h3>📌 Pin 面板</h3>
+          <h3>Pin 面板</h3>
           <div class="header-actions">
-            <button id="startPickerBtn" class="header-btn" title="拾取页面元素">🎯</button>
+            <button id="startPickerBtn" class="header-btn" title="拾取页面元素">Pick</button>
           </div>
         </div>
 
@@ -79,7 +79,7 @@
           <textarea id="quickContent" placeholder="输入内容..." class="quick-content"></textarea>
           <div class="quick-add-actions">
             <button id="quickAddBtn" class="action-btn btn-primary">添加</button>
-            <button id="quickPickBtn" class="action-btn">🎯 拾取</button>
+            <button id="quickPickBtn" class="action-btn">拾取</button>
           </div>
         </div>
 
@@ -99,28 +99,28 @@
 
         <!-- 拾取状态 -->
         <div id="pickerStatus" class="picker-status" style="display: none;">
-          <span class="picker-hint">🎯 拾取中... 点击页面元素，ESC 取消</span>
+          <span class="picker-hint">拾取中... 点击页面元素，ESC 取消</span>
         </div>
 
         <!-- 列表 -->
         <div class="form-list" id="formList">
-          <div class="empty-hint">🎯 拾取或输入内容添加</div>
+          <div class="empty-hint">拾取或输入内容添加</div>
         </div>
 
         <!-- 底部操作 -->
         <div class="form-actions">
-          <button id="importFormsBtn" class="action-btn">📥 导入</button>
-          <button id="exportFormsBtn" class="action-btn">📤 导出</button>
-          <button id="clearFormsBtn" class="action-btn danger">🗑️ 清空</button>
+          <button id="importFormsBtn" class="action-btn">导入</button>
+          <button id="exportFormsBtn" class="action-btn">导出</button>
+          <button id="clearFormsBtn" class="action-btn danger">清空</button>
         </div>
       </div>
 
       <!-- Tab 搜索页面 -->
       <div id="page-tabsearch" class="page">
         <div class="page-header">
-          <h3>🔍 Tab 搜索</h3>
+          <h3>Tab 搜索</h3>
           <div class="header-actions">
-            <button id="refreshTabsBtn" class="header-btn" title="刷新">🔄</button>
+            <button id="refreshTabsBtn" class="header-btn" title="刷新">Refresh</button>
           </div>
         </div>
 

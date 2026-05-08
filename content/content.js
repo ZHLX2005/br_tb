@@ -150,10 +150,10 @@ function showToast(options) {
   } = options;
 
   const iconMap = {
-    success: '✅',
-    info:    'ℹ️',
-    warning: '⚠️',
-    error:   '❌'
+    success: '[OK]',
+    info:    '[i]',
+    warning: '[!]',
+    error:   '[X]'
   };
 
   const actionsHtml = showOpenButton
