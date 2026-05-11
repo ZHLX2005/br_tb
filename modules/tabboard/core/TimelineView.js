@@ -37,16 +37,18 @@ class TimelineView {
       });
 
       this.searchInput.addEventListener('keydown', (e) => {
-        if (!this.currentResults.length) return;
-
         if (e.key === 'ArrowDown') {
           e.preventDefault();
-          this.selectedIndex = (this.selectedIndex + 1) % this.currentResults.length;
-          this._updateSelection();
+          if (this.currentResults.length) {
+            this.selectedIndex = (this.selectedIndex + 1) % this.currentResults.length;
+            this._updateSelection();
+          }
         } else if (e.key === 'ArrowUp') {
           e.preventDefault();
-          this.selectedIndex = this.selectedIndex <= 0 ? this.currentResults.length - 1 : this.selectedIndex - 1;
-          this._updateSelection();
+          if (this.currentResults.length) {
+            this.selectedIndex = this.selectedIndex <= 0 ? this.currentResults.length - 1 : this.selectedIndex - 1;
+            this._updateSelection();
+          }
         } else if (e.key === 'Enter') {
           e.preventDefault();
           if (this.selectedIndex >= 0 && this.currentResults[this.selectedIndex]) {
@@ -54,14 +56,22 @@ class TimelineView {
           }
         } else if (e.key === 'Escape') {
           this._hideSearchDropdown();
+          this.searchInput.value = '';
+          this.searchInput.blur();
         }
       });
 
-      // 点击其他地方关闭搜索结果
+      // 页面任意位置打字，自动聚焦搜索框
+      document.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        if (e.ctrlKey || e.altKey || e.metaKey) return;
+        if (e.key.length !== 1) return;
+        this.searchInput.focus();
+      });
+
+      // 鼠标点击关闭搜索结果并清空输入
       document.addEventListener('click', (e) => {
-        if (!e.target.closest('.timeline-search-container')) {
-          this._hideSearchDropdown();
-        }
+        this._hideSearchDropdown();
       });
     }
   }
