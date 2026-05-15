@@ -241,8 +241,10 @@ async function loadAllTabs() {
     var response = await chrome.runtime.sendMessage({ action: 'getAllOpenTabs' });
     if (response && response.success && Array.isArray(response.tabs)) {
       allTabs = response.tabs.filter(function(t) { return t && t.id != null; });
-      filteredResults = allTabs.slice();
-      selectedIndex = allTabs.length > 0 ? 0 : -1;
+      filteredResults = allTabs.slice(0, 10).map(function(t) {
+        return { tab: t, score: 2, matchType: '' };
+      });
+      selectedIndex = filteredResults.length > 0 ? 0 : -1;
       renderResults('');
     }
   } catch (e) {
