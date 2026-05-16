@@ -699,8 +699,8 @@ class TimelineView {
   async _clearAllSnapshots() {
     const confirmed = await modal.confirm(`确定要清空所有 ${this.snapshots.length} 个快照吗？`, {
       title: '清空所有快照',
-      type: 'danger'`
-    });`
+      type: 'danger'
+    });
     if (!confirmed) return;
 
     for (const snapshot of this.snapshots) {
