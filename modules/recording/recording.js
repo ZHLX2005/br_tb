@@ -4,7 +4,7 @@
  * 使用 chrome.storage 监听实现状态同步
  */
 
-import { modal } from '../../../shared/ModalDialog.js';
+import { modal } from '../shared/modal.js';
 
 class RecordingPage {
   constructor() {
