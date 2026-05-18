@@ -123,6 +123,169 @@ class BaseModule {
 | 将第三方库留在某个模块目录下 | 其他模块引用路径混乱，重复依赖 | 所有第三方库统一放入 `modules/shared/lib/` |
 | view.js 保留页面自动初始化代码 | 模块在 Shell 外部被意外初始化，导致重复渲染 | 移除 `document.addEventListener('DOMContentLoaded', ...)` 等自动初始化逻辑 |
 
+## 新增模块快速指南
+
+基于现有共享层，新增一个模块只需 3 个文件：
+
+### Step 1: 创建模块目录
+
+```bash
+mkdir -p modules/<feature-name>
+```
+
+### Step 2: 复制模板代码
+
+**`modules/<feature-name>/index.js` — 入口类（可直接复制）**
+
+```javascript
+import <FeatureName>View from './view.js';
+
+class <FeatureName>Module {
+  constructor(container, dataManager, eventBus) {
+    this.container = container;
+    this.dataManager = dataManager;
+    this.eventBus = eventBus;
+    this.view = new <FeatureName>View(dataManager);
+  }
+
+  init() {
+    // 初始化搜索框、状态恢复等
+  }
+
+  render(data) {
+    this.view.updateData?.(data);
+    this.view.render?.(data);
+  }
+
+  bindEvents() {
+    // 绑定跨组件全局事件
+  }
+
+  destroy() {
+    // 必须清理：定时器、MutationObserver、全局插入的 DOM、事件监听
+    // this.view._hideDropdown?.();
+    // this.observer?.disconnect();
+  }
+}
+
+export default <FeatureName>Module;
+```
+
+**`modules/<feature-name>/view.js` — 视图类（骨架）**
+
+```javascript
+import { escapeHtml } from '../shared/utils.js';
+import { modal } from '../../shared/ModalDialog.js';
+
+class <FeatureName>View {
+  constructor(dataManager) {
+    this.dataManager = dataManager;
+    this.items = [];
+  }
+
+  updateData(data) {
+    this.items = data.<featureName>Items || [];
+  }
+
+  render() {
+    const container = document.getElementById('<featureName>List>');
+    if (!container) return;
+
+    if (this.items.length === 0) {
+      container.innerHTML = this._renderEmptyState();
+      return;
+    }
+
+    container.innerHTML = this.items.map(item => this._renderItem(item)).join('');
+    this._bindItemEvents();
+  }
+
+  _renderEmptyState() {
+    return `<div class="empty-state">暂无数据</div>`;
+  }
+
+  _renderItem(item) {
+    return `
+      <div class="item-row" data-id="${item.id}">
+        <span>${escapeHtml(item.title)}</span>
+      </div>
+    `;
+  }
+
+  _bindItemEvents() {
+    document.querySelectorAll('.item-row').forEach(row => {
+      row.addEventListener('click', () => {
+        const id = row.dataset.id;
+        this._handleItemClick(id);
+      });
+    });
+  }
+
+  async _handleItemClick(id) {
+    const item = this.items.find(i => i.id === id);
+    if (!item) return;
+    // 业务逻辑...
+  }
+}
+
+export default <FeatureName>View;
+```
+
+**`modules/<feature-name>/style.css` — 样式（独立文件）**
+
+```css
+/* 仅包含本模块的样式，命名加前缀避免冲突 */
+.<feature-name>-list { }
+.<feature-name>-item { }
+.<feature-name>-empty-state { }
+```
+
+### Step 3: 注册到 Shell
+
+在 `modules/tabboard/tabboard.js` 的 `AppShell` 中：
+
+1. `import <FeatureName>Module from '../<feature-name>/index.js';`
+2. 在 `switchView` 的 switch 语句中新增 case
+3. 在 HTML 中新增容器 `<div id="<featureName>View">`
+
+### Step 4: Commit
+
+```bash
+git add modules/<feature-name>/
+git commit -m "feat: add <feature-name> module"
+```
+
+## 健壮性规范
+
+### 防御式编程（view.js 中必须遵守）
+
+| 场景 | 规范 |
+|------|------|
+| DOM 元素不存在 | `const el = document.getElementById('x'); if (!el) return;` |
+| 数据为空 | 渲染空状态，不抛异常 |
+| 异步操作 | 始终 `try/catch`，错误时 toast 提示 |
+| 动态插入的 DOM | 用 class + 事件委托，避免重复绑定 |
+| 全局搜索/右键菜单 | 先执行 `_hideXxx()` 再创建新的，防止叠加 |
+| 定时器 | 在 `destroy()` 中 `clearInterval` / `clearTimeout` |
+| `chrome.runtime.sendMessage` | 检查 `chrome.runtime.lastError` |
+
+### 命名规范
+
+| 层级 | 前缀/后缀 | 示例 |
+|------|----------|------|
+| 模块目录 | 小写连字符 | `modules/focus-search/` |
+| 入口类 | `Module` 后缀 | `FocusSearchModule` |
+| 视图类 | `View` 后缀 | `FocusSearchView` |
+| CSS 类名 | 模块名前缀 | `.focus-search-list` |
+| data 属性 | `data-<feature>-<field>` | `data-focus-search-id` |
+
+### 性能约束
+
+- `render()` 使用 `innerHTML` 批量更新，禁止逐元素 `appendChild`
+- 搜索防抖 `150ms`
+- 列表项懒加载图片 `loading="lazy"`
+- 大数据集使用虚拟滚动或分页
+
 ## 验证清单
 
 - [ ] 全局 grep 确认无旧路径残留
