@@ -9,6 +9,8 @@ class DataManager {
       groups: [],
       tabs: {},
       timelineSnapshots: [],
+      recordings: [],
+      recordingState: {},
       settings: {}
     };
     this.listeners = [];
@@ -19,7 +21,9 @@ class DataManager {
    * 使用 'in' 操作符检查 key，避免空数组被 falsy 判断导致不更新
    */
   async loadData() {
-    const data = await chrome.storage.local.get(['groups', 'tabs', 'timelineSnapshots', 'settings']);
+    const data = await chrome.storage.local.get([
+      'groups', 'tabs', 'timelineSnapshots', 'recordings', 'recordingState', 'settings'
+    ]);
 
     if ('groups' in data) {
       this.data.groups = data.groups;
@@ -30,6 +34,12 @@ class DataManager {
     if ('timelineSnapshots' in data) {
       this.data.timelineSnapshots = data.timelineSnapshots;
     }
+    if ('recordings' in data) {
+      this.data.recordings = data.recordings;
+    }
+    if ('recordingState' in data) {
+      this.data.recordingState = data.recordingState;
+    }
     if ('settings' in data) {
       this.data.settings = data.settings;
     }
@@ -39,11 +49,13 @@ class DataManager {
   }
 
   /**
-   * 获取数据的getter方法
+   * 获取数据的 getter 方法
    */
   get groups() { return this.data.groups; }
   get tabs() { return this.data.tabs; }
   get timelineSnapshots() { return this.data.timelineSnapshots; }
+  get recordings() { return this.data.recordings; }
+  get recordingState() { return this.data.recordingState; }
   get settings() { return this.data.settings; }
 
   /**

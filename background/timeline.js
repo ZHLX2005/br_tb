@@ -4,7 +4,7 @@
  */
 
 import { generateId, showToast, DEFAULT_COLORS } from './utils.js';
-import SearchHelper from '../modules/tabboard/core/SearchHelper.js';
+import SearchHelper from '../modules/shared/search-helper.js';
 
 // 收集当前窗口所有标签页到 Timeline（创建快照）
 async function collectCurrentWindowTabs() {
@@ -67,10 +67,20 @@ async function collectCurrentWindowTabs() {
     await closeCollectedTabs(tabs);
   }
 
-  // 获取当前活动标签页用于显示提示
+  // 若当前窗口已存在 pin 的 TabBoard 看板页，直接切换过去（不显示带"打开看板"按钮的 toast）
+  const pinnedTabboard = (await chrome.tabs.query({
+    pinned: true,
+    currentWindow: true
+  })).find(tab => tab.url?.includes('modules/tabboard/tabboard.html'));
+
+  if (pinnedTabboard) {
+    await chrome.tabs.update(pinnedTabboard.id, { active: true });
+    return;
+  }
+
+  // 否则显示带"打开看板"按钮的 toast
   const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-  // 显示提示
   if (activeTab) {
     showToast(activeTab.id, {
       type: 'success',

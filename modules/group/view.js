@@ -3,8 +3,8 @@
  * 负责分组看板的渲染和交互
  */
 
-import { escapeHtml, formatTime, getColorClass, exportData, importData } from './Utils.js';
-import { modal } from '../../../shared/ModalDialog.js';
+import { escapeHtml, formatTime, getColorClass, exportData, importData } from '../shared/utils.js';
+import { modal } from '../../shared/ModalDialog.js';
 
 class GroupView {
   constructor(dataManager) {

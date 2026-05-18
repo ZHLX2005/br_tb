@@ -4,9 +4,9 @@
  * 使用 chrome.storage 监听实现状态同步
  */
 
-import { modal } from '../../../shared/ModalDialog.js';
+import { modal } from '../../shared/ModalDialog.js';
 
-class RecordingPage {
+class RecordingView {
   constructor() {
     this.recordingState = {
       isRecording: false,
@@ -568,9 +568,4 @@ class RecordingPage {
   }
 }
 
-// 创建并初始化页面
-const recordingPage = new RecordingPage();
-
-document.addEventListener('DOMContentLoaded', () => {
-  recordingPage.init();
-});
+export default RecordingView;

@@ -1,69 +1,118 @@
 /**
- * TabBoard - 标签页看板主入口
- * 模块化架构，功能独立拆分
- *
- * @module TabBoard
- * @description 使用 jKanban 库实现拖拽分组、标签管理
+ * TabBoard - 标签页看板主入口（Shell）
+ * 负责模块生命周期管理和视图切换
  */
 
-import DataManager from './core/DataManager.js';
-import TimelineView from './core/TimelineView.js';
-import GroupView from './core/GroupView.js';
-import EventManager from './core/EventManager.js';
+import DataManager from '../shared/data-manager.js';
+import EventBus from '../shared/event-bus.js';
+import TimelineModule from '../timeline/index.js';
+import GroupModule from '../group/index.js';
 
-// 应用状态
-class App {
+class AppShell {
   constructor() {
-    this.dataManager = null;
-    this.timelineView = null;
-    this.groupView = null;
-    this.eventManager = null;
+    this.dataManager = new DataManager();
+    this.eventBus = new EventBus();
+    this.currentModule = null;
+    this.currentView = 'timeline';
+    this.storageChangeTimer = null;
   }
 
-  /**
-   * 初始化应用
-   */
   async init() {
-    // 创建数据管理器
-    this.dataManager = new DataManager();
-
-    // 创建视图
-    this.timelineView = new TimelineView(this.dataManager);
-    this.groupView = new GroupView(this.dataManager);
-
-    // 创建事件管理器
-    this.eventManager = new EventManager(
-      this.dataManager,
-      this.timelineView,
-      this.groupView
-    );
-
-    // 加载数据
     const data = await this.dataManager.loadData();
-
-    // 更新视图数据
-    this.timelineView.updateData(data);
-    this.groupView.updateData(data);
-
-    // 设置初始视图
     const lastView = data.settings?.lastView || 'timeline';
-    await this.eventManager.setInitialView(lastView);
 
-    // 初始化事件监听器
-    this.eventManager.init();
+    this._setupViewSwitchButtons();
+    this._setupRefreshButton();
+    this._setupImageErrorHandling();
+    this._setupStorageChangeListener();
 
-    // 监听数据变化，自动更新视图
-    this.dataManager.onDataChange((newData) => {
-      this.timelineView.updateData(newData);
-      this.groupView.updateData(newData);
+    await this.switchView(lastView, data);
+  }
+
+  _setupViewSwitchButtons() {
+    document.getElementById('timelineViewBtn')?.addEventListener('click', () => this.switchView('timeline'));
+    document.getElementById('groupViewBtn')?.addEventListener('click', () => this.switchView('group'));
+    document.getElementById('recordingViewBtn')?.addEventListener('click', () => this._openRecordingPage());
+  }
+
+  _setupRefreshButton() {
+    document.getElementById('refreshBtn')?.addEventListener('click', async () => {
+      const data = await this.dataManager.loadData();
+      if (this.currentModule) this.currentModule.render(data);
     });
+  }
+
+  _setupImageErrorHandling() {
+    document.addEventListener('error', (e) => {
+      if (e.target.tagName === 'IMG') e.target.style.display = 'none';
+    }, true);
+  }
+
+  _setupStorageChangeListener() {
+    chrome.storage.onChanged.addListener((changes, namespace) => {
+      if (namespace !== 'local') return;
+      if (this.storageChangeTimer) clearTimeout(this.storageChangeTimer);
+      this.storageChangeTimer = setTimeout(async () => {
+        const data = await this.dataManager.loadData();
+        if (this.currentModule) this.currentModule.render(data);
+      }, 100);
+    });
+  }
+
+  async switchView(viewName, initialData = null) {
+    if (viewName === 'recording') {
+      this._openRecordingPage();
+      return;
+    }
+
+    if (this.currentModule) {
+      this.currentModule.destroy();
+      this.currentModule = null;
+    }
+
+    this.currentView = viewName;
+    this._updateViewUI(viewName);
+
+    const data = initialData || await this.dataManager.loadData();
+
+    let container;
+    let ModuleClass;
+
+    switch (viewName) {
+      case 'group':
+        container = document.getElementById('groupView');
+        ModuleClass = GroupModule;
+        break;
+      case 'timeline':
+      default:
+        container = document.getElementById('timelineView');
+        ModuleClass = TimelineModule;
+        break;
+    }
+
+    this.currentModule = new ModuleClass(container, this.dataManager, this.eventBus);
+    this.currentModule.init();
+    this.currentModule.render(data);
+    this.currentModule.bindEvents();
+
+    await this.dataManager.sendMessage('updateSettings', {
+      settings: { lastView: viewName }
+    });
+  }
+
+  _updateViewUI(viewName) {
+    document.getElementById('timelineViewBtn')?.classList.toggle('active', viewName === 'timeline');
+    document.getElementById('groupViewBtn')?.classList.toggle('active', viewName === 'group');
+    document.getElementById('recordingViewBtn')?.classList.toggle('active', viewName === 'recording');
+
+    document.getElementById('timelineView').style.display = viewName === 'timeline' ? 'block' : 'none';
+    document.getElementById('groupView').style.display = viewName === 'group' ? 'block' : 'none';
+  }
+
+  _openRecordingPage() {
+    window.location.href = chrome.runtime.getURL('modules/recording/recording.html');
   }
 }
 
-// 创建应用实例并初始化
-const app = new App();
-
-// DOM 加载完成后初始化
-document.addEventListener('DOMContentLoaded', () => {
-  app.init();
-});
+const app = new AppShell();
+document.addEventListener('DOMContentLoaded', () => app.init());

@@ -3,9 +3,9 @@
  * 负责时序快照的渲染和交互
  */
 
-import { escapeHtml, formatSnapshotTime, exportData, importData } from './Utils.js';
-import { modal } from '../../../shared/ModalDialog.js';
-import SearchHelper from './SearchHelper.js';
+import { escapeHtml, formatSnapshotTime, exportData, importData } from '../shared/utils.js';
+import { modal } from '../../shared/ModalDialog.js';
+import SearchHelper from '../shared/search-helper.js';
 
 class TimelineView {
   constructor(dataManager) {
