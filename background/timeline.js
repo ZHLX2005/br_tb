@@ -4,7 +4,7 @@
  */
 
 import { generateId, showToast, DEFAULT_COLORS } from './utils.js';
-import SearchHelper from '../modules/tabboard/core/SearchHelper.js';
+import SearchHelper from '../modules/shared/search-helper.js';
 
 // 收集当前窗口所有标签页到 Timeline（创建快照）
 async function collectCurrentWindowTabs() {
