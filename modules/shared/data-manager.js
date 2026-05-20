@@ -11,6 +11,7 @@ class DataManager {
       timelineSnapshots: [],
       recordings: [],
       recordingState: {},
+      videoGroups: [],
       settings: {}
     };
     this.listeners = [];
@@ -22,7 +23,7 @@ class DataManager {
    */
   async loadData() {
     const data = await chrome.storage.local.get([
-      'groups', 'tabs', 'timelineSnapshots', 'recordings', 'recordingState', 'settings'
+      'groups', 'tabs', 'timelineSnapshots', 'recordings', 'recordingState', 'videoGroups', 'settings'
     ]);
 
     if ('groups' in data) {
@@ -40,6 +41,9 @@ class DataManager {
     if ('recordingState' in data) {
       this.data.recordingState = data.recordingState;
     }
+    if ('videoGroups' in data) {
+      this.data.videoGroups = data.videoGroups;
+    }
     if ('settings' in data) {
       this.data.settings = data.settings;
     }
@@ -56,6 +60,7 @@ class DataManager {
   get timelineSnapshots() { return this.data.timelineSnapshots; }
   get recordings() { return this.data.recordings; }
   get recordingState() { return this.data.recordingState; }
+  get videoGroups() { return this.data.videoGroups; }
   get settings() { return this.data.settings; }
 
   /**

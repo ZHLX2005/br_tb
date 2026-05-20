@@ -279,7 +279,145 @@ function trackPageVisit() {
 }
 
 // ============================================================
-// SECTION 3: Message Listener (Bridge to Background)
+// SECTION 3: Video Detection & Progress Tracking
+// ============================================================
+
+const videoTracker = {
+  videos: [],
+  trackedVideos: new Map(), // video element -> { duration, watched, title, url }
+  reportInterval: null,
+  REPORT_PERIOD_MS: 5000,
+
+  init() {
+    this.findVideos();
+    this.setupMutationObserver();
+    this.startReporting();
+    console.log('[TabBoard] Video tracker initialized');
+  },
+
+  findVideos() {
+    const videos = Array.from(document.querySelectorAll('video'));
+    const newVideos = videos.filter(v => !this.trackedVideos.has(v));
+
+    newVideos.forEach(video => {
+      this.trackedVideos.set(video, {
+        duration: 0,
+        watched: 0,
+        title: this.getVideoTitle(video),
+        url: window.location.href,
+        favicon: this.getFavicon(),
+        pageTitle: document.title
+      });
+
+      this.bindVideoEvents(video);
+    });
+
+    this.videos = videos;
+  },
+
+  getVideoTitle(video) {
+    // Try to find a title near the video
+    const container = video.closest('figure, .video-container, [class*="video"], [class*="player"]');
+    if (container) {
+      const titleEl = container.querySelector('h1, h2, h3, .title, [class*="title"]');
+      if (titleEl) return titleEl.textContent.trim();
+    }
+
+    // Try page title
+    if (document.title) return document.title.trim();
+
+    // Try video attributes
+    if (video.getAttribute('aria-label')) return video.getAttribute('aria-label');
+    if (video.title) return video.title;
+
+    return '未命名视频';
+  },
+
+  getFavicon() {
+    const link = document.querySelector('link[rel*="icon"]');
+    return link ? link.href : '';
+  },
+
+  bindVideoEvents(video) {
+    const onLoadedMetadata = () => {
+      const info = this.trackedVideos.get(video);
+      if (info) {
+        info.duration = video.duration || 0;
+      }
+    };
+
+    const onTimeUpdate = () => {
+      const info = this.trackedVideos.get(video);
+      if (info && video.duration) {
+        // Track max watched time
+        info.watched = Math.max(info.watched, video.currentTime);
+        info.duration = video.duration;
+      }
+    };
+
+    video.addEventListener('loadedmetadata', onLoadedMetadata);
+    video.addEventListener('timeupdate', onTimeUpdate);
+
+    // If already loaded, capture duration now
+    if (video.duration) {
+      onLoadedMetadata();
+    }
+  },
+
+  setupMutationObserver() {
+    const observer = new MutationObserver(() => {
+      this.findVideos();
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+  },
+
+  startReporting() {
+    this.reportInterval = setInterval(() => {
+      this.reportProgress();
+    }, this.REPORT_PERIOD_MS);
+  },
+
+  reportProgress() {
+    this.trackedVideos.forEach((info, video) => {
+      if (info.duration > 0) {
+        chrome.runtime.sendMessage({
+          action: 'updateVideoProgress',
+          url: info.url,
+          title: info.title,
+          duration: info.duration,
+          watched: info.watched
+        }).catch(() => {
+          // Extension may not be ready or page unloaded
+        });
+      }
+    });
+  },
+
+  getDetectedVideos() {
+    const result = [];
+    this.trackedVideos.forEach((info, video) => {
+      result.push({
+        title: info.title,
+        url: info.url,
+        duration: info.duration || video.duration || 0,
+        watched: info.watched || 0,
+        favicon: info.favicon,
+        pageTitle: info.pageTitle
+      });
+    });
+    return result;
+  },
+
+  destroy() {
+    if (this.reportInterval) {
+      clearInterval(this.reportInterval);
+      this.reportInterval = null;
+    }
+  }
+};
+
+// ============================================================
+// SECTION 4: Message Listener (Bridge to Background)
 // ============================================================
 
 /**
@@ -303,12 +441,21 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       showOpenButton: request.showOpenButton
     });
     sendResponse({ success: true });
+    return true;
   }
-  return true; // 保持消息通道开放以支持异步响应
+
+  if (request.action === 'detectVideos') {
+    videoTracker.findVideos();
+    const videos = videoTracker.getDetectedVideos();
+    sendResponse({ success: true, videos });
+    return true;
+  }
+
+  return true;
 });
 
 // ============================================================
-// SECTION 4: Initialization
+// SECTION 5: Initialization
 // ============================================================
 
 /**
@@ -316,7 +463,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
  * 兼容 document.readyState 不同状态
  */
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', trackPageVisit);
+  document.addEventListener('DOMContentLoaded', () => {
+    trackPageVisit();
+    videoTracker.init();
+  });
 } else {
   trackPageVisit();
+  videoTracker.init();
 }

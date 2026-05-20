@@ -33,6 +33,7 @@ class AppShell {
     document.getElementById('timelineViewBtn')?.addEventListener('click', () => this.switchView('timeline'));
     document.getElementById('groupViewBtn')?.addEventListener('click', () => this.switchView('group'));
     document.getElementById('recordingViewBtn')?.addEventListener('click', () => this._openRecordingPage());
+    document.getElementById('videoProgressViewBtn')?.addEventListener('click', () => this._openVideoProgressPage());
   }
 
   _setupRefreshButton() {
@@ -104,6 +105,7 @@ class AppShell {
     document.getElementById('timelineViewBtn')?.classList.toggle('active', viewName === 'timeline');
     document.getElementById('groupViewBtn')?.classList.toggle('active', viewName === 'group');
     document.getElementById('recordingViewBtn')?.classList.toggle('active', viewName === 'recording');
+    document.getElementById('videoProgressViewBtn')?.classList.toggle('active', viewName === 'videoProgress');
 
     document.getElementById('timelineView').style.display = viewName === 'timeline' ? 'block' : 'none';
     document.getElementById('groupView').style.display = viewName === 'group' ? 'block' : 'none';
@@ -111,6 +113,10 @@ class AppShell {
 
   _openRecordingPage() {
     window.location.href = chrome.runtime.getURL('modules/recording/recording.html');
+  }
+
+  _openVideoProgressPage() {
+    window.location.href = chrome.runtime.getURL('modules/video-progress/video-progress.html');
   }
 }
 

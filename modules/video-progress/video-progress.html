@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>视频进度 - TabBoard</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="../../shared/ModalDialog.css">
+</head>
+<body>
+  <div class="video-progress-container">
+    <!-- Header -->
+    <header class="vp-header">
+      <div class="vp-header-left">
+        <h1>视频进度</h1>
+        <p class="subtitle">聚合追踪课程视频观看进度</p>
+      </div>
+      <div class="vp-header-actions">
+        <button id="addCurrentVideoBtn" class="btn btn-primary">+ 添加当前视频</button>
+        <button id="addGroupBtn" class="btn btn-secondary">新建课程</button>
+        <button id="backBtn" class="btn btn-secondary">返回看板</button>
+      </div>
+    </header>
+
+    <!-- Stats -->
+    <section id="videoStats">
+      <!-- Dynamic content -->
+    </section>
+
+    <!-- Groups List -->
+    <section class="groups-section">
+      <div id="videoGroupsList">
+        <!-- Dynamic content -->
+      </div>
+    </section>
+  </div>
+
+  <script type="module" src="video-progress-shell.js"></script>
+</body>
+</html>

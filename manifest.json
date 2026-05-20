@@ -60,6 +60,8 @@
     {
       "resources": [
         "modules/tabboard/tabboard.html",
+        "modules/recording/recording.html",
+        "modules/video-progress/video-progress.html",
         "sidepanel/sidepanel.html",
         "sidepanel/sidepanel.js",
         "sidepanel/sidepanel.css"

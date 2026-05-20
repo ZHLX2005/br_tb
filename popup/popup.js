@@ -8,6 +8,7 @@ import { loadGroups, setDefaultGroup, deleteGroup, addToFocusSearch, addGroup, g
 import { loadSettings, bindSettingsListeners } from './modules/settings.js';
 import { loadFocusSearchGroups, toggleFocusSearchGroup } from './modules/focusSearch.js';
 import { bindQuickActionsListeners } from './modules/quickActions.js';
+import { bindVideoCaptureListener } from './modules/videoCapture.js';
 import { renderColorPicker, resetColorPicker } from './modules/colorPicker.js';
 import { showToast } from './modules/utils.js';
 
@@ -181,6 +182,9 @@ async function init() {
 
   // 绑定快捷操作
   bindQuickActionsListeners();
+
+  // 绑定视频捕获按钮
+  bindVideoCaptureListener(document.querySelector('.app'));
 
   // 绑定UI事件
   bindUIEvents();
