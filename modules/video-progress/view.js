@@ -330,6 +330,16 @@ class VideoProgressView {
       }
     }
 
+    // Switch back to video-progress page first, then close the tab
+    try {
+      const selfUrl = chrome.runtime.getURL('modules/video-progress/video-progress.html');
+      const allTabs = await chrome.tabs.query({});
+      const selfTab = allTabs.find(t => t.url === selfUrl);
+      if (selfTab) {
+        await chrome.tabs.update(selfTab.id, { active: true });
+      }
+    } catch (_) {}
+
     // Close the tab regardless of detection result
     try {
       await chrome.tabs.remove(tab.id);
