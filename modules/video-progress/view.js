@@ -57,6 +57,21 @@ class VideoProgressView {
     document.getElementById('backBtn')?.addEventListener('click', () => this.backToTabboard());
     document.getElementById('addGroupBtn')?.addEventListener('click', () => this.createGroup());
     document.getElementById('addCurrentVideoBtn')?.addEventListener('click', () => this.addCurrentVideo());
+    document.getElementById('batchImportBtn')?.addEventListener('click', () => this.openBatchImportDialog());
+    document.getElementById('batchCancelBtn')?.addEventListener('click', () => this.closeBatchImportDialog());
+    document.getElementById('batchConfirmBtn')?.addEventListener('click', () => this.startBatchImport());
+
+    const fileInput = document.getElementById('batchFileInput');
+    if (fileInput) {
+      fileInput.addEventListener('change', (e) => this.handleBatchFile(e));
+    }
+
+    const dialog = document.getElementById('batchImportDialog');
+    if (dialog) {
+      dialog.addEventListener('click', (e) => {
+        if (e.target === dialog) this.closeBatchImportDialog();
+      });
+    }
 
     // Event delegation for dynamically created elements
     document.addEventListener('click', (e) => {
@@ -317,6 +332,144 @@ class VideoProgressView {
     } else {
       this.showToast('添加失败: ' + (response.error || ''), 'error');
     }
+  }
+
+  // ========== 批量导入 ==========
+
+  openBatchImportDialog() {
+    const select = document.getElementById('batchGroupSelect');
+    if (select) {
+      select.innerHTML = this.videoGroups.map((g, i) =>
+        `<option value="${i}">${this.escapeHtml(g.name)} (${g.videos.length} 个视频)</option>`
+      ).join('');
+    }
+    document.getElementById('batchUrlInput').value = '';
+    document.getElementById('batchFileInput').value = '';
+    document.getElementById('batchProgress').innerHTML = '';
+    document.getElementById('batchImportDialog').classList.add('active');
+  }
+
+  closeBatchImportDialog() {
+    document.getElementById('batchImportDialog').classList.remove('active');
+  }
+
+  handleBatchFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      document.getElementById('batchUrlInput').value = ev.target.result;
+    };
+    reader.readAsText(file);
+  }
+
+  async startBatchImport() {
+    const textarea = document.getElementById('batchUrlInput');
+    const select = document.getElementById('batchGroupSelect');
+    const progressEl = document.getElementById('batchProgress');
+
+    const urls = textarea.value.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+    if (urls.length === 0) {
+      this.showToast('请输入至少一个视频链接', 'warning');
+      return;
+    }
+
+    const groupIndex = parseInt(select.value);
+    if (isNaN(groupIndex) || groupIndex < 0 || groupIndex >= this.videoGroups.length) {
+      this.showToast('请选择目标课程', 'warning');
+      return;
+    }
+
+    const group = this.videoGroups[groupIndex];
+    const confirmBtn = document.getElementById('batchConfirmBtn');
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = '导入中...';
+
+    let successCount = 0;
+    let skipCount = 0;
+    let failCount = 0;
+
+    for (let i = 0; i < urls.length; i++) {
+      const rawUrl = urls[i];
+      progressEl.innerHTML = `<div class="batch-progress-bar"><div class="batch-progress-fill" style="width:${((i + 1) / urls.length) * 100}%"></div></div>
+        <div class="batch-progress-text">处理中 ${i + 1}/${urls.length}: ${this.escapeHtml(rawUrl.substring(0, 60))}...</div>`;
+
+      let videoUrl = rawUrl;
+      if (!videoUrl.startsWith('http://') && !videoUrl.startsWith('https://')) {
+        videoUrl = 'https://' + videoUrl;
+      }
+
+      let tab;
+      try {
+        tab = await chrome.tabs.create({ url: videoUrl, active: true });
+      } catch (err) {
+        failCount++;
+        continue;
+      }
+
+      // 轮询检测，最多 10 秒
+      let results = null;
+      for (let attempt = 0; attempt < 5; attempt++) {
+        await this._sleep(2000);
+        try {
+          results = await chrome.tabs.sendMessage(tab.id, { action: 'detectVideos' });
+          if (results && results.videos && results.videos.length > 0) break;
+        } catch (_) {
+          // content script not ready
+        }
+      }
+
+      // 关闭标签页
+      try { await chrome.tabs.remove(tab.id); } catch (_) {}
+
+      if (!results || !results.videos || results.videos.length === 0) {
+        failCount++;
+        continue;
+      }
+
+      const video = results.videos[0];
+      const response = await chrome.runtime.sendMessage({
+        action: 'addVideoToGroup',
+        groupId: group.id,
+        video: {
+          title: video.title || video.pageTitle || '未命名视频',
+          url: normalizeUrl(video.url),
+          duration: video.duration || 0,
+          watched: video.watched || 0,
+          favicon: video.favicon || '',
+          pageTitle: video.pageTitle || ''
+        }
+      });
+
+      if (response.success) {
+        successCount++;
+      } else if (response.error === 'Video already in group') {
+        skipCount++;
+      } else {
+        failCount++;
+      }
+    }
+
+    // 切回当前页面
+    try {
+      const selfUrl = chrome.runtime.getURL('modules/video-progress/video-progress.html');
+      const allTabs = await chrome.tabs.query({});
+      const selfTab = allTabs.find(t => t.url === selfUrl);
+      if (selfTab) await chrome.tabs.update(selfTab.id, { active: true });
+    } catch (_) {}
+
+    progressEl.innerHTML = `<div class="batch-result">
+      <span class="batch-success">成功 ${successCount}</span>
+      <span class="batch-skip">已存在 ${skipCount}</span>
+      <span class="batch-fail">失败 ${failCount}</span>
+    </div>`;
+
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = '开始导入';
+
+    await this.loadVideoGroups();
+    this.render();
+    this.showToast(`批量导入完成: 成功 ${successCount}, 已存在 ${skipCount}, 失败 ${failCount}`, 'success');
   }
 
   async addDetectedVideoToGroup(groupId) {
