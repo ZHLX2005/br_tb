@@ -30,6 +30,7 @@
     init() {
       this.findVideos();
       this.setupMutationObserver();
+      this.setupUrlChangeListener();
       this.startReporting();
       console.log('[TabBoard] Video tracker initialized');
     },
@@ -77,7 +78,18 @@
       const onLoadedMetadata = () => {
         const info = this.trackedVideos.get(video);
         if (info) {
-          info.duration = video.duration || 0;
+          const newDuration = video.duration || 0;
+          // 如果 duration 显著变化，说明视频源已更换，重置 watched 避免进度溢出
+          if (info.duration > 0 && newDuration > 0) {
+            const diff = Math.abs(info.duration - newDuration);
+            const ratio = diff / Math.max(info.duration, newDuration);
+            if (diff > 5 && ratio > 0.1) {
+              info.watched = 0;
+              info.title = this.getVideoTitle(video);
+              info.pageTitle = document.title;
+            }
+          }
+          info.duration = newDuration;
         }
       };
 
@@ -104,6 +116,29 @@
       observer.observe(document.body, { childList: true, subtree: true });
     },
 
+    setupUrlChangeListener() {
+      const handleUrlChange = () => {
+        // URL 变化时清空旧数据，避免上报到错误的视频
+        this.trackedVideos.clear();
+        this.findVideos();
+      };
+
+      window.addEventListener('popstate', handleUrlChange);
+
+      const originalPushState = history.pushState;
+      const originalReplaceState = history.replaceState;
+
+      history.pushState = function (...args) {
+        originalPushState.apply(this, args);
+        handleUrlChange();
+      };
+
+      history.replaceState = function (...args) {
+        originalReplaceState.apply(this, args);
+        handleUrlChange();
+      };
+    },
+
     startReporting() {
       this.reportInterval = setInterval(() => {
         this.reportProgress();
@@ -111,11 +146,12 @@
     },
 
     reportProgress() {
+      const currentUrl = normalizeUrl(window.location.href);
       this.trackedVideos.forEach((info) => {
         if (info.duration > 0) {
           chrome.runtime.sendMessage({
             action: 'updateVideoProgress',
-            url: normalizeUrl(info.url),
+            url: currentUrl,
             title: info.title,
             duration: info.duration,
             watched: info.watched
@@ -127,11 +163,12 @@
     },
 
     getDetectedVideos() {
+      const currentUrl = normalizeUrl(window.location.href);
       const result = [];
       this.trackedVideos.forEach((info, video) => {
         result.push({
           title: info.title,
-          url: info.url,
+          url: currentUrl,
           duration: info.duration || video.duration || 0,
           watched: info.watched || 0,
           favicon: info.favicon,
