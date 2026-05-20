@@ -542,6 +542,64 @@ body {
   gap: 8px;
 }
 
+.vp-current-video {
+  margin-bottom: 10px;
+}
+
+.vp-current-box {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.vp-current-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4px;
+}
+
+.vp-current-meta {
+  font-size: 10px;
+  color: var(--text-light);
+  margin-bottom: 4px;
+}
+
+.vp-current-bar {
+  height: 4px;
+  background: #e9ecef;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.vp-current-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #42a5f5, #66bb6a);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.vp-current-none {
+  text-align: center;
+  padding: 10px;
+  color: var(--text-light);
+  font-size: 11px;
+  background: white;
+  border-radius: 8px;
+  border: 1px dashed var(--border);
+}
+
+.vp-current-loading {
+  text-align: center;
+  padding: 10px;
+  color: var(--text-light);
+  font-size: 11px;
+}
+
 .vp-stats {
   display: flex;
   justify-content: space-around;

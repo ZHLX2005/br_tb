@@ -8,7 +8,7 @@ import { loadGroups, setDefaultGroup, deleteGroup, addToFocusSearch, addGroup, g
 import { loadSettings, bindSettingsListeners } from './modules/settings.js';
 import { loadFocusSearchGroups, toggleFocusSearchGroup } from './modules/focusSearch.js';
 import { bindQuickActionsListeners } from './modules/quickActions.js';
-import { loadVideoProgress, bindVideoProgressEvents } from './modules/videoProgress.js';
+import { loadVideoProgress, bindVideoProgressEvents, refreshCurrentVideo } from './modules/videoProgress.js';
 import { renderColorPicker, resetColorPicker } from './modules/colorPicker.js';
 import { showToast } from './modules/utils.js';
 
@@ -186,6 +186,7 @@ async function init() {
   // 绑定视频进度模块
   await loadVideoProgress();
   bindVideoProgressEvents();
+  await refreshCurrentVideo();
 
   // 绑定UI事件
   bindUIEvents();

@@ -55,6 +55,37 @@
       this.videos = videos;
     },
 
+    async forceDetect() {
+      // 强制清空旧数据，重新检测（应对前端路由切换视频）
+      this.trackedVideos.clear();
+      this.findVideos();
+
+      // 等待所有视频加载 metadata，最多等 3 秒
+      const videos = Array.from(this.trackedVideos.keys());
+      if (videos.length === 0) return this.getDetectedVideos();
+
+      await Promise.race([
+        Promise.all(
+          videos.map(video =>
+            new Promise(resolve => {
+              if (video.duration && video.duration > 0) return resolve();
+              const onLoaded = () => { cleanup(); resolve(); };
+              const onError = () => { cleanup(); resolve(); };
+              const cleanup = () => {
+                video.removeEventListener('loadedmetadata', onLoaded);
+                video.removeEventListener('error', onError);
+              };
+              video.addEventListener('loadedmetadata', onLoaded);
+              video.addEventListener('error', onError);
+            })
+          )
+        ),
+        new Promise(resolve => setTimeout(resolve, 3000))
+      ]);
+
+      return this.getDetectedVideos();
+    },
+
     getVideoTitle(video) {
       const container = video.closest('figure, .video-container, [class*="video"], [class*="player"]');
       if (container) {

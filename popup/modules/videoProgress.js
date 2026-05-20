@@ -21,6 +21,77 @@ export async function loadVideoProgress() {
 }
 
 /**
+ * 检测并显示当前页面视频信息
+ */
+export async function refreshCurrentVideo() {
+  const container = document.getElementById('vpCurrentVideo');
+  if (!container) return;
+
+  container.innerHTML = '<div class="vp-current-loading">检测中...</div>';
+
+  try {
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    const activeTab = tabs[0];
+
+    if (!activeTab || !activeTab.url || activeTab.url.startsWith('chrome://') || activeTab.url.startsWith('chrome-extension://') || activeTab.url.startsWith('edge://')) {
+      container.innerHTML = '<div class="vp-current-none">当前页面不支持视频检测</div>';
+      return;
+    }
+
+    let results;
+    try {
+      results = await chrome.tabs.sendMessage(activeTab.id, { action: 'detectVideos' });
+    } catch (err) {
+      container.innerHTML = '<div class="vp-current-none">页面未就绪或不存在视频</div>';
+      return;
+    }
+
+    if (!results || !results.videos || results.videos.length === 0) {
+      container.innerHTML = '<div class="vp-current-none">当前页面未检测到视频</div>';
+      return;
+    }
+
+    const video = results.videos[0]; // 取第一个视频
+
+    // 查找该视频是否已在课程组中
+    let foundGroup = null;
+    let foundVideo = null;
+    for (const g of videoGroups) {
+      const v = g.videos.find(x => x.url === video.url);
+      if (v) {
+        foundGroup = g;
+        foundVideo = v;
+        break;
+      }
+    }
+
+    if (foundGroup && foundVideo) {
+      const percent = foundVideo.duration > 0 ? Math.round(((foundVideo.watched || 0) / foundVideo.duration) * 100) : 0;
+      container.innerHTML = `
+        <div class="vp-current-box">
+          <div class="vp-current-title">${escapeHtml(video.title || '未命名视频')}</div>
+          <div class="vp-current-meta">
+            已加入 "${escapeHtml(foundGroup.name)}" · 进度 ${percent}% · ${formatDuration(foundVideo.watched || 0)} / ${formatDuration(foundVideo.duration)}
+          </div>
+          <div class="vp-current-bar">
+            <div class="vp-current-fill" style="width:${percent}%"></div>
+          </div>
+        </div>
+      `;
+    } else {
+      container.innerHTML = `
+        <div class="vp-current-box">
+          <div class="vp-current-title">${escapeHtml(video.title || '未命名视频')}</div>
+          <div class="vp-current-meta">${formatDuration(video.duration)} · 未加入课程</div>
+        </div>
+      `;
+    }
+  } catch (error) {
+    container.innerHTML = '<div class="vp-current-none">检测失败</div>';
+  }
+}
+
+/**
  * 渲染视频进度面板
  */
 function renderVideoProgress() {
@@ -149,6 +220,12 @@ export function bindVideoProgressEvents() {
   const captureBtn = document.getElementById('popupCaptureVideoBtn');
   if (captureBtn) {
     captureBtn.addEventListener('click', () => captureCurrentVideo());
+  }
+
+  // 刷新当前视频
+  const refreshBtn = document.getElementById('popupRefreshVideoBtn');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', () => refreshCurrentVideo());
   }
 
   // 打开视频进度页面

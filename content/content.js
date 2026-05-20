@@ -313,8 +313,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'detectVideos') {
     const tracker = window.__tabboardVideoTracker;
     if (tracker) {
-      tracker.findVideos();
-      sendResponse({ success: true, videos: tracker.getDetectedVideos() });
+      tracker.forceDetect().then(videos => {
+        sendResponse({ success: true, videos });
+      }).catch(() => {
+        sendResponse({ success: true, videos: [] });
+      });
     } else {
       sendResponse({ success: true, videos: [] });
     }
