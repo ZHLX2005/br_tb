@@ -154,6 +154,26 @@
   color: #999;
 }
 
+/* 下拉选择框 */
+.modal-select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--modal-border);
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: inherit;
+  background: white;
+  cursor: pointer;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.modal-select:focus {
+  outline: none;
+  border-color: var(--modal-primary);
+  box-shadow: 0 0 0 3px rgba(66, 165, 245, 0.1);
+}
+
 /* 底部按钮区 */
 .modal-footer {
   display: flex;

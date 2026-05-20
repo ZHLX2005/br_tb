@@ -216,6 +216,50 @@ export class ModalDialog {
   }
 
   /**
+   * 选择对话框（下拉框）
+   * @param {string} message - 提示消息
+   * @param {Object} options - 选项
+   * @param {Array<{value:string,label:string}>} options.options - 选项列表
+   * @returns {Promise<string|null>} - 选中的 value 或 null（取消）
+   */
+  select(message, options = {}) {
+    return new Promise((resolve) => {
+      const title = options.title || '选择';
+      const confirmText = options.confirmText || '确定';
+      const cancelText = options.cancelText || '取消';
+      const opts = options.options || [];
+      const defaultValue = options.defaultValue || (opts[0] ? opts[0].value : '');
+
+      const optionsHtml = opts.map(opt =>
+        `<option value="${this._escapeHtmlAttribute(opt.value)}"${opt.value === defaultValue ? ' selected' : ''}>${this._escapeHtml(opt.label)}</option>`
+      ).join('');
+
+      const content = `
+        <div class="modal-header">
+          <h3 class="modal-title">${this._escapeHtml(title)}</h3>
+          <button class="modal-close" type="button">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="modal-message">${this._escapeHtml(message)}</div>
+          <select class="modal-select">${optionsHtml}</select>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary modal-cancel">${cancelText}</button>
+          <button class="btn btn-primary modal-confirm">${confirmText}</button>
+        </div>
+      `;
+
+      this.onConfirm = () => {
+        const select = this.dialog.querySelector('.modal-select');
+        resolve(select ? select.value : null);
+      };
+      this.onCancel = () => resolve(null);
+
+      this._show(content, options);
+    });
+  }
+
+  /**
    * HTML 属性转义
    */
   _escapeHtmlAttribute(str) {
@@ -252,6 +296,7 @@ export const modal = new ModalDialog();
 // 兼容性：导出便捷函数
 export const confirm = (message, options) => modal.confirm(message, options);
 export const prompt = (message, options) => modal.prompt(message, options);
+export const select = (message, options) => modal.select(message, options);
 export const toast = (message, type, duration) => ModalDialog.toast(message, type, duration);
 
 export default ModalDialog;

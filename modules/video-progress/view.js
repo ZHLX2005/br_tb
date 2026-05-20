@@ -241,16 +241,19 @@ class VideoProgressView {
   }
 
   async showVideoSelectionDialog(videos) {
-    const options = videos.map((v, i) => `${i + 1}. ${v.title || '未命名'} (${this.formatDuration(v.duration)})`).join('\n');
-    const input = await modal.prompt(`检测到 ${videos.length} 个视频，请输入编号选择:\n\n${options}`, {
+    const options = videos.map((v, i) => ({
+      value: String(i),
+      label: `${v.title || '未命名'} (${this.formatDuration(v.duration)})`
+    }));
+    const selected = await modal.select(`检测到 ${videos.length} 个视频`, {
       title: '选择视频',
-      defaultValue: '1',
-      placeholder: '视频编号',
-      confirmText: '选择'
+      options,
+      confirmText: '选择',
+      cancelText: '取消'
     });
 
-    if (!input) return;
-    const index = parseInt(input) - 1;
+    if (selected === null) return;
+    const index = parseInt(selected);
     if (isNaN(index) || index < 0 || index >= videos.length) {
       this.showToast('无效的选择', 'error');
       return;
@@ -273,16 +276,19 @@ class VideoProgressView {
     }
 
     // Show group selection
-    const groupOptions = this.videoGroups.map((g, i) => `${i + 1}. ${g.name} (${g.videos.length} 个视频)`).join('\n');
-    const input = await modal.prompt(`选择要添加到的课程:\n\n${groupOptions}`, {
+    const groupOptions = this.videoGroups.map((g, i) => ({
+      value: String(i),
+      label: `${g.name} (${g.videos.length} 个视频)`
+    }));
+    const selected = await modal.select(`选择要添加到的课程`, {
       title: `添加视频: ${video.title || '未命名'}`,
-      defaultValue: '1',
-      placeholder: '课程编号',
-      confirmText: '添加'
+      options: groupOptions,
+      confirmText: '添加',
+      cancelText: '取消'
     });
 
-    if (!input) return;
-    const index = parseInt(input) - 1;
+    if (selected === null) return;
+    const index = parseInt(selected);
     if (isNaN(index) || index < 0 || index >= this.videoGroups.length) {
       this.showToast('无效的选择', 'error');
       return;

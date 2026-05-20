@@ -213,36 +213,32 @@ async function captureCurrentVideo() {
     // 选择视频（多个时）
     let selectedVideo = videos[0];
     if (videos.length > 1) {
-      const options = videos.map((v, i) => `${i + 1}. ${v.title || '未命名'} (${formatDuration(v.duration)})`).join('\n');
-      const input = await window.modal.prompt(`检测到 ${videos.length} 个视频，请输入编号:\n\n${options}`, {
+      const videoOptions = videos.map((v, i) => ({
+        value: String(i),
+        label: `${v.title || '未命名'} (${formatDuration(v.duration)})`
+      }));
+      const selected = await window.modal.select('检测到多个视频，请选择:', {
         title: '选择视频',
-        defaultValue: '1',
-        placeholder: '视频编号',
-        confirmText: '下一步'
+        options: videoOptions,
+        confirmText: '下一步',
+        cancelText: '取消'
       });
-      if (!input) return;
-      const idx = parseInt(input) - 1;
-      if (isNaN(idx) || idx < 0 || idx >= videos.length) {
-        showToast(container, '无效的选择', 'error');
-        return;
-      }
-      selectedVideo = videos[idx];
+      if (selected === null) return;
+      selectedVideo = videos[parseInt(selected)];
     }
 
     // 选择课程组
-    const groupOptions = groups.map((g, i) => `${i + 1}. ${g.name} (${g.videos.length} 个视频)`).join('\n');
-    const groupInput = await window.modal.prompt(
-      `视频: ${selectedVideo.title || '未命名'}\n\n选择课程:\n\n${groupOptions}`,
-      { title: '添加到课程', defaultValue: '1', placeholder: '课程编号', confirmText: '添加' }
+    const groupOptions = groups.map((g, i) => ({
+      value: String(i),
+      label: `${g.name} (${g.videos.length} 个视频)`
+    }));
+    const groupSelected = await window.modal.select(
+      `视频: ${selectedVideo.title || '未命名视频'}\n选择要添加到的课程:`,
+      { title: '添加到课程', options: groupOptions, confirmText: '添加', cancelText: '取消' }
     );
-    if (!groupInput) return;
-    const gIdx = parseInt(groupInput) - 1;
-    if (isNaN(gIdx) || gIdx < 0 || gIdx >= groups.length) {
-      showToast(container, '无效的选择', 'error');
-      return;
-    }
+    if (groupSelected === null) return;
 
-    const targetGroup = groups[gIdx];
+    const targetGroup = groups[parseInt(groupSelected)];
     const addRes = await chrome.runtime.sendMessage({
       action: 'addVideoToGroup',
       groupId: targetGroup.id,
