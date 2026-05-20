@@ -7,6 +7,20 @@ import { generateId } from './utils.js';
 
 const COLORS = ['#ef5350', '#ec407a', '#ab47bc', '#7e57c2', '#5c6bc0', '#42a5f5', '#29b6f6', '#26c6da', '#26a69a', '#66bb6a', '#9ccc65', '#d4e157', '#ffee58', '#ffca28', '#ffa726', '#ff7043'];
 
+function normalizeUrl(url) {
+  try {
+    const u = new URL(url);
+    if (u.hostname.includes('bilibili.com') && u.pathname.startsWith('/video/')) {
+      let path = u.pathname;
+      if (path.endsWith('/')) path = path.slice(0, -1);
+      return `${u.protocol}//${u.hostname}${path}`;
+    }
+    return url;
+  } catch {
+    return url;
+  }
+}
+
 /**
  * Open the video progress page
  */
@@ -89,8 +103,10 @@ function setupVideoProgressListeners() {
               return;
             }
 
+            const normalizedUrl = normalizeUrl(request.video.url);
+
             // Check if video already exists in this group
-            const exists = group.videos.some(v => v.url === request.video.url);
+            const exists = group.videos.some(v => v.url === normalizedUrl);
             if (exists) {
               sendResponse({ success: false, error: 'Video already in group' });
               return;
@@ -99,7 +115,7 @@ function setupVideoProgressListeners() {
             const newVideo = {
               id: generateId(),
               title: request.video.title || '未命名视频',
-              url: request.video.url,
+              url: normalizedUrl,
               duration: request.video.duration || 0,
               watched: request.video.watched || 0,
               favicon: request.video.favicon || '',
@@ -129,9 +145,10 @@ function setupVideoProgressListeners() {
           case 'updateVideoProgress': {
             const result = await chrome.storage.local.get(['videoGroups']);
             const videoGroups = ('videoGroups' in result) ? result.videoGroups : [];
+            const normalizedReqUrl = normalizeUrl(request.url);
 
             for (const group of videoGroups) {
-              const video = group.videos.find(v => v.url === request.url);
+              const video = group.videos.find(v => v.url === normalizedReqUrl);
               if (video) {
                 video.watched = Math.max(video.watched || 0, request.watched || 0);
                 video.duration = request.duration || video.duration || 0;

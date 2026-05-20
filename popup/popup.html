@@ -24,6 +24,10 @@
           <span class="nav-tab-icon"></span>
           <span class="nav-tab-label">专注搜索</span>
         </div>
+        <div class="nav-tab" data-page="videoprogress">
+          <span class="nav-tab-icon"></span>
+          <span class="nav-tab-label">视频进度</span>
+        </div>
       </div>
     </nav>
 
@@ -49,10 +53,6 @@
             <button id="openSidebarBtn" class="quick-action-btn">
               <span class="qa-icon"></span>
               <span class="qa-label">打开侧边栏</span>
-            </button>
-            <button id="captureVideoBtn" class="quick-action-btn">
-              <span class="qa-icon"></span>
-              <span class="qa-label">捕获当前视频</span>
             </button>
           </div>
         </div>
@@ -97,6 +97,17 @@
         <div class="page-section-title">专注搜索分组</div>
         <p class="focus-hint">勾选分组以添加到专注搜索对象</p>
         <div id="focusSearchGroupsList" class="focus-search-groups-list">
+          <!-- 动态生成 -->
+        </div>
+      </div>
+
+      <!-- 视频进度页 -->
+      <div class="page" id="page-videoprogress">
+        <div class="vp-actions-row">
+          <button id="popupCaptureVideoBtn" class="btn btn-small">+ 捕获视频</button>
+          <button id="popupOpenVideoPageBtn" class="btn btn-secondary">打开面板</button>
+        </div>
+        <div id="videoProgressList" class="vp-list">
           <!-- 动态生成 -->
         </div>
       </div>

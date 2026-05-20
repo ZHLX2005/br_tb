@@ -19,7 +19,7 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content/content.js"],
+      "js": ["content/videoTracker.js", "content/content.js"],
       "run_at": "document_end"
     }
   ],

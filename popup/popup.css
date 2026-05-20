@@ -510,6 +510,246 @@ body {
   border-radius: 2px;
 }
 
+/* ========== 视频进度页 ========== */
+
+.vp-actions-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.vp-actions-row .btn-small {
+  flex: 1;
+}
+
+.vp-actions-row .btn-secondary {
+  background: #e0e0e0;
+  color: var(--text);
+  font-size: 11px;
+  padding: 5px 10px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.vp-actions-row .btn-secondary:hover {
+  background: #d0d0d0;
+}
+
+.vp-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vp-stats {
+  display: flex;
+  justify-content: space-around;
+  padding: 10px 0;
+  margin-bottom: 6px;
+}
+
+.vp-stat {
+  text-align: center;
+}
+
+.vp-stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1;
+}
+
+.vp-stat-label {
+  font-size: 10px;
+  color: var(--text-light);
+  margin-top: 2px;
+}
+
+.vp-overall-bar {
+  height: 6px;
+  background: #e9ecef;
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.vp-overall-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #42a5f5, #66bb6a);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.vp-group {
+  background: white;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.vp-group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.vp-group-header:hover {
+  background: #f8f9fa;
+}
+
+.vp-group-color {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.vp-group-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.vp-group-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vp-group-meta {
+  font-size: 10px;
+  color: var(--text-light);
+  margin-top: 1px;
+}
+
+.vp-group-progress {
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.vp-group-percent {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.vp-group-bar {
+  width: 50px;
+  height: 4px;
+  background: #e9ecef;
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 2px;
+}
+
+.vp-group-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #42a5f5, #66bb6a);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.vp-group-toggle {
+  font-size: 10px;
+  color: var(--text-light);
+  flex-shrink: 0;
+  width: 14px;
+  text-align: center;
+}
+
+.vp-group-videos {
+  padding: 0 10px 8px;
+  border-top: 1px solid #f5f5f5;
+}
+
+.vp-video-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  cursor: pointer;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.vp-video-item:last-child {
+  border-bottom: none;
+}
+
+.vp-video-item:hover {
+  background: #f8f9fa;
+}
+
+.vp-video-favicon {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.vp-video-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.vp-video-title {
+  font-size: 11px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 2px;
+}
+
+.vp-video-bar {
+  height: 3px;
+  background: #e9ecef;
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 2px;
+}
+
+.vp-video-fill {
+  height: 100%;
+  background: #66bb6a;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.vp-video-meta {
+  font-size: 9px;
+  color: var(--text-light);
+}
+
+.vp-video-empty {
+  text-align: center;
+  padding: 8px;
+  color: var(--text-light);
+  font-size: 11px;
+}
+
+.vp-empty-state {
+  text-align: center;
+  padding: 20px 10px;
+}
+
+.vp-empty-text {
+  font-size: 13px;
+  color: var(--text-light);
+  margin-bottom: 4px;
+}
+
+.vp-empty-desc {
+  font-size: 11px;
+  color: #bbb;
+}
+
 /* ========== 录制区域 ========== */
 
 .solution-recording {

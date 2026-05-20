@@ -5,6 +5,20 @@
 
 import { modal } from '../../shared/ModalDialog.js';
 
+function normalizeUrl(url) {
+  try {
+    const u = new URL(url);
+    if (u.hostname.includes('bilibili.com') && u.pathname.startsWith('/video/')) {
+      let path = u.pathname;
+      if (path.endsWith('/')) path = path.slice(0, -1);
+      return `${u.protocol}//${u.hostname}${path}`;
+    }
+    return url;
+  } catch {
+    return url;
+  }
+}
+
 class VideoProgressView {
   constructor(dataManager) {
     this.dataManager = dataManager;
@@ -280,7 +294,7 @@ class VideoProgressView {
       groupId: group.id,
       video: {
         title: video.title || video.pageTitle || '未命名视频',
-        url: video.url,
+        url: normalizeUrl(video.url),
         duration: video.duration || 0,
         watched: video.watched || 0,
         favicon: video.favicon || '',
@@ -366,7 +380,7 @@ class VideoProgressView {
       groupId,
       video: {
         title: video.title || video.pageTitle || '未命名视频',
-        url: video.url,
+        url: normalizeUrl(video.url),
         duration: video.duration || 0,
         watched: video.watched || 0,
         favicon: video.favicon || '',
@@ -427,15 +441,15 @@ class VideoProgressView {
           <div class="stat-label">总时长</div>
         </div>
         <div class="stat-card">
-          <div class="stat-value">${progressPercent}%</div>
-          <div class="stat-label">总进度</div>
+          <div class="stat-value">${this.formatDuration(totalWatched)}</div>
+          <div class="stat-label">已观看</div>
         </div>
       </div>
       <div class="overall-progress">
         <div class="progress-bar-bg">
           <div class="progress-bar-fill" style="width: ${progressPercent}%"></div>
         </div>
-        <span class="progress-text">${this.formatDuration(totalWatched)} / ${this.formatDuration(totalDuration)}</span>
+        <span class="progress-text">${progressPercent}% · 剩余 ${this.formatDuration(totalDuration - totalWatched)}</span>
       </div>
     `;
   }

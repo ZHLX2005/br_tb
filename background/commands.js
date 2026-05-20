@@ -4,7 +4,7 @@
 
 import { addCurrentTabToDefaultGroup } from './groups.js';
 import { collectCurrentWindowTabs, openTabboard } from './timeline.js';
-
+// 快捷键命令驱动进行注入
 async function triggerFocusSearch() {
   try {
     const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
