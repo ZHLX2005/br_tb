@@ -316,21 +316,17 @@ class VideoProgressView {
       return;
     }
 
-    // Wait 10s for page and video to load
-    await this._sleep(10000);
-
-    let results;
-    try {
-      results = await chrome.tabs.sendMessage(tab.id, { action: 'detectVideos' });
-    } catch (err) {
-      // Content script may not be ready, try once more after 5s
-      await this._sleep(5000);
+    // Poll every 2s, max 10s (5 attempts)
+    let results = null;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      await this._sleep(2000);
       try {
         results = await chrome.tabs.sendMessage(tab.id, { action: 'detectVideos' });
-      } catch (err2) {
-        await chrome.tabs.remove(tab.id);
-        this.showToast('页面未检测到视频或加载超时', 'error');
-        return;
+        if (results && results.videos && results.videos.length > 0) {
+          break; // detected, stop polling
+        }
+      } catch (err) {
+        // content script not ready yet, continue polling
       }
     }
 
