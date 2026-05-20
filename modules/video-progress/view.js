@@ -66,6 +66,9 @@ class VideoProgressView {
         case 'open-group':
           this.openGroup(groupId);
           break;
+        case 'open-video':
+          this.openVideo(btn.dataset.url);
+          break;
         case 'remove-video':
           this.removeVideo(groupId, videoId);
           break;
@@ -156,6 +159,11 @@ class VideoProgressView {
     if (response.success) {
       this.showToast('正在打开视频页面...', 'success');
     }
+  }
+
+  async openVideo(url) {
+    if (!url) return;
+    await chrome.tabs.create({ url });
   }
 
   async removeVideo(groupId, videoId) {
@@ -484,7 +492,7 @@ class VideoProgressView {
             ` : group.videos.map(video => {
               const videoProgress = video.duration > 0 ? Math.round(((video.watched || 0) / video.duration) * 100) : 0;
               return `
-                <div class="video-item" data-video-id="${video.id}">
+                <div class="video-item" data-action="open-video" data-url="${this._escapeHtmlAttribute(video.url)}" title="点击打开视频页面">
                   <img class="video-favicon" src="${this._escapeHtmlAttribute(video.favicon || '')}" loading="lazy" onerror="this.style.display='none'">
                   <div class="video-info">
                     <div class="video-title" title="${this._escapeHtmlAttribute(video.title)}">${this.escapeHtml(video.title)}</div>
@@ -497,7 +505,7 @@ class VideoProgressView {
                       <div class="video-progress-fill" style="width: ${videoProgress}%"></div>
                     </div>
                   </div>
-                  <button class="btn btn-icon btn-small btn-danger" data-action="remove-video" data-group-id="${group.id}" data-video-id="${video.id}" title="移除">✕</button>
+                  <button class="btn btn-icon btn-small btn-danger" data-action="remove-video" data-group-id="${group.id}" data-video-id="${video.id}" title="移除" onclick="event.stopPropagation()">✕</button>
                 </div>
               `;
             }).join('')}
