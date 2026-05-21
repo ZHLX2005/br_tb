@@ -183,9 +183,9 @@
           chrome.runtime.sendMessage({
             action: 'updateVideoProgress',
             url: currentUrl,
-            title: info.title,
             duration: info.duration,
             watched: info.watched
+            // title 由用户导入时设定，进度上报不覆盖
           }).catch(() => {
             // Extension may not be ready or page unloaded
           });

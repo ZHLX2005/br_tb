@@ -106,6 +106,32 @@ class VideoProgressView {
           break;
       }
     });
+
+    // 视频标题 inline 编辑事件（input 元素不在 [data-action] 体系内）
+    document.addEventListener('click', (e) => {
+      const input = e.target.closest('.video-title-input');
+      if (!input) return;
+      if (input.readOnly) {
+        input.readOnly = false;
+        input.select();
+      }
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (!e.target.classList.contains('video-title-input')) return;
+      if (e.key === 'Enter') {
+        e.target.blur();
+      } else if (e.key === 'Escape') {
+        const original = e.target.dataset.originalTitle || '';
+        e.target.value = original;
+        e.target.readOnly = true;
+      }
+    });
+
+    document.addEventListener('blur', (e) => {
+      if (!e.target.classList.contains('video-title-input')) return;
+      this._saveVideoTitle(e.target);
+    }, true);
   }
 
   backToTabboard() {
@@ -558,6 +584,39 @@ class VideoProgressView {
     }
   }
 
+  async _saveVideoTitle(input) {
+    const groupId = input.dataset.groupId;
+    const videoId = input.dataset.videoId;
+    const original = input.dataset.originalTitle || '';
+    const newTitle = input.value.trim();
+
+    input.readOnly = true;
+
+    if (!newTitle || newTitle === original) {
+      input.value = original;
+      return;
+    }
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        action: 'updateVideoTitle',
+        groupId,
+        videoId,
+        newTitle
+      });
+      if (response.success) {
+        input.dataset.originalTitle = newTitle;
+        this.showToast('标题已保存', 'success');
+      } else {
+        input.value = original;
+        this.showToast('保存失败', 'error');
+      }
+    } catch {
+      input.value = original;
+      this.showToast('保存失败', 'error');
+    }
+  }
+
   _sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
@@ -668,7 +727,7 @@ class VideoProgressView {
                 <div class="video-item" data-action="open-video" data-url="${this._escapeHtmlAttribute(video.url)}" title="点击打开视频页面">
                   <img class="video-favicon" src="${this._escapeHtmlAttribute(video.favicon || '')}" loading="lazy" onerror="this.style.display='none'">
                   <div class="video-info">
-                    <div class="video-title" title="${this._escapeHtmlAttribute(video.title)}">${this.escapeHtml(video.title)}</div>
+                    <input type="text" class="video-title-input" value="${this._escapeHtmlAttribute(video.title)}" data-original-title="${this._escapeHtmlAttribute(video.title)}" data-group-id="${group.id}" data-video-id="${video.id}" title="点击编辑标题" onclick="event.stopPropagation()">
                     <div class="video-meta">
                       <span>${this.formatDuration(video.duration)}</span>
                       <span>已看 ${this.formatDuration(video.watched || 0)}</span>

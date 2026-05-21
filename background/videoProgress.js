@@ -158,6 +158,22 @@ function setupVideoProgressListeners() {
             break;
           }
 
+          case 'updateVideoTitle': {
+            const result = await chrome.storage.local.get(['videoGroups']);
+            const videoGroups = ('videoGroups' in result) ? result.videoGroups : [];
+            const group = videoGroups.find(g => g.id === request.groupId);
+
+            if (group) {
+              const video = group.videos.find(v => v.id === request.videoId);
+              if (video && request.newTitle) {
+                video.title = request.newTitle.trim();
+                await chrome.storage.local.set({ videoGroups });
+              }
+            }
+            sendResponse({ success: true });
+            break;
+          }
+
           case 'updateVideoProgress': {
             const result = await chrome.storage.local.get(['videoGroups']);
             const videoGroups = ('videoGroups' in result) ? result.videoGroups : [];
@@ -168,7 +184,7 @@ function setupVideoProgressListeners() {
               if (video) {
                 video.watched = Math.max(video.watched || 0, request.watched || 0);
                 video.duration = request.duration || video.duration || 0;
-                video.title = request.title || video.title;
+                // title 由用户导入时设定，进度上报不覆盖
                 break;
               }
             }

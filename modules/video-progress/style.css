@@ -244,13 +244,33 @@
   min-width: 0;
 }
 
-.video-title {
+.video-title-input {
   font-size: 14px;
   color: #333;
   margin-bottom: 4px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 2px 4px;
+  font-family: inherit;
+  cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  box-sizing: border-box;
+}
+
+.video-title-input:hover {
+  background: #f0f0f0;
+  border-radius: 4px;
+}
+
+.video-title-input:focus {
+  outline: none;
+  background: #fff;
+  border-radius: 4px;
+  cursor: text;
+  box-shadow: 0 0 0 2px rgba(66, 165, 245, 0.2);
 }
 
 .video-meta {
