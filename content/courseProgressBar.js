@@ -225,14 +225,11 @@
         segment.appendChild(fill);
       }
 
-      // 当前视频高亮：橙色发光边框 + 轻微上浮
+      // 当前视频高亮：轻微上浮 + 白色光晕
       if (isCurrent) {
-        segment.style.boxShadow = `
-          inset 0 0 0 1.5px #ff7043,
-          0 0 8px rgba(255,112,67,0.4)
-        `;
         segment.style.zIndex = '2';
-        segment.style.transform = 'scaleY(1.2)';
+        segment.style.transform = 'scaleY(1.25)';
+        segment.style.filter = 'brightness(1.15) drop-shadow(0 0 4px rgba(255,255,255,0.6))';
       }
 
       segment.addEventListener('click', (e) => {
