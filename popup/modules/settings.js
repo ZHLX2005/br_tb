@@ -15,6 +15,7 @@ export async function loadSettings() {
   document.getElementById('closeAfterCollect').checked = settings.closeAfterCollect || false;
   document.getElementById('closeAfterRestore').checked = settings.closeAfterRestore || false;
   document.getElementById('excludeEdgeUrls').checked = settings.excludeEdgeUrls || false;
+  document.getElementById('showCourseProgressBar').checked = settings.showCourseProgressBar || false;
 
   return settings;
 }
@@ -31,7 +32,7 @@ export async function saveSettings(settings) {
  * 绑定设置复选框事件
  * @param {string[]} checkboxIds - 复选框ID数组
  */
-export function bindSettingsListeners(checkboxIds = ['closeAfterCollect', 'closeAfterRestore', 'excludeEdgeUrls']) {
+export function bindSettingsListeners(checkboxIds = ['closeAfterCollect', 'closeAfterRestore', 'excludeEdgeUrls', 'showCourseProgressBar']) {
   checkboxIds.forEach(id => {
     const el = document.getElementById(id);
     if (el) {
@@ -39,7 +40,8 @@ export function bindSettingsListeners(checkboxIds = ['closeAfterCollect', 'close
         const settings = {
           closeAfterCollect: document.getElementById('closeAfterCollect').checked,
           closeAfterRestore: document.getElementById('closeAfterRestore').checked,
-          excludeEdgeUrls: document.getElementById('excludeEdgeUrls').checked
+          excludeEdgeUrls: document.getElementById('excludeEdgeUrls').checked,
+          showCourseProgressBar: document.getElementById('showCourseProgressBar').checked
         };
         await saveSettings(settings);
       });

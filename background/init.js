@@ -41,17 +41,30 @@ export async function initializeDefaultData() {
         closeAfterRestore: false,
         excludeEdgeUrls: false,
         lastView: 'timeline',
-        visibleGroups: result.groups ? result.groups.map(g => g.id) : []
+        visibleGroups: result.groups ? result.groups.map(g => g.id) : [],
+        showCourseProgressBar: false
       }
     });
-  } else if (result.settings.lastView === undefined) {
-    // 为已有设置添加 lastView 字段
-    const newSettings = { ...result.settings, lastView: 'timeline' };
-    // 确保 visibleGroups 也存在
-    if (!result.settings.visibleGroups) {
-      newSettings.visibleGroups = result.groups ? result.groups.map(g => g.id) : [];
+  } else {
+    // 为旧设置迁移新字段
+    let needUpdate = false;
+    const updatedSettings = { ...result.settings };
+
+    if (updatedSettings.showCourseProgressBar === undefined) {
+      updatedSettings.showCourseProgressBar = false;
+      needUpdate = true;
     }
-    await chrome.storage.local.set({ settings: newSettings });
+    if (updatedSettings.lastView === undefined) {
+      updatedSettings.lastView = 'timeline';
+      needUpdate = true;
+    }
+    if (!updatedSettings.visibleGroups) {
+      updatedSettings.visibleGroups = result.groups ? result.groups.map(g => g.id) : [];
+      needUpdate = true;
+    }
+    if (needUpdate) {
+      await chrome.storage.local.set({ settings: updatedSettings });
+    }
   }
 
   // 初始化录制状态（独立存储，与分组分离）
