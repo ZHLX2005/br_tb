@@ -56,7 +56,7 @@
     currentVideoIndex = -1;
   }
 
-  function showTooltip(segment, video, index, currentIdx) {
+  async function showTooltip(segment, groupId, videoUrl, index, currentIdx) {
     let tooltip = document.getElementById(TOOLTIP_ID);
     if (!tooltip) {
       tooltip = document.createElement('div');
@@ -64,11 +64,24 @@
       document.body.appendChild(tooltip);
     }
 
+    let video = { title: '', duration: 0, watched: 0 };
+    try {
+      const response = await chrome.runtime.sendMessage({ action: 'getVideoGroups' });
+      if (response.success && response.videoGroups) {
+        const group = response.videoGroups.find(g => g.id === groupId);
+        if (group && group.videos[index]) {
+          video = group.videos[index];
+        }
+      }
+    } catch {
+      // Extension 可能未启用，使用传入的默认值
+    }
+
     const percent = video.duration > 0 ? Math.round(((video.watched || 0) / video.duration) * 100) : 0;
     const status = index < currentIdx ? '已完成' : (index === currentIdx ? '当前' : '未开始');
 
     tooltip.innerHTML = `
-      <div style="font-weight:600;font-size:12px;margin-bottom:3px;color:#333;">${video.title}</div>
+      <div style="font-weight:600;font-size:12px;margin-bottom:3px;color:#333;">${video.title || '未命名视频'}</div>
       <div style="font-size:11px;color:#666;">第 ${index + 1} 课 · ${status}</div>
       <div style="font-size:11px;color:#666;margin-top:2px;">${formatTime(video.watched || 0)} / ${formatTime(video.duration)} · ${percent}%</div>
     `;
@@ -243,7 +256,7 @@
 
       segment.addEventListener('mouseenter', () => {
         segment.style.filter = 'brightness(0.9)';
-        showTooltip(segment, video, i, currentIdx);
+        showTooltip(segment, group.id, video.url, i, currentIdx);
       });
       segment.addEventListener('mouseleave', () => {
         segment.style.filter = defaultFilter;
