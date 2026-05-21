@@ -52,6 +52,22 @@ function setupVideoProgressListeners() {
             break;
           }
 
+          case 'getCurrentVideoGroup': {
+            const result = await chrome.storage.local.get(['videoGroups']);
+            const videoGroups = ('videoGroups' in result) ? result.videoGroups : [];
+            const normalizedCurrentUrl = normalizeUrl(request.url || '');
+
+            for (const group of videoGroups) {
+              const idx = group.videos.findIndex(v => normalizeUrl(v.url) === normalizedCurrentUrl);
+              if (idx !== -1) {
+                sendResponse({ success: true, group, currentIndex: idx });
+                return;
+              }
+            }
+            sendResponse({ success: false });
+            break;
+          }
+
           case 'addVideoGroup': {
             const result = await chrome.storage.local.get(['videoGroups']);
             const videoGroups = ('videoGroups' in result) ? result.videoGroups : [];

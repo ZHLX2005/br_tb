@@ -13,25 +13,6 @@
   let updateTimer = null;
   let isEnabled = false;
 
-  function normalizeUrl(url) {
-    try {
-      const u = new URL(url);
-      if (u.hostname.includes('bilibili.com') && u.pathname.startsWith('/video/')) {
-        let path = u.pathname;
-        if (path.endsWith('/')) path = path.slice(0, -1);
-        return `${u.protocol}//${u.hostname}${path}`;
-      }
-      return url;
-    } catch {
-      return url;
-    }
-  }
-
-  function findCurrentVideoIndex(group, currentUrl) {
-    const normalized = normalizeUrl(currentUrl);
-    return group.videos.findIndex(v => normalizeUrl(v.url) === normalized);
-  }
-
   function formatTime(seconds) {
     if (!seconds || isNaN(seconds)) return '00:00';
     const hrs = Math.floor(seconds / 3600);
@@ -56,7 +37,16 @@
     currentVideoIndex = -1;
   }
 
-  async function showTooltip(segment, groupId, videoUrl, index, currentIdx) {
+  function hideBar() {
+    const bar = document.getElementById(BAR_ID);
+    if (bar) bar.remove();
+    const tooltip = document.getElementById(TOOLTIP_ID);
+    if (tooltip) tooltip.remove();
+    currentGroup = null;
+    currentVideoIndex = -1;
+  }
+
+  async function showTooltip(segment, groupId, videoIndex, currentIdx) {
     let tooltip = document.getElementById(TOOLTIP_ID);
     if (!tooltip) {
       tooltip = document.createElement('div');
@@ -64,25 +54,25 @@
       document.body.appendChild(tooltip);
     }
 
-    let video = { title: '', duration: 0, watched: 0 };
+    let video = { title: '未命名视频', duration: 0, watched: 0 };
     try {
       const response = await chrome.runtime.sendMessage({ action: 'getVideoGroups' });
       if (response.success && response.videoGroups) {
         const group = response.videoGroups.find(g => g.id === groupId);
-        if (group && group.videos[index]) {
-          video = group.videos[index];
+        if (group && group.videos[videoIndex]) {
+          video = group.videos[videoIndex];
         }
       }
     } catch {
-      // Extension 可能未启用，使用传入的默认值
+      // Extension 可能未启用
     }
 
     const percent = video.duration > 0 ? Math.round(((video.watched || 0) / video.duration) * 100) : 0;
-    const status = index < currentIdx ? '已完成' : (index === currentIdx ? '当前' : '未开始');
+    const status = videoIndex < currentIdx ? '已完成' : (videoIndex === currentIdx ? '当前' : '未开始');
 
     tooltip.innerHTML = `
-      <div style="font-weight:600;font-size:12px;margin-bottom:3px;color:#333;">${video.title || '未命名视频'}</div>
-      <div style="font-size:11px;color:#666;">第 ${index + 1} 课 · ${status}</div>
+      <div style="font-weight:600;font-size:12px;margin-bottom:3px;color:#333;">${video.title}</div>
+      <div style="font-size:11px;color:#666;">第 ${videoIndex + 1} 课 · ${status}</div>
       <div style="font-size:11px;color:#666;margin-top:2px;">${formatTime(video.watched || 0)} / ${formatTime(video.duration)} · ${percent}%</div>
     `;
 
@@ -111,15 +101,12 @@
   }
 
   function createProgressBar(group, currentIdx) {
-    removeBar();
-
     const bar = document.createElement('div');
     bar.id = BAR_ID;
 
     const totalDuration = group.videos.reduce((s, v) => s + (v.duration || 0), 0);
     if (totalDuration <= 0) return bar;
 
-    // 计算整体进度：当前视频之前的全部完成 + 当前视频的 watched / duration
     let overallWatched = 0;
     group.videos.forEach((video, i) => {
       if (i < currentIdx) {
@@ -145,7 +132,6 @@
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     `;
 
-    // 左侧：课程名
     const titleEl = document.createElement('div');
     titleEl.textContent = group.name;
     titleEl.style.cssText = `
@@ -162,7 +148,6 @@
     `;
     bar.appendChild(titleEl);
 
-    // 中间：连续进度条
     const trackWrap = document.createElement('div');
     trackWrap.style.cssText = `
       flex: 1;
@@ -196,15 +181,9 @@
       const isBefore = i < currentIdx;
       const isCurrent = i === currentIdx;
 
-      // 填充比例：之前=100%，当前=watched/duration，之后=0%
       let fillPercent = 0;
       if (isBefore) fillPercent = 100;
       else if (isCurrent) fillPercent = video.duration > 0 ? ((video.watched || 0) / video.duration) * 100 : 0;
-
-      // 默认灰色遮罩（遮住底层统一渐变）
-      // 已完成/当前视频移除遮罩，露出 track 的连续渐变
-      const maskColor = 'rgba(210,210,210,0.88)';
-      const maskColorCurrent = 'rgba(210,210,210,0.6)';
 
       segment.style.cssText = `
         width: ${widthPercent}%;
@@ -214,15 +193,12 @@
         border-right: 1px solid rgba(255,255,255,0.25);
       `;
 
-      if (isBefore) {
-        segment.style.background = 'transparent';
-      } else if (isCurrent) {
+      if (isBefore || isCurrent) {
         segment.style.background = 'transparent';
       } else {
-        segment.style.background = maskColor;
+        segment.style.background = 'rgba(210,210,210,0.88)';
       }
 
-      // 如果当前视频有 watched 但未完成，内部叠加绿色填充层
       if (isCurrent && fillPercent > 0 && fillPercent < 100) {
         const fill = document.createElement('div');
         fill.style.cssText = `
@@ -238,7 +214,6 @@
         segment.appendChild(fill);
       }
 
-      // 当前视频高亮：轻微上浮 + 白色光晕
       if (isCurrent) {
         segment.style.zIndex = '2';
         segment.style.transform = 'scaleY(1.25)';
@@ -256,7 +231,7 @@
 
       segment.addEventListener('mouseenter', () => {
         segment.style.filter = 'brightness(0.9)';
-        showTooltip(segment, group.id, video.url, i, currentIdx);
+        showTooltip(segment, group.id, i, currentIdx);
       });
       segment.addEventListener('mouseleave', () => {
         segment.style.filter = defaultFilter;
@@ -269,7 +244,6 @@
     trackWrap.appendChild(track);
     bar.appendChild(trackWrap);
 
-    // 右侧：百分比
     const percentEl = document.createElement('div');
     percentEl.textContent = `${overallPercent}%`;
     percentEl.style.cssText = `
@@ -295,45 +269,61 @@
     if (!isEnabled) return;
 
     try {
-      const currentUrl = window.location.href;
-      const response = await chrome.runtime.sendMessage({ action: 'getVideoGroups' });
-      if (!response.success || !response.videoGroups) return;
+      const response = await chrome.runtime.sendMessage({
+        action: 'getCurrentVideoGroup',
+        url: window.location.href
+      });
 
-      let matchedGroup = null;
-      let matchedIndex = -1;
-
-      for (const group of response.videoGroups) {
-        const idx = findCurrentVideoIndex(group, currentUrl);
-        if (idx !== -1) {
-          matchedGroup = group;
-          matchedIndex = idx;
-          break;
-        }
-      }
-
-      if (!matchedGroup) {
-        removeBar();
+      if (!response.success || !response.group) {
+        hideBar();
         return;
       }
 
-      if (!currentGroup || currentGroup.id !== matchedGroup.id || currentVideoIndex !== matchedIndex) {
-        currentGroup = matchedGroup;
-        currentVideoIndex = matchedIndex;
-        const bar = createProgressBar(matchedGroup, matchedIndex);
-        document.body.appendChild(bar);
+      currentGroup = response.group;
+      currentVideoIndex = response.currentIndex;
+
+      const bar = createProgressBar(response.group, response.currentIndex);
+      const oldBar = document.getElementById(BAR_ID);
+      if (oldBar) {
+        oldBar.replaceWith(bar);
       } else {
-        currentGroup = matchedGroup;
-        const bar = createProgressBar(matchedGroup, matchedIndex);
-        const oldBar = document.getElementById(BAR_ID);
-        if (oldBar) {
-          oldBar.replaceWith(bar);
-        } else {
-          document.body.appendChild(bar);
-        }
+        document.body.appendChild(bar);
       }
     } catch (err) {
       // Extension may be disabled or page unloaded
     }
+  }
+
+  // SPA 路由变化监听
+  let urlListenerSetup = false;
+
+  function setupUrlChangeListener() {
+    if (urlListenerSetup) return;
+    urlListenerSetup = true;
+
+    let lastUrl = location.href;
+
+    const checkUrlChange = () => {
+      const currentUrl = location.href;
+      if (currentUrl !== lastUrl) {
+        lastUrl = currentUrl;
+        if (isEnabled) updateBar();
+      }
+    };
+
+    const originalPushState = history.pushState;
+    const originalReplaceState = history.replaceState;
+
+    history.pushState = function (...args) {
+      originalPushState.apply(this, args);
+      checkUrlChange();
+    };
+    history.replaceState = function (...args) {
+      originalReplaceState.apply(this, args);
+      checkUrlChange();
+    };
+
+    window.addEventListener('popstate', checkUrlChange);
   }
 
   async function init() {
@@ -348,6 +338,8 @@
 
       if (updateTimer) clearInterval(updateTimer);
       updateTimer = setInterval(updateBar, 5000);
+
+      setupUrlChangeListener();
     } catch (err) {
       console.error('[CourseProgressBar] init failed:', err);
     }
