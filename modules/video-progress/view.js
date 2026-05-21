@@ -75,6 +75,9 @@ class VideoProgressView {
 
     // Event delegation for dynamically created elements
     document.addEventListener('click', (e) => {
+      // 点击标题输入框时不触发 data-action（避免和 open-video 冲突）
+      if (e.target.closest('.video-title-input')) return;
+
       const btn = e.target.closest('[data-action]');
       if (!btn) return;
 
@@ -727,7 +730,7 @@ class VideoProgressView {
                 <div class="video-item" data-action="open-video" data-url="${this._escapeHtmlAttribute(video.url)}" title="点击打开视频页面">
                   <img class="video-favicon" src="${this._escapeHtmlAttribute(video.favicon || '')}" loading="lazy" onerror="this.style.display='none'">
                   <div class="video-info">
-                    <input type="text" class="video-title-input" value="${this._escapeHtmlAttribute(video.title)}" data-original-title="${this._escapeHtmlAttribute(video.title)}" data-group-id="${group.id}" data-video-id="${video.id}" title="点击编辑标题" onclick="event.stopPropagation()">
+                    <input type="text" class="video-title-input" value="${this._escapeHtmlAttribute(video.title)}" data-original-title="${this._escapeHtmlAttribute(video.title)}" data-group-id="${group.id}" data-video-id="${video.id}" title="点击编辑标题">
                     <div class="video-meta">
                       <span>${this.formatDuration(video.duration)}</span>
                       <span>已看 ${this.formatDuration(video.watched || 0)}</span>
