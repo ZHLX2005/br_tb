@@ -237,12 +237,16 @@
         window.open(video.url, '_blank');
       });
 
+      const defaultFilter = isCurrent
+        ? 'brightness(1.15) drop-shadow(0 0 4px rgba(255,255,255,0.6))'
+        : '';
+
       segment.addEventListener('mouseenter', () => {
         segment.style.filter = 'brightness(0.9)';
         showTooltip(segment, video, i, currentIdx);
       });
       segment.addEventListener('mouseleave', () => {
-        segment.style.filter = 'none';
+        segment.style.filter = defaultFilter;
         hideTooltip();
       });
 
