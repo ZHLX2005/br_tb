@@ -162,20 +162,11 @@ body {
 }
 
 .quick-action-btn:hover {
-  border-color: var(--wash);
-  background: var(--wash);
-}
-
-.quick-action-btn.primary {
   background: var(--vermilion);
   border-color: var(--vermilion);
   color: #fff;
   font-weight: 500;
-}
-
-.quick-action-btn.primary:hover {
-  background: #A84E3D;
-  border-color: #A84E3D;
+  box-shadow: 0 2px 8px rgba(196, 92, 72, 0.25);
 }
 
 .qa-icon {
