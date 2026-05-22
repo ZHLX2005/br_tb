@@ -181,8 +181,11 @@ body {
 }
 
 .quick-action-btn:hover {
-  background: var(--surface-hover);
-  border-color: var(--border-hover);
+  background: var(--accent);
+  color: #fff;
+  font-weight: 500;
+  box-shadow: 0 0 24px var(--accent-glow);
+  border-color: transparent;
 }
 
 .quick-action-btn:active {
