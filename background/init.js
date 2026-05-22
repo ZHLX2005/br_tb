@@ -42,7 +42,8 @@ export async function initializeDefaultData() {
         excludeEdgeUrls: false,
         lastView: 'timeline',
         visibleGroups: result.groups ? result.groups.map(g => g.id) : [],
-        showCourseProgressBar: false
+        showCourseProgressBar: false,
+        showCourseProgressBarOnUnrelatedTabs: false
       }
     });
   } else {
@@ -52,6 +53,10 @@ export async function initializeDefaultData() {
 
     if (updatedSettings.showCourseProgressBar === undefined) {
       updatedSettings.showCourseProgressBar = false;
+      needUpdate = true;
+    }
+    if (updatedSettings.showCourseProgressBarOnUnrelatedTabs === undefined) {
+      updatedSettings.showCourseProgressBarOnUnrelatedTabs = false;
       needUpdate = true;
     }
     if (updatedSettings.lastView === undefined) {

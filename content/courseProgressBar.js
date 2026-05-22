@@ -12,6 +12,7 @@
   let currentVideoIndex = -1;
   let updateTimer = null;
   let isEnabled = false;
+  let showOnUnrelatedTabs = false;
 
   function formatTime(seconds) {
     if (!seconds || isNaN(seconds)) return '00:00';
@@ -67,8 +68,13 @@
       // Extension 可能未启用
     }
 
-    const percent = video.duration > 0 ? Math.round(((video.watched || 0) / video.duration) * 100) : 0;
-    const status = videoIndex < currentIdx ? '已完成' : (videoIndex === currentIdx ? '当前' : '未开始');
+    const percent = getVideoDisplayProgress(video);
+    let status;
+    if (currentIdx === -1) {
+      status = (video.duration > 0 && (video.watched || 0) / video.duration > 0.5) ? '已完成' : '未开始';
+    } else {
+      status = videoIndex < currentIdx ? '已完成' : (videoIndex === currentIdx ? '当前' : '未开始');
+    }
 
     tooltip.innerHTML = `
       <div style="font-weight:600;font-size:12px;margin-bottom:3px;color:#333;">${video.title}</div>
@@ -100,6 +106,25 @@
     if (tooltip) tooltip.style.display = 'none';
   }
 
+  function getVideoDisplayProgress(video) {
+    const duration = video.duration || 0;
+    const watched = video.watched || 0;
+    if (duration <= 0) return 0;
+    const ratio = watched / duration;
+    return ratio > 0.5 ? Math.round(ratio * 100) : 0;
+  }
+
+  function getGroupDisplayProgress(videos) {
+    if (!videos || videos.length === 0) return 0;
+    const completed = videos.filter(v => {
+      const duration = v.duration || 0;
+      const watched = v.watched || 0;
+      if (duration <= 0) return false;
+      return watched / duration > 0.5;
+    }).length;
+    return Math.round((completed / videos.length) * 100);
+  }
+
   function createProgressBar(group, currentIdx) {
     const bar = document.createElement('div');
     bar.id = BAR_ID;
@@ -107,15 +132,8 @@
     const totalDuration = group.videos.reduce((s, v) => s + (v.duration || 0), 0);
     if (totalDuration <= 0) return bar;
 
-    let overallWatched = 0;
-    group.videos.forEach((video, i) => {
-      if (i < currentIdx) {
-        overallWatched += video.duration || 0;
-      } else if (i === currentIdx) {
-        overallWatched += video.watched || 0;
-      }
-    });
-    const overallPercent = Math.round((overallWatched / totalDuration) * 100);
+    const overallPercent = getGroupDisplayProgress(group.videos);
+    const hasCurrentVideo = currentIdx >= 0;
 
     bar.style.cssText = `
       position: fixed;
@@ -178,12 +196,15 @@
       if (widthPercent <= 0) return;
 
       const segment = document.createElement('div');
-      const isBefore = i < currentIdx;
-      const isCurrent = i === currentIdx;
+
+      // 已完成判断：有当前视频时按位置；无当前视频时按50%阈值
+      const isCompleted = hasCurrentVideo
+        ? (i < currentIdx)
+        : (video.duration > 0 && (video.watched || 0) / video.duration > 0.5);
+      const isCurrent = hasCurrentVideo && i === currentIdx;
 
       let fillPercent = 0;
-      if (isBefore) fillPercent = 100;
-      else if (isCurrent) fillPercent = video.duration > 0 ? ((video.watched || 0) / video.duration) * 100 : 0;
+      if (isCurrent) fillPercent = video.duration > 0 ? ((video.watched || 0) / video.duration) * 100 : 0;
 
       segment.style.cssText = `
         width: ${widthPercent}%;
@@ -193,7 +214,7 @@
         border-right: 1px solid rgba(255,255,255,0.25);
       `;
 
-      if (isBefore || isCurrent) {
+      if (isCompleted || isCurrent) {
         segment.style.background = 'transparent';
       } else {
         segment.style.background = 'rgba(210,210,210,0.88)';
@@ -274,21 +295,47 @@
         url: window.location.href
       });
 
-      if (!response.success || !response.group) {
+      if (response.success && response.group) {
+        // 当前页是课程视频，正常显示
+        currentGroup = response.group;
+        currentVideoIndex = response.currentIndex;
+
+        const bar = createProgressBar(response.group, response.currentIndex);
+        const oldBar = document.getElementById(BAR_ID);
+        if (oldBar) {
+          oldBar.replaceWith(bar);
+        } else {
+          document.body.appendChild(bar);
+        }
+        return;
+      }
+
+      // 当前页是无关 tab
+      if (!showOnUnrelatedTabs) {
         hideBar();
         return;
       }
 
-      currentGroup = response.group;
-      currentVideoIndex = response.currentIndex;
+      // 获取第一个有视频的课程组来显示
+      const groupsRes = await chrome.runtime.sendMessage({ action: 'getVideoGroups' });
+      if (groupsRes.success && groupsRes.videoGroups) {
+        const group = groupsRes.videoGroups.find(g => g.videos && g.videos.length > 0);
+        if (group) {
+          currentGroup = group;
+          currentVideoIndex = -1;
 
-      const bar = createProgressBar(response.group, response.currentIndex);
-      const oldBar = document.getElementById(BAR_ID);
-      if (oldBar) {
-        oldBar.replaceWith(bar);
-      } else {
-        document.body.appendChild(bar);
+          const bar = createProgressBar(group, -1);
+          const oldBar = document.getElementById(BAR_ID);
+          if (oldBar) {
+            oldBar.replaceWith(bar);
+          } else {
+            document.body.appendChild(bar);
+          }
+          return;
+        }
       }
+
+      hideBar();
     } catch (err) {
       // Extension may be disabled or page unloaded
     }
@@ -331,6 +378,7 @@
       const result = await chrome.storage.local.get(['settings']);
       const settings = result.settings || {};
       isEnabled = !!settings.showCourseProgressBar;
+      showOnUnrelatedTabs = !!settings.showCourseProgressBarOnUnrelatedTabs;
 
       if (!isEnabled) return;
 
@@ -350,7 +398,9 @@
     if (changes.settings) {
       const newSettings = changes.settings.newValue || {};
       const newEnabled = !!newSettings.showCourseProgressBar;
+      const newShowUnrelated = !!newSettings.showCourseProgressBarOnUnrelatedTabs;
 
+      let needUpdate = false;
       if (newEnabled !== isEnabled) {
         isEnabled = newEnabled;
         if (isEnabled) {
@@ -358,6 +408,13 @@
         } else {
           removeBar();
         }
+      } else if (newShowUnrelated !== showOnUnrelatedTabs) {
+        showOnUnrelatedTabs = newShowUnrelated;
+        needUpdate = true;
+      }
+
+      if (needUpdate && isEnabled) {
+        updateBar();
       }
     }
   });

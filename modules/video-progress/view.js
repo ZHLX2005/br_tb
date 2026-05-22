@@ -4,6 +4,7 @@
  */
 
 import { modal } from '../../shared/ModalDialog.js';
+import { getVideoDisplayProgress, getGroupDisplayProgress, formatDuration, getGroupTotals } from './progress-utils.js';
 
 function normalizeUrl(url) {
   try {
@@ -645,7 +646,9 @@ class VideoProgressView {
       });
     });
 
-    const progressPercent = totalDuration > 0 ? Math.round((totalWatched / totalDuration) * 100) : 0;
+    // 保守进度：超过 50% 的视频数 / 总视频数
+    const allVideos = this.videoGroups.flatMap(g => g.videos);
+    const progressPercent = getGroupDisplayProgress(allVideos);
 
     statsEl.innerHTML = `
       <div class="stats-grid">
@@ -658,11 +661,11 @@ class VideoProgressView {
           <div class="stat-label">视频</div>
         </div>
         <div class="stat-card">
-          <div class="stat-value">${this.formatDuration(totalDuration)}</div>
+          <div class="stat-value">${formatDuration(totalDuration)}</div>
           <div class="stat-label">总时长</div>
         </div>
         <div class="stat-card">
-          <div class="stat-value">${this.formatDuration(totalWatched)}</div>
+          <div class="stat-value">${formatDuration(totalWatched)}</div>
           <div class="stat-label">已观看</div>
         </div>
       </div>
@@ -670,7 +673,7 @@ class VideoProgressView {
         <div class="progress-bar-bg">
           <div class="progress-bar-fill" style="width: ${progressPercent}%"></div>
         </div>
-        <span class="progress-text">${progressPercent}% · 剩余 ${this.formatDuration(totalDuration - totalWatched)}</span>
+        <span class="progress-text">${progressPercent}% · 剩余 ${formatDuration(totalDuration - totalWatched)}</span>
       </div>
     `;
   }
@@ -692,8 +695,7 @@ class VideoProgressView {
 
     listContainer.innerHTML = this.videoGroups.map(group => {
       const totalDuration = group.videos.reduce((sum, v) => sum + (v.duration || 0), 0);
-      const totalWatched = group.videos.reduce((sum, v) => sum + (v.watched || 0), 0);
-      const progressPercent = totalDuration > 0 ? Math.round((totalWatched / totalDuration) * 100) : 0;
+      const progressPercent = getGroupDisplayProgress(group.videos);
       const isExpanded = group._expanded !== false; // default expanded
 
       return `
@@ -725,7 +727,7 @@ class VideoProgressView {
             ${group.videos.length === 0 ? `
               <div class="group-empty">暂无视频，点击"添加视频"按钮</div>
             ` : group.videos.map(video => {
-              const videoProgress = video.duration > 0 ? Math.round(((video.watched || 0) / video.duration) * 100) : 0;
+              const videoProgress = getVideoDisplayProgress(video);
               return `
                 <div class="video-item" data-action="open-video" data-url="${this._escapeHtmlAttribute(video.url)}" title="点击打开视频页面">
                   <img class="video-favicon" src="${this._escapeHtmlAttribute(video.favicon || '')}" loading="lazy" onerror="this.style.display='none'">

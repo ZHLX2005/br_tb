@@ -536,6 +536,20 @@ body {
   background: #d0d0d0;
 }
 
+.vp-settings-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.vp-settings-row .setting-row {
+  background: #fff;
+  border-radius: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+}
+
 .vp-list {
   display: flex;
   flex-direction: column;

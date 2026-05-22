@@ -4,17 +4,27 @@
  */
 
 import { escapeHtml, showToast } from './utils.js';
+import { getVideoDisplayProgress, getGroupDisplayProgress } from '../../modules/video-progress/progress-utils.js';
 
 let videoGroups = [];
 
 /**
- * 加载视频组数据
+ * 加载视频组数据和进度条设置
  */
 export async function loadVideoProgress() {
   try {
-    const response = await chrome.runtime.sendMessage({ action: 'getVideoGroups' });
-    videoGroups = response.success ? (response.videoGroups || []) : [];
+    const [groupsRes, settingsRes] = await Promise.all([
+      chrome.runtime.sendMessage({ action: 'getVideoGroups' }),
+      chrome.runtime.sendMessage({ action: 'getSettings' })
+    ]);
+    videoGroups = groupsRes.success ? (groupsRes.videoGroups || []) : [];
     renderVideoProgress();
+
+    const settings = settingsRes.success ? (settingsRes.settings || {}) : {};
+    const showBarEl = document.getElementById('popupShowCourseProgressBar');
+    const showUnrelatedEl = document.getElementById('popupShowBarOnUnrelatedTabs');
+    if (showBarEl) showBarEl.checked = settings.showCourseProgressBar || false;
+    if (showUnrelatedEl) showUnrelatedEl.checked = settings.showCourseProgressBarOnUnrelatedTabs || false;
   } catch (err) {
     console.error('[Popup] Failed to load video progress:', err);
   }
@@ -66,7 +76,7 @@ export async function refreshCurrentVideo() {
     }
 
     if (foundGroup && foundVideo) {
-      const percent = foundVideo.duration > 0 ? Math.round(((foundVideo.watched || 0) / foundVideo.duration) * 100) : 0;
+      const percent = getVideoDisplayProgress(foundVideo);
       container.innerHTML = `
         <div class="vp-current-box">
           <div class="vp-current-title">${escapeHtml(video.title || '未命名视频')}</div>
@@ -120,12 +130,12 @@ function renderVideoProgress() {
     });
   });
 
-  const overallPercent = totalDuration > 0 ? Math.round((totalWatched / totalDuration) * 100) : 0;
+  const allVideos = videoGroups.flatMap(g => g.videos);
+  const overallPercent = getGroupDisplayProgress(allVideos);
 
   const groupsHtml = videoGroups.map(group => {
     const gDuration = group.videos.reduce((s, v) => s + (v.duration || 0), 0);
-    const gWatched = group.videos.reduce((s, v) => s + (v.watched || 0), 0);
-    const gPercent = gDuration > 0 ? Math.round((gWatched / gDuration) * 100) : 0;
+    const gPercent = getGroupDisplayProgress(group.videos);
     const isExpanded = group._expanded !== false;
 
     return `
@@ -147,7 +157,7 @@ function renderVideoProgress() {
         <div class="vp-group-videos" style="display:${isExpanded ? 'block' : 'none'}">
           ${group.videos.length === 0 ? '<div class="vp-video-empty">暂无视频</div>' :
             group.videos.map(video => {
-              const vPercent = video.duration > 0 ? Math.round(((video.watched || 0) / video.duration) * 100) : 0;
+              const vPercent = getVideoDisplayProgress(video);
               return `
                 <div class="vp-video-item" data-url="${escapeHtml(video.url)}" data-action="open-video">
                   <img class="vp-video-favicon" src="${escapeHtml(video.favicon || '')}" loading="lazy" onerror="this.style.display='none'">
@@ -233,6 +243,26 @@ export function bindVideoProgressEvents() {
   if (openPageBtn) {
     openPageBtn.addEventListener('click', () => {
       chrome.runtime.sendMessage({ action: 'openVideoProgressPage' });
+    });
+  }
+
+  // 进度条设置
+  const showBarEl = document.getElementById('popupShowCourseProgressBar');
+  const showUnrelatedEl = document.getElementById('popupShowBarOnUnrelatedTabs');
+  if (showBarEl) {
+    showBarEl.addEventListener('change', async () => {
+      const settingsRes = await chrome.runtime.sendMessage({ action: 'getSettings' });
+      const settings = settingsRes.success ? (settingsRes.settings || {}) : {};
+      settings.showCourseProgressBar = showBarEl.checked;
+      await chrome.runtime.sendMessage({ action: 'updateSettings', settings });
+    });
+  }
+  if (showUnrelatedEl) {
+    showUnrelatedEl.addEventListener('change', async () => {
+      const settingsRes = await chrome.runtime.sendMessage({ action: 'getSettings' });
+      const settings = settingsRes.success ? (settingsRes.settings || {}) : {};
+      settings.showCourseProgressBarOnUnrelatedTabs = showUnrelatedEl.checked;
+      await chrome.runtime.sendMessage({ action: 'updateSettings', settings });
     });
   }
 }
