@@ -172,6 +172,10 @@ body {
 }
 
 .quick-action-btn:hover {
+  background: var(--cyan);
+  border-color: var(--border);
+  color: var(--ink);
+  font-weight: 700;
   transform: translate(-1px, -1px);
   box-shadow: var(--shadow);
 }
@@ -179,17 +183,6 @@ body {
 .quick-action-btn:active {
   transform: translate(1px, 1px);
   box-shadow: none;
-}
-
-.quick-action-btn.primary {
-  background: var(--cyan);
-  border-color: var(--border);
-  color: var(--ink);
-  font-weight: 700;
-}
-
-.quick-action-btn.primary:hover {
-  background: #33D4FF;
 }
 
 .qa-icon {
