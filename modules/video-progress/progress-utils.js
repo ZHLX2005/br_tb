@@ -1,13 +1,10 @@
 /**
  * Progress Utilities — 共享进度计算
- * 采用 50% 阈值策略：
- * - 单个视频 watched/duration < 50% 时显示 0%
- * - 单个视频 watched/duration >= 50% 时显示实际百分比
- * - 课程整体进度 = 超过 50% 的视频数量 / 总视频数量
+ * 进度按实际观看比例计算，不再使用 50% 阈值
  */
 
 /**
- * 计算单个视频的显示进度（带 50% 阈值）
+ * 计算单个视频的显示进度
  * @param {Object} video — { watched, duration }
  * @returns {number} 0-100
  */
@@ -16,24 +13,29 @@ export function getVideoDisplayProgress(video) {
   const watched = video.watched || 0;
   if (duration <= 0) return 0;
   const ratio = watched / duration;
-  return ratio > 0.5 ? Math.round(ratio * 100) : 0;
+  return Math.round(ratio * 100);
 }
 
 /**
- * 计算课程组的整体进度（保守估计）
- * 超过 50% 的视频才算完成，进度 = 完成数 / 总数
+ * 计算课程组的整体进度
+ * 进度 = 总观看时长 / 总时长
  * @param {Object[]} videos
  * @returns {number} 0-100
  */
 export function getGroupDisplayProgress(videos) {
   if (!videos || videos.length === 0) return 0;
-  const completed = videos.filter(v => {
+  let totalDuration = 0;
+  let totalWatched = 0;
+  for (const v of videos) {
     const duration = v.duration || 0;
     const watched = v.watched || 0;
-    if (duration <= 0) return false;
-    return watched / duration > 0.5;
-  }).length;
-  return Math.round((completed / videos.length) * 100);
+    if (duration > 0) {
+      totalDuration += duration;
+      totalWatched += watched;
+    }
+  }
+  if (totalDuration <= 0) return 0;
+  return Math.round((totalWatched / totalDuration) * 100);
 }
 
 /**
