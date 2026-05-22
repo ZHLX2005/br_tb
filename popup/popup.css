@@ -150,16 +150,6 @@ body {
   background: var(--primary-light);
 }
 
-.quick-action-btn.primary {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: white;
-}
-
-.quick-action-btn.primary:hover {
-  background: var(--primary-dark);
-  border-color: var(--primary-dark);
-}
 
 .qa-icon {
   font-size: 16px;
