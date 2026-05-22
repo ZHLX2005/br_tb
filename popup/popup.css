@@ -189,19 +189,6 @@ body {
   transform: scale(0.985);
 }
 
-.quick-action-btn.primary {
-  background: var(--accent);
-  color: #fff;
-  font-weight: 500;
-  border-color: transparent;
-  box-shadow: 0 0 16px var(--accent-glow);
-}
-
-.quick-action-btn.primary:hover {
-  background: #6A9AF0;
-  box-shadow: 0 0 24px var(--accent-glow);
-}
-
 .qa-icon {
   font-size: 16px;
   flex-shrink: 0;
