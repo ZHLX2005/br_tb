@@ -21,8 +21,9 @@ function normalizeUrl(url) {
 }
 
 class VideoProgressView {
-  constructor(dataManager) {
+  constructor(dataManager, mode = 'full') {
     this.dataManager = dataManager;
+    this.mode = mode;
     this.videoGroups = [];
     this.storageChangeTimer = null;
     this.isInitialized = false;
@@ -56,6 +57,7 @@ class VideoProgressView {
 
   bindEvents() {
     document.getElementById('backBtn')?.addEventListener('click', () => this.backToTabboard());
+    document.getElementById('archivePageBtn')?.addEventListener('click', () => this.openArchivePage());
     document.getElementById('addGroupBtn')?.addEventListener('click', () => this.createGroup());
     document.getElementById('batchImportBtn')?.addEventListener('click', () => this.openBatchImportDialog());
     document.getElementById('batchCancelBtn')?.addEventListener('click', () => this.closeBatchImportDialog());
@@ -94,6 +96,12 @@ class VideoProgressView {
           break;
         case 'delete-group':
           this.deleteGroup(groupId);
+          break;
+        case 'archive-group':
+          this.archiveGroup(groupId);
+          break;
+        case 'unarchive-group':
+          this.unarchiveGroup(groupId);
           break;
         case 'open-group':
           this.openGroup(groupId);
@@ -139,6 +147,14 @@ class VideoProgressView {
 
   backToTabboard() {
     window.location.href = chrome.runtime.getURL('modules/tabboard/tabboard.html');
+  }
+
+  backToVideoProgress() {
+    window.location.href = chrome.runtime.getURL('modules/video-progress/video-progress.html');
+  }
+
+  openArchivePage() {
+    window.location.href = chrome.runtime.getURL('modules/video-progress/archive.html');
   }
 
   async createGroup() {
@@ -205,6 +221,54 @@ class VideoProgressView {
       await this.loadVideoGroups();
       this.render();
       this.showToast('课程已删除', 'info');
+    }
+  }
+
+  async archiveGroup(groupId) {
+    const group = this.videoGroups.find(g => g.id === groupId);
+    if (!group) return;
+
+    const confirmed = await modal.confirm(
+      `确定要归档「${group.name}」吗？归档后该课程将从活跃列表移至荣誉墙，进度条中不再显示。`,
+      {
+        title: '归档课程',
+        type: 'warning',
+        confirmText: '归档',
+        cancelText: '取消'
+      }
+    );
+    if (!confirmed) return;
+
+    const response = await chrome.runtime.sendMessage({
+      action: 'archiveVideoGroup',
+      groupId
+    });
+
+    if (response.success) {
+      await this.loadVideoGroups();
+      this.render();
+      this.showToast('课程已归档', 'info');
+    }
+  }
+
+  async unarchiveGroup(groupId) {
+    const confirmed = await modal.confirm('确定要恢复这个课程吗？它将重新出现在活跃列表中。', {
+      title: '恢复课程',
+      type: 'info',
+      confirmText: '恢复',
+      cancelText: '取消'
+    });
+    if (!confirmed) return;
+
+    const response = await chrome.runtime.sendMessage({
+      action: 'unarchiveVideoGroup',
+      groupId
+    });
+
+    if (response.success) {
+      await this.loadVideoGroups();
+      this.render();
+      this.showToast('课程已恢复', 'success');
     }
   }
 
@@ -508,19 +572,25 @@ class VideoProgressView {
   }
 
   render() {
+    if (this.mode === 'archive') {
+      this.renderArchivedGroups();
+      return;
+    }
     this.renderStats();
     this.renderGroupsList();
+    this.renderArchivedGroups();
   }
 
   renderStats() {
     const statsEl = document.getElementById('videoStats');
     if (!statsEl) return;
 
+    const activeGroups = this.videoGroups.filter(g => !g.archived);
     let totalVideos = 0;
     let totalDuration = 0;
     let totalWatched = 0;
 
-    this.videoGroups.forEach(g => {
+    activeGroups.forEach(g => {
       g.videos.forEach(v => {
         totalVideos++;
         totalDuration += v.duration || 0;
@@ -529,7 +599,7 @@ class VideoProgressView {
     });
 
     // 保守进度：超过 50% 的视频数 / 总视频数
-    const allVideos = this.videoGroups.flatMap(g => g.videos);
+    const allVideos = activeGroups.flatMap(g => g.videos);
     const progressPercent = getGroupDisplayProgress(allVideos);
 
     statsEl.innerHTML = `
@@ -564,18 +634,20 @@ class VideoProgressView {
     const listContainer = document.getElementById('videoGroupsList');
     if (!listContainer) return;
 
-    if (this.videoGroups.length === 0) {
+    const activeGroups = this.videoGroups.filter(g => !g.archived);
+
+    if (activeGroups.length === 0) {
       listContainer.innerHTML = `
         <div class="empty-state">
           <div class="empty-icon"></div>
-          <div class="empty-text">暂无课程</div>
-          <div class="empty-desc">点击上方按钮添加当前页面视频或创建新课程</div>
+          <div class="empty-text">暂无活跃课程</div>
+          <div class="empty-desc">点击上方按钮创建新课程或批量导入</div>
         </div>
       `;
       return;
     }
 
-    listContainer.innerHTML = this.videoGroups.map(group => {
+    listContainer.innerHTML = activeGroups.map(group => {
       const totalDuration = group.videos.reduce((sum, v) => sum + (v.duration || 0), 0);
       const progressPercent = getGroupDisplayProgress(group.videos);
       const isExpanded = group._expanded !== false; // default expanded
@@ -602,6 +674,7 @@ class VideoProgressView {
             <button class="btn btn-small" data-action="add-to-group" data-group-id="${group.id}" title="添加当前页面视频">+ 添加视频</button>
             <button class="btn btn-small" data-action="open-group" data-group-id="${group.id}" title="打开所有视频">打开全部</button>
             <button class="btn btn-small btn-icon" data-action="rename-group" data-group-id="${group.id}" title="重命名">✎</button>
+            <button class="btn btn-small btn-icon" data-action="archive-group" data-group-id="${group.id}" title="归档课程" style="background:#fff3e0;color:#ff9800;">⤓</button>
             <button class="btn btn-small btn-icon btn-danger" data-action="delete-group" data-group-id="${group.id}" title="删除">✕</button>
           </div>
 
@@ -634,11 +707,96 @@ class VideoProgressView {
     }).join('');
   }
 
+  renderArchivedGroups() {
+    const archiveSection = document.getElementById('archiveSection');
+    const listContainer = document.getElementById('archivedGroupsList');
+    if (!listContainer) return;
+
+    const archivedGroups = this.videoGroups.filter(g => g.archived);
+
+    if (archivedGroups.length === 0) {
+      if (archiveSection) archiveSection.style.display = 'none';
+      listContainer.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon"></div>
+          <div class="empty-text">暂无归档课程</div>
+          <div class="empty-desc">归档的课程将在这里留下足迹</div>
+        </div>
+      `;
+      return;
+    }
+
+    if (archiveSection) archiveSection.style.display = 'block';
+    listContainer.innerHTML = archivedGroups.map(group => {
+      const snap = group.archiveSnapshot || {};
+      const videoCount = snap.videoCount || group.videos.length || 0;
+      const totalDuration = snap.totalDuration || group.videos.reduce((s, v) => s + (v.duration || 0), 0);
+      const totalWatched = snap.totalWatched || group.videos.reduce((s, v) => s + (v.watched || 0), 0);
+      const progressPercent = totalDuration > 0 ? Math.round((totalWatched / totalDuration) * 100) : 0;
+      const archivedDate = group.archivedAt
+        ? new Date(group.archivedAt).toLocaleDateString('zh-CN')
+        : '';
+      const isExpanded = group._expanded !== false;
+      const videos = snap.videos || group.videos || [];
+
+      return `
+        <div class="video-group archived" data-group-id="${group.id}">
+          <div class="group-header" data-action="toggle-group" data-group-id="${group.id}">
+            <div class="group-color" style="background: ${group.color || '#42a5f5'}"></div>
+            <div class="group-info">
+              <div class="group-name">${this.escapeHtml(group.name)}</div>
+              <div class="group-meta">
+                <span>${videoCount} 个视频</span>
+                <span>总时长 ${this.formatDuration(totalDuration)}</span>
+                <span>已看 ${this.formatDuration(totalWatched)}</span>
+                <span class="group-progress">${progressPercent}%</span>
+                ${archivedDate ? `<span style="color:#aaa;margin-left:8px;">归档于 ${archivedDate}</span>` : ''}
+              </div>
+            </div>
+            <div class="group-progress-bar">
+              <div class="group-progress-fill" style="width: ${progressPercent}%"></div>
+            </div>
+            <div class="group-toggle">${isExpanded ? '▼' : '▶'}</div>
+          </div>
+
+          <div class="group-actions">
+            <button class="btn btn-small" data-action="unarchive-group" data-group-id="${group.id}" title="恢复为活跃课程">↺ 恢复课程</button>
+            <button class="btn btn-small" data-action="open-group" data-group-id="${group.id}" title="打开所有视频">打开全部</button>
+            <button class="btn btn-small btn-icon btn-danger" data-action="delete-group" data-group-id="${group.id}" title="删除">✕</button>
+          </div>
+
+          <div class="group-videos" style="display: ${isExpanded ? 'block' : 'none'}">
+            ${videos.length === 0 ? `
+              <div class="group-empty">暂无视频记录</div>
+            ` : videos.map(video => {
+              const videoProgress = video.duration > 0 ? Math.round(((video.watched || 0) / video.duration) * 100) : 0;
+              return `
+                <div class="video-item" style="cursor: default;">
+                  <div class="video-info" style="flex: 1;">
+                    <div style="font-size: 14px; color: #666; margin-bottom: 4px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${this.escapeHtml(video.title)}</div>
+                    <div class="video-meta">
+                      <span>${this.formatDuration(video.duration)}</span>
+                      <span>已看 ${this.formatDuration(video.watched || 0)}</span>
+                      <span>${videoProgress}%</span>
+                    </div>
+                    <div class="video-progress-bar">
+                      <div class="video-progress-fill" style="width: ${videoProgress}%"></div>
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
   toggleGroup(groupId) {
     const group = this.videoGroups.find(g => g.id === groupId);
     if (group) {
       group._expanded = !(group._expanded !== false);
-      this.renderGroupsList();
+      this.render();
     }
   }
 

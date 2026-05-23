@@ -520,6 +520,66 @@
 .batch-skip { color: #ffa726; font-weight: 600; }
 .batch-fail { color: #ef5350; font-weight: 600; }
 
+/* Archive Section (Honor Wall) */
+.archive-section {
+  margin-top: 40px;
+  padding-top: 24px;
+  border-top: 2px dashed #e0e0e0;
+}
+
+.archive-header {
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.archive-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #555;
+  margin: 0 0 6px 0;
+  letter-spacing: 1px;
+}
+
+.archive-subtitle {
+  font-size: 13px;
+  color: #aaa;
+}
+
+/* Archived Course Cards */
+.video-group.archived {
+  background: #fafafa;
+  border-color: #e0e0e0;
+  opacity: 0.92;
+}
+
+.video-group.archived .group-header {
+  cursor: default;
+}
+
+.video-group.archived .group-header:hover {
+  background: transparent;
+}
+
+.video-group.archived .group-name {
+  color: #666;
+}
+
+.video-group.archived .group-meta {
+  color: #aaa;
+}
+
+.video-group.archived .group-progress {
+  color: #aaa;
+}
+
+.video-group.archived .group-progress-fill {
+  background: #ccc;
+}
+
+.video-group.archived .group-actions {
+  border-bottom: none;
+}
+
 /* Responsive */
 @media (max-width: 600px) {
   .stats-grid {

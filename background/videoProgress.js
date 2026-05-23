@@ -58,6 +58,7 @@ function setupVideoProgressListeners() {
             const normalizedCurrentUrl = normalizeUrl(request.url || '');
 
             for (const group of videoGroups) {
+              if (group.archived) continue;
               const idx = group.videos.findIndex(v => normalizeUrl(v.url) === normalizedCurrentUrl);
               if (idx !== -1) {
                 sendResponse({ success: true, group, currentIndex: idx });
@@ -205,6 +206,48 @@ function setupVideoProgressListeners() {
               }
             }
             sendResponse({ success: true });
+            break;
+          }
+
+          case 'archiveVideoGroup': {
+            const result = await chrome.storage.local.get(['videoGroups']);
+            const videoGroups = ('videoGroups' in result) ? result.videoGroups : [];
+            const group = videoGroups.find(g => g.id === request.groupId);
+            if (group) {
+              group.archived = true;
+              group.archivedAt = new Date().toISOString();
+              group.archiveSnapshot = {
+                videos: group.videos.map(v => ({
+                  id: v.id,
+                  title: v.title,
+                  duration: v.duration || 0,
+                  watched: v.watched || 0
+                })),
+                totalDuration: group.videos.reduce((s, v) => s + (v.duration || 0), 0),
+                totalWatched: group.videos.reduce((s, v) => s + (v.watched || 0), 0),
+                videoCount: group.videos.length
+              };
+              await chrome.storage.local.set({ videoGroups });
+              sendResponse({ success: true });
+            } else {
+              sendResponse({ success: false, error: 'Group not found' });
+            }
+            break;
+          }
+
+          case 'unarchiveVideoGroup': {
+            const result = await chrome.storage.local.get(['videoGroups']);
+            const videoGroups = ('videoGroups' in result) ? result.videoGroups : [];
+            const group = videoGroups.find(g => g.id === request.groupId);
+            if (group) {
+              group.archived = false;
+              group.archivedAt = null;
+              group.archiveSnapshot = null;
+              await chrome.storage.local.set({ videoGroups });
+              sendResponse({ success: true });
+            } else {
+              sendResponse({ success: false, error: 'Group not found' });
+            }
             break;
           }
 

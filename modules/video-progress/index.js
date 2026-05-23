@@ -5,11 +5,11 @@
 import VideoProgressView from './view.js';
 
 class VideoProgressModule {
-  constructor(container, dataManager, eventBus) {
+  constructor(container, dataManager, eventBus, mode = 'full') {
     this.container = container;
     this.dataManager = dataManager;
     this.eventBus = eventBus;
-    this.view = new VideoProgressView(dataManager);
+    this.view = new VideoProgressView(dataManager, mode);
   }
 
   async init() {
