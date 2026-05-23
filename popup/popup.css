@@ -78,6 +78,10 @@
   --nav-tab-transition: background 0.12s ease, color 0.12s ease;
 }
 
+html {
+  overflow: hidden;
+}
+
 body {
   width: var(--body-width);
   min-height: var(--body-min-height);
@@ -93,6 +97,7 @@ body {
   display: flex;
   flex-direction: column;
   height: 100%;
+  overflow: hidden;
 }
 
 /* ========== 顶部导航 ========== */
@@ -464,19 +469,10 @@ body {
 
 /* ========== 滚动条 ========== */
 
-.page-container::-webkit-scrollbar,
-.groups-list::-webkit-scrollbar {
-  width: var(--scrollbar-width);
-}
-
-.page-container::-webkit-scrollbar-track,
-.groups-list::-webkit-scrollbar-track {
-  background: var(--bg-subtle);
-}
-
-.page-container::-webkit-scrollbar-thumb,
-.groups-list::-webkit-scrollbar-thumb {
-  background: var(--bg-nav);
+html,
+.page-container,
+.groups-list {
+  scrollbar-width: none;
 }
 
 /* ========== 视频进度页 ========== */
@@ -878,4 +874,4 @@ body {
   color: #ffffff;
   font-weight: 600;
 }
-}
+

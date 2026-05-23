@@ -606,13 +606,6 @@
   text-transform: uppercase;
 }
 
-/* --- Scrollbar --- */
-[data-theme="neo-brutalism"] .page-container::-webkit-scrollbar-thumb,
-[data-theme="neo-brutalism"] .groups-list::-webkit-scrollbar-thumb {
-  border-radius: 0;
-  border: 1px solid var(--bg-subtle);
-}
-
 /* --- Focus hint --- */
 [data-theme="neo-brutalism"] .focus-hint {
   color: var(--text-secondary);
