@@ -125,6 +125,92 @@ while True:
 | 假设页面一次性渲染全部内容 | 懒加载导致漏数据 | 先 `scroll_down(800)` 多次再提取 |
 | 用 `goto_url` 替代 `new_tab` | 覆盖用户当前正在使用的标签页 | 首导航用 `new_tab(url)` |
 
+## B站视频课程组提取与导入
+
+### 完整工作流
+
+**Step 1：提取 BV 号链接**
+
+从 B站合集页 / UP主空间 / 收藏夹页面提取所有视频链接：
+
+```python
+from agent_helpers import *
+
+goto_url("https://space.bilibili.com/xxxx/channel/collectiondetail?sid=xxxx")
+wait_for_load()
+sleep(2)
+
+# 先滚动加载全部内容
+for i in range(10):
+    scroll_down(800)
+    sleep(1)
+
+# 提取 BV 号链接
+links = js("""
+  const set = new Set();
+  document.querySelectorAll('a[href*="/video/BV"]').forEach(a => {
+    const href = a.getAttribute('href');
+    const m = href.match(/\\/video\\/(BV[a-zA-Z0-9]+)/);
+    if (m) set.add('https://www.bilibili.com/video/' + m[1]);
+  });
+  return Array.from(set);
+""")
+print(links)
+```
+
+**Step 2：保存为 txt**
+
+```python
+with open('course_videos.txt', 'w', encoding='utf-8') as f:
+    for url in links:
+        f.write(url + '\\n')
+```
+
+**Step 3：输出规范 txt 文件**
+
+Agent 只需输出规范的 `course_videos.txt`，每行一个视频链接，用户自行在 TabBoard 中导入：
+
+```
+https://www.bilibili.com/video/BV1PS4y1A7za
+https://www.bilibili.com/video/BV1hF411M7b5
+https://www.bilibili.com/video/BV1J44y1o7gf
+...
+```
+
+用户拿到 txt 后，在 TabBoard 视频进度页点击「批量导入」→ 选择课程组 → 上传文件即可。TabBoard 会自动打开每个链接检测视频元数据（标题、时长）并添加到课程组。
+
+### B站提取注意事项
+
+| 页面类型 | 提取方式 | 注意 |
+|---------|---------|------|
+| **合集页** | `a[href*="/video/BV"]` | 可能混有推荐视频，需按 DOM 结构过滤（如只取 `.video-list` 内的链接） |
+| **收藏夹** | 同上 | 收藏夹可能跨页，需翻页提取 |
+| **UP主空间-投稿** | 同上 | 投稿视频可能非常多，按时间范围筛选后再提取 |
+| **单个视频页** | `a[href*="/video/BV"]`（推荐区） | 不推荐，推荐区混有大量无关视频 |
+
+### 过滤无关链接
+
+合集页底部或侧边栏常有「推荐视频」，需过滤：
+
+```javascript
+// 只取合集列表容器内的链接（选择器因页面结构而异）
+const container = document.querySelector('.video-list, .collection-list, #video-list');
+const anchors = container ? container.querySelectorAll('a[href*="/video/BV"]') : document.querySelectorAll('a[href*="/video/BV"]');
+```
+
+### href 拼接陷阱
+
+B站 `href` 可能已带 `//www.bilibili.com`，直接拼接会出双域名：
+
+```javascript
+// 错误
+const url = 'https://www.bilibili.com' + href;  // href="//www.bilibili.com/video/BV1xx" → 双域名
+
+// 正确
+const m = href.match(/\\/video\\/(BV[a-zA-Z0-9]+)/);
+const url = m ? 'https://www.bilibili.com/video/' + m[1] : null;
+```
+
 ## 坑点速查
 
 1. **daemon 自动启动** — 不要手动 `ensure_daemon()`，run.py 已内置
@@ -132,3 +218,5 @@ while True:
 3. **evaluate_script 无转义问题** — 当 browser-harness 字符串反复失败时，切换到 CDP
 4. **sleep 是必要等待** — SPA 页面、XHR 请求、懒加载都需要显式 sleep，不要依赖 `wait_for_load()` alone
 5. **去重用 Set** — 同一页面可能存在多个指向同一视频的 `<a>` 标签（标题 + 缩略图）
+6. **B站推荐区污染** — 合集页底部的推荐视频会混入提取结果，必须用容器范围过滤
+7. **合集页滚动加载** — B站合集页通常懒加载，需多次 `scroll_down(800)` 才能加载全部视频
