@@ -57,6 +57,7 @@ class VideoProgressView {
 
   bindEvents() {
     document.getElementById('backBtn')?.addEventListener('click', () => this.backToTabboard());
+    document.getElementById('backToProgressBtn')?.addEventListener('click', () => this.backToVideoProgress());
     document.getElementById('archivePageBtn')?.addEventListener('click', () => this.openArchivePage());
     document.getElementById('addGroupBtn')?.addEventListener('click', () => this.createGroup());
     document.getElementById('batchImportBtn')?.addEventListener('click', () => this.openBatchImportDialog());
