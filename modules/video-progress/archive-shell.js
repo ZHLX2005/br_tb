@@ -1,5 +1,5 @@
 /**
- * ArchiveShell - 荣誉墙页面独立入口
+ * ArchiveShell - 归档页面独立入口
  */
 
 import DataManager from '../shared/data-manager.js';

@@ -229,7 +229,7 @@ class VideoProgressView {
     if (!group) return;
 
     const confirmed = await modal.confirm(
-      `确定要归档「${group.name}」吗？归档后该课程将从活跃列表移至荣誉墙，进度条中不再显示。`,
+      `确定要归档「${group.name}」吗？归档后该课程将从活跃列表移至归档，进度条中不再显示。`,
       {
         title: '归档课程',
         type: 'warning',
