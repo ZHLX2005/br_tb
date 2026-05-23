@@ -54,6 +54,9 @@
   --nav-hover-bg: #EDE8DE;
   --nav-hover-color: #2C2C2C;
 
+  /* Nav-tab transition */
+  --nav-tab-transition: background 0.2s ease, color 0.2s ease, border-bottom-color 0.2s ease;
+
   /* Buttons */
   --btn-padding: 6px 12px;
   --btn-qa-padding: 12px 14px;

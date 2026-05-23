@@ -54,6 +54,9 @@
   --nav-hover-bg: rgba(255,255,255,0.15);
   --nav-hover-color: #ffffff;
 
+  /* Nav-tab transition */
+  --nav-tab-transition: background 0.15s, color 0.15s;
+
   /* Buttons */
   --btn-padding: 5px 10px;
   --btn-qa-padding: 10px 12px;

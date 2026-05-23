@@ -72,6 +72,9 @@
   /* ===== Dialog ===== */
   --dialog-padding: 18px;
   --dialog-width: 280px;
+
+  /* ===== Nav-tab transition (theme override) ===== */
+  --nav-tab-transition: background 0.12s ease, color 0.12s ease;
 }
 
 body {
@@ -119,7 +122,7 @@ body {
   border-radius: var(--border-radius);
   cursor: pointer;
   color: var(--text-on-nav);
-  transition: all 0.12s ease;
+  transition: var(--nav-tab-transition);
   white-space: nowrap;
   flex-shrink: 0;
   font-weight: var(--nav-tab-font-weight);
