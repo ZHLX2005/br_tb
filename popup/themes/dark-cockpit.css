@@ -1,0 +1,77 @@
+/* 深色座舱 (Dark-Cockpit) */
+[data-theme="dark-cockpit"] {
+  --bg-app: #0C0C0E;
+  --bg-surface: #151518;
+  --bg-subtle: #1E1E22;
+  --bg-subtle-hover: #232328;
+  --bg-hover: #232328;
+  --bg-nav: #0C0C0E;
+  --bg-nav-hover: #151518;
+  --bg-overlay: rgba(0,0,0,0.7);
+
+  --text-primary: #EAEAEF;
+  --text-secondary: #6E6E78;
+  --text-on-accent: #0C0C0E;
+  --text-on-nav: rgba(255,255,255,0.55);
+  --text-on-nav-hover: rgba(255,255,255,0.9);
+
+  --color-accent: #5B8DEF;
+  --color-accent-hover: #6A9AF0;
+  --color-danger: #EF5C5C;
+  --color-danger-hover: #F07070;
+  --color-danger-hover-bg: #EF5C5C;
+  --color-success: #47D18C;
+  --color-success-hover: #5CDA9A;
+  --color-secondary: #5B8DEF;
+
+  --border-color: rgba(255,255,255,0.06);
+  --border-width: 1px;
+  --border-radius: 8px;
+
+  --shadow-sm: 0 0 6px rgba(91,141,239,0.30);
+  --shadow: 0 0 12px rgba(91,141,239,0.30);
+  --shadow-lg: 0 0 24px rgba(91,141,239,0.30);
+
+  --font-mono: 'SF Mono', 'Consolas', monospace;
+
+  /* Layout */
+  --body-width: 360px;
+  --body-min-height: 480px;
+  --page-padding: 14px;
+  --scrollbar-width: 4px;
+
+  /* Navigation */
+  --nav-height: 48px;
+  --nav-padding-x: 10px;
+  --nav-tab-padding: 7px 12px;
+  --nav-tab-font-weight: inherit;
+  --nav-tab-active-bg: rgba(91,141,239,0.12);
+  --nav-tab-active-color: var(--color-accent);
+  --nav-tab-active-border: none;
+  --nav-tab-active-shadow: none;
+  --nav-tab-active-transform: none;
+  --nav-tab-active-font-weight: 500;
+  --nav-hover-bg: var(--bg-surface);
+  --nav-hover-color: var(--text-primary);
+
+  /* Buttons */
+  --btn-padding: 6px 12px;
+  --btn-qa-padding: 11px 14px;
+
+  /* Dialog */
+  --dialog-padding: 20px;
+  --dialog-width: 260px;
+}
+
+/* Dark-Cockpit 专属：active tab 下划线发光 */
+[data-theme="dark-cockpit"] .nav-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 20%;
+  right: 20%;
+  height: 2px;
+  background: var(--color-accent);
+  border-radius: 1px;
+  box-shadow: 0 0 8px rgba(91,141,239,0.30);
+}

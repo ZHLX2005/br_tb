@@ -1,0 +1,79 @@
+/* 酸性图形 (Acid-Graphics) */
+[data-theme="acid-graphics"] {
+  --bg-app: #030305;
+  --bg-surface: #0a0a0f;
+  --bg-subtle: #111118;
+  --bg-subtle-hover: #1a1a24;
+  --bg-hover: #1a1a24;
+  --bg-nav: #0a0a0f;
+  --bg-nav-hover: #1a1a24;
+  --bg-overlay: rgba(0,0,0,0.7);
+
+  --text-primary: #e8e8f0;
+  --text-secondary: #6e6e80;
+  --text-on-accent: #030305;
+  --text-on-nav: rgba(255,255,255,0.55);
+  --text-on-nav-hover: rgba(255,255,255,0.9);
+
+  --color-accent: #00F0FF;
+  --color-accent-hover: #39FF14;
+  --color-danger: #FF006E;
+  --color-danger-hover: #BC13FE;
+  --color-danger-hover-bg: #FF006E;
+  --color-success: #39FF14;
+  --color-success-hover: #00F0FF;
+  --color-secondary: #BC13FE;
+
+  --border-color: #1e1e2e;
+  --border-width: 1px;
+  --border-radius: 4px;
+
+  --shadow-sm: 0 0 6px rgba(0,240,255,0.25);
+  --shadow: 0 0 12px rgba(0,240,255,0.30);
+  --shadow-lg: 0 0 24px rgba(0,240,255,0.40);
+
+  --font-mono: 'SF Mono', 'Consolas', monospace;
+
+  /* Layout */
+  --body-width: 360px;
+  --body-min-height: 480px;
+  --page-padding: 12px;
+  --scrollbar-width: 4px;
+
+  /* Navigation */
+  --nav-height: 48px;
+  --nav-padding-x: 8px;
+  --nav-tab-padding: 6px 12px;
+  --nav-tab-font-weight: inherit;
+  --nav-tab-active-bg: var(--bg-subtle);
+  --nav-tab-active-color: #39FF14;
+  --nav-tab-active-border: 1px solid #39FF14;
+  --nav-tab-active-shadow: 0 0 12px rgba(57,255,20,0.35), inset 0 0 8px rgba(57,255,20,0.35);
+  --nav-tab-active-transform: none;
+  --nav-tab-active-font-weight: inherit;
+  --nav-hover-bg: var(--bg-subtle-hover);
+  --nav-hover-color: var(--text-primary);
+
+  /* Buttons */
+  --btn-padding: 5px 10px;
+  --btn-qa-padding: 10px 12px;
+
+  /* Dialog */
+  --dialog-padding: 16px;
+  --dialog-width: 260px;
+}
+
+/* Acid 专属：导航底部渐变发光 */
+[data-theme="acid-graphics"] .top-nav {
+  position: relative;
+}
+[data-theme="acid-graphics"] .top-nav::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #39FF14, #00F0FF, #BC13FE, transparent);
+  opacity: 0.6;
+}

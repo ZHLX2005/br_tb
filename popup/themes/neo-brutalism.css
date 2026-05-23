@@ -1,0 +1,64 @@
+/* Neo-Brutalism — 默认主题 */
+[data-theme="neo-brutalism"] {
+  --bg-app: #F7F7F4;
+  --bg-surface: #FFFFFF;
+  --bg-subtle: #F7F7F4;
+  --bg-subtle-hover: #E8E8E4;
+  --bg-hover: #F7F7F4;
+  --bg-nav: #111111;
+  --bg-nav-hover: rgba(255,255,255,0.08);
+  --bg-overlay: rgba(0,0,0,0.6);
+
+  --text-primary: #1A1A1A;
+  --text-secondary: #555555;
+  --text-on-accent: #111111;
+  --text-on-nav: rgba(255,255,255,0.55);
+  --text-on-nav-hover: rgba(255,255,255,0.9);
+
+  --color-accent: #00C8FF;
+  --color-accent-hover: #33D4FF;
+  --color-danger: #FF4D6D;
+  --color-danger-hover: #FF6B85;
+  --color-danger-hover-bg: #FF5555;
+  --color-success: #C8FF00;
+  --color-success-hover: #D4FF33;
+  --color-secondary: #B8A9FF;
+
+  --border-color: #000000;
+  --border-width: 2px;
+  --border-radius: 2px;
+
+  --shadow-sm: 2px 2px 0 #000000;
+  --shadow: 3px 3px 0 #000000;
+  --shadow-lg: 4px 4px 0 #000000;
+
+  --font-mono: 'SF Mono', 'Consolas', monospace;
+
+  /* Layout */
+  --body-width: 380px;
+  --body-min-height: 520px;
+  --page-padding: 14px;
+  --scrollbar-width: 6px;
+
+  /* Navigation */
+  --nav-height: 52px;
+  --nav-padding-x: 6px;
+  --nav-tab-padding: 6px 10px;
+  --nav-tab-font-weight: 500;
+  --nav-tab-active-bg: var(--color-accent);
+  --nav-tab-active-color: var(--text-on-accent);
+  --nav-tab-active-border: var(--border-width) solid var(--border-color);
+  --nav-tab-active-shadow: var(--shadow-sm);
+  --nav-tab-active-transform: translate(-1px, -1px);
+  --nav-tab-active-font-weight: 700;
+  --nav-hover-bg: var(--bg-nav-hover);
+  --nav-hover-color: var(--text-on-nav-hover);
+
+  /* Buttons */
+  --btn-padding: 6px 12px;
+  --btn-qa-padding: 11px 14px;
+
+  /* Dialog */
+  --dialog-padding: 18px;
+  --dialog-width: 280px;
+}

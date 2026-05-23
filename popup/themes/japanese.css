@@ -1,0 +1,69 @@
+/* 日式极简 (Japanese-Minimalism) */
+[data-theme="japanese"] {
+  --bg-app: #F5F0E8;
+  --bg-surface: #FDFBF7;
+  --bg-subtle: #EDE8DE;
+  --bg-subtle-hover: #E0DCD4;
+  --bg-hover: #EDE8DE;
+  --bg-nav: #F5F0E8;
+  --bg-nav-hover: #EDE8DE;
+  --bg-overlay: rgba(0,0,0,0.5);
+
+  --text-primary: #2C2C2C;
+  --text-secondary: #8C867D;
+  --text-on-accent: #FDFBF7;
+  --text-on-nav: #8C867D;
+  --text-on-nav-hover: #2C2C2C;
+
+  --color-accent: #C45C48;
+  --color-accent-hover: #A84E3D;
+  --color-danger: #B85C5C;
+  --color-danger-hover: #C45C48;
+  --color-danger-hover-bg: #A84E3D;
+  --color-success: #6B8E6B;
+  --color-success-hover: #5A7A5A;
+  --color-secondary: #A84E3D;
+
+  --border-color: #E0DCD4;
+  --border-width: 1px;
+  --border-radius: 4px;
+
+  --shadow-sm: none;
+  --shadow: none;
+  --shadow-lg: none;
+
+  --font-mono: 'SF Mono', 'Consolas', monospace;
+
+  /* Layout */
+  --body-width: 360px;
+  --body-min-height: 480px;
+  --page-padding: 16px;
+  --scrollbar-width: 4px;
+
+  /* Navigation */
+  --nav-height: 48px;
+  --nav-padding-x: 12px;
+  --nav-tab-padding: 8px 14px;
+  --nav-tab-font-weight: inherit;
+  --nav-tab-active-bg: transparent;
+  --nav-tab-active-color: #C45C48;
+  --nav-tab-active-border: none;
+  --nav-tab-active-shadow: none;
+  --nav-tab-active-transform: none;
+  --nav-tab-active-font-weight: 500;
+  --nav-hover-bg: #EDE8DE;
+  --nav-hover-color: #2C2C2C;
+
+  /* Buttons */
+  --btn-padding: 6px 12px;
+  --btn-qa-padding: 12px 14px;
+
+  /* Dialog */
+  --dialog-padding: 20px;
+  --dialog-width: 260px;
+}
+
+/* Japanese 专属：nav 底部分隔线 */
+[data-theme="japanese"] .top-nav {
+  border-bottom: 1px solid #E0DCD4;
+}

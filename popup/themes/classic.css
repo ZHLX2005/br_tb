@@ -1,0 +1,64 @@
+/* 经典 (master) */
+[data-theme="classic"] {
+  --bg-app: #fafafa;
+  --bg-surface: #ffffff;
+  --bg-subtle: #f5f5f5;
+  --bg-subtle-hover: #e9ecef;
+  --bg-hover: #e9ecef;
+  --bg-nav: #42a5f5;
+  --bg-nav-hover: rgba(255,255,255,0.15);
+  --bg-overlay: rgba(0,0,0,0.5);
+
+  --text-primary: #333333;
+  --text-secondary: #666666;
+  --text-on-accent: #ffffff;
+  --text-on-nav: rgba(255,255,255,0.75);
+  --text-on-nav-hover: #ffffff;
+
+  --color-accent: #42a5f5;
+  --color-accent-hover: #1976d2;
+  --color-danger: #ef5350;
+  --color-danger-hover: #e53935;
+  --color-danger-hover-bg: #c62828;
+  --color-success: #66bb6a;
+  --color-success-hover: #43a047;
+  --color-secondary: #90caf9;
+
+  --border-color: #e0e0e0;
+  --border-width: 1px;
+  --border-radius: 6px;
+
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow: 0 2px 4px rgba(0,0,0,0.1);
+  --shadow-lg: 0 4px 12px rgba(0,0,0,0.15);
+
+  --font-mono: 'Courier New', monospace;
+
+  /* Layout */
+  --body-width: 360px;
+  --body-min-height: 480px;
+  --page-padding: 12px;
+  --scrollbar-width: 4px;
+
+  /* Navigation */
+  --nav-height: 48px;
+  --nav-padding-x: 8px;
+  --nav-tab-padding: 6px 12px;
+  --nav-tab-font-weight: 500;
+  --nav-tab-active-bg: rgba(255,255,255,0.25);
+  --nav-tab-active-color: #ffffff;
+  --nav-tab-active-border: none;
+  --nav-tab-active-shadow: none;
+  --nav-tab-active-transform: none;
+  --nav-tab-active-font-weight: 500;
+  --nav-hover-bg: rgba(255,255,255,0.15);
+  --nav-hover-color: #ffffff;
+
+  /* Buttons */
+  --btn-padding: 5px 10px;
+  --btn-qa-padding: 10px 12px;
+
+  /* Dialog */
+  --dialog-padding: 16px;
+  --dialog-width: 260px;
+}
