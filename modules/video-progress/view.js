@@ -57,7 +57,6 @@ class VideoProgressView {
   bindEvents() {
     document.getElementById('backBtn')?.addEventListener('click', () => this.backToTabboard());
     document.getElementById('addGroupBtn')?.addEventListener('click', () => this.createGroup());
-    document.getElementById('addCurrentVideoBtn')?.addEventListener('click', () => this.addCurrentVideo());
     document.getElementById('batchImportBtn')?.addEventListener('click', () => this.openBatchImportDialog());
     document.getElementById('batchCancelBtn')?.addEventListener('click', () => this.closeBatchImportDialog());
     document.getElementById('batchConfirmBtn')?.addEventListener('click', () => this.startBatchImport());
@@ -244,123 +243,6 @@ class VideoProgressView {
       await this.loadVideoGroups();
       this.render();
       this.showToast('视频已移除', 'info');
-    }
-  }
-
-  /**
-   * Detect videos in current active tab and show add dialog
-   */
-  async addCurrentVideo() {
-    try {
-      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-      const activeTab = tabs[0];
-      if (!activeTab) {
-        this.showToast('无法获取当前标签页', 'error');
-        return;
-      }
-
-      // Skip special pages
-      if (!activeTab.url || activeTab.url.startsWith('chrome://') || activeTab.url.startsWith('chrome-extension://') || activeTab.url.startsWith('edge://')) {
-        this.showToast('当前页面不支持视频检测', 'error');
-        return;
-      }
-
-      // Send message to content script to detect videos
-      const results = await chrome.tabs.sendMessage(activeTab.id, { action: 'detectVideos' });
-
-      if (!results || !results.videos || results.videos.length === 0) {
-        this.showToast('当前页面未检测到视频', 'warning');
-        return;
-      }
-
-      if (results.videos.length === 1) {
-        // Only one video, directly add it
-        await this.showAddVideoDialog(results.videos[0]);
-      } else {
-        // Multiple videos, let user choose
-        await this.showVideoSelectionDialog(results.videos);
-      }
-    } catch (error) {
-      this.showToast('视频检测失败: ' + error.message, 'error');
-    }
-  }
-
-  async showVideoSelectionDialog(videos) {
-    const options = videos.map((v, i) => ({
-      value: String(i),
-      label: `${v.title || '未命名'} (${this.formatDuration(v.duration)})`
-    }));
-    const selected = await modal.select(`检测到 ${videos.length} 个视频`, {
-      title: '选择视频',
-      options,
-      confirmText: '选择',
-      cancelText: '取消'
-    });
-
-    if (selected === null) return;
-    const index = parseInt(selected);
-    if (isNaN(index) || index < 0 || index >= videos.length) {
-      this.showToast('无效的选择', 'error');
-      return;
-    }
-
-    await this.showAddVideoDialog(videos[index]);
-  }
-
-  async showAddVideoDialog(video) {
-    if (this.videoGroups.length === 0) {
-      const createGroup = await modal.confirm('还没有课程组，是否先创建一个？', {
-        title: '创建课程',
-        confirmText: '创建',
-        cancelText: '取消'
-      });
-      if (createGroup) {
-        await this.createGroup();
-      }
-      return;
-    }
-
-    // Show group selection
-    const groupOptions = this.videoGroups.map((g, i) => ({
-      value: String(i),
-      label: `${g.name} (${g.videos.length} 个视频)`
-    }));
-    const selected = await modal.select(`选择要添加到的课程`, {
-      title: `添加视频: ${video.title || '未命名'}`,
-      options: groupOptions,
-      confirmText: '添加',
-      cancelText: '取消'
-    });
-
-    if (selected === null) return;
-    const index = parseInt(selected);
-    if (isNaN(index) || index < 0 || index >= this.videoGroups.length) {
-      this.showToast('无效的选择', 'error');
-      return;
-    }
-
-    const group = this.videoGroups[index];
-    const response = await chrome.runtime.sendMessage({
-      action: 'addVideoToGroup',
-      groupId: group.id,
-      video: {
-        title: video.title || video.pageTitle || '未命名视频',
-        url: normalizeUrl(video.url),
-        duration: video.duration || 0,
-        watched: video.watched || 0,
-        favicon: video.favicon || '',
-        pageTitle: video.pageTitle || ''
-      }
-    });
-
-    if (response.success) {
-      await this.loadVideoGroups();
-      this.render();
-      this.showToast(`已添加到 "${group.name}"`, 'success');
-    } else if (response.error === 'Video already in group') {
-      this.showToast('该视频已在课程中', 'warning');
-    } else {
-      this.showToast('添加失败: ' + (response.error || ''), 'error');
     }
   }
 

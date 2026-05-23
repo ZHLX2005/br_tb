@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TabBoard Video 封面方案</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --ink: #111;
+    --paper: #F7F7F4;
+    --card: #FFF;
+    --cyan: #00C8FF;
+    --coral: #FF4D6D;
+    --lime: #C8FF00;
+    --amber: #FFB800;
+    --lavender: #B8A9FF;
+    --mint: #00E5C9;
+    --shadow: 6px 6px 0 var(--ink);
+    --shadow-sm: 4px 4px 0 var(--ink);
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    padding: 40px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 60px;
+  }
+
+  .label {
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--coral);
+    margin-bottom: 12px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  /* === 封面容器 16:9 === */
+  .cover-frame {
+    width: 960px;
+    height: 540px;
+    background: var(--card);
+    border: 3px solid var(--ink);
+    box-shadow: var(--shadow);
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding: 48px 56px;
+  }
+  .cover-frame.ratio-43 {
+    height: 720px;
+    padding: 60px 64px;
+  }
+
+  /* === 封面 1：痛点钩子 === */
+  .cover-1 {
+    background: var(--paper);
+    justify-content: center;
+    align-items: flex-start;
+  }
+  .cover-1 .dust-badge {
+    display: inline-block;
+    background: var(--coral);
+    color: #fff;
+    font-size: 20px;
+    font-weight: 900;
+    padding: 10px 24px;
+    border: 3px solid var(--ink);
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 28px;
+    transform: rotate(-3deg);
+  }
+  .cover-1 h1 {
+    font-size: 64px;
+    font-weight: 900;
+    line-height: 1.15;
+    margin-bottom: 20px;
+    letter-spacing: -1px;
+  }
+  .cover-1 .sub {
+    font-size: 26px;
+    font-weight: 700;
+    color: #444;
+  }
+  .cover-1 .deadline {
+    position: absolute;
+    right: -60px;
+    top: 60px;
+    width: 240px;
+    height: 240px;
+    background: var(--amber);
+    border: 3px solid var(--ink);
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform: rotate(12deg);
+    font-size: 72px;
+    font-weight: 900;
+  }
+  .cover-1 .deadline span {
+    transform: rotate(-12deg);
+    text-align: center;
+    line-height: 1.1;
+    font-size: 56px;
+  }
+
+  /* === 封面 2：血条可视化 === */
+  .cover-2 {
+    background: var(--ink);
+    color: var(--paper);
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+  }
+  .cover-2 h1 {
+    font-size: 56px;
+    font-weight: 900;
+    margin-bottom: 40px;
+  }
+  .cover-2 .blood-bar {
+    width: 720px;
+    height: 48px;
+    background: #333;
+    border: 3px solid var(--paper);
+    display: flex;
+    overflow: hidden;
+    margin-bottom: 32px;
+    position: relative;
+  }
+  .cover-2 .blood-fill {
+    height: 100%;
+    background: var(--lime);
+    border-right: 3px solid var(--paper);
+    transition: width 0.6s ease;
+  }
+  .cover-2 .blood-empty {
+    flex: 1;
+    background: #333;
+  }
+  .cover-2 .blood-text {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--lime);
+  }
+  .cover-2 .badge-row {
+    position: absolute;
+    top: 36px;
+    left: 36px;
+    display: flex;
+    gap: 12px;
+  }
+  .cover-2 .badge {
+    background: var(--coral);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 900;
+    padding: 6px 14px;
+    border: 2px solid var(--paper);
+  }
+
+  /* === 封面 3：数据冲击 === */
+  .cover-3 {
+    background: var(--coral);
+    color: #fff;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+  }
+  .cover-3 .big-num {
+    font-size: 180px;
+    font-weight: 900;
+    line-height: 1;
+    text-shadow: 5px 5px 0 var(--ink);
+    margin-bottom: 16px;
+  }
+  .cover-3 h2 {
+    font-size: 42px;
+    font-weight: 900;
+    margin-bottom: 16px;
+  }
+  .cover-3 .desc {
+    font-size: 22px;
+    font-weight: 700;
+    opacity: 0.95;
+  }
+  .cover-3 .corner-block {
+    position: absolute;
+    width: 120px;
+    height: 120px;
+    background: var(--lime);
+    border: 3px solid var(--ink);
+  }
+  .cover-3 .corner-tl { top: -30px; left: -30px; transform: rotate(-15deg); }
+  .cover-3 .corner-br { bottom: -30px; right: -30px; transform: rotate(15deg); background: var(--amber); }
+
+  /* === 封面 4：Before / After === */
+  .cover-4 {
+    background: var(--paper);
+    justify-content: center;
+  }
+  .cover-4 .vs-row {
+    display: flex;
+    align-items: center;
+    gap: 32px;
+  }
+  .cover-4 .vs-card {
+    width: 360px;
+    height: 380px;
+    border: 3px solid var(--ink);
+    padding: 28px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .cover-4 .vs-card.before {
+    background: #E8E8E5;
+    box-shadow: none;
+    opacity: 0.85;
+  }
+  .cover-4 .vs-card.after {
+    background: var(--lime);
+    box-shadow: var(--shadow-sm);
+  }
+  .cover-4 .vs-label {
+    font-size: 16px;
+    font-weight: 900;
+    padding: 6px 14px;
+    border: 2px solid var(--ink);
+    display: inline-block;
+    width: fit-content;
+  }
+  .cover-4 .before .vs-label { background: #ccc; }
+  .cover-4 .after .vs-label { background: var(--card); }
+  .cover-4 .vs-content {
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.6;
+  }
+  .cover-4 .vs-content .line {
+    margin-bottom: 8px;
+    padding: 4px 0;
+  }
+  .cover-4 .vs-divider {
+    font-size: 56px;
+    font-weight: 900;
+    color: var(--coral);
+  }
+  .cover-4 .vs-title {
+    font-size: 36px;
+    font-weight: 900;
+    margin-bottom: 36px;
+    text-align: center;
+  }
+
+  /* === 封面 5：功能清单 === */
+  .cover-5 {
+    background: var(--lavender);
+    justify-content: center;
+    align-items: center;
+  }
+  .cover-5 h1 {
+    font-size: 48px;
+    font-weight: 900;
+    text-align: center;
+    margin-bottom: 40px;
+    text-shadow: 3px 3px 0 var(--ink);
+    color: #fff;
+  }
+  .cover-5 .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+    width: 720px;
+  }
+  .cover-5 .feature-card {
+    background: var(--card);
+    border: 3px solid var(--ink);
+    padding: 20px 24px;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .cover-5 .feature-icon {
+    width: 48px;
+    height: 48px;
+    background: var(--cyan);
+    border: 2px solid var(--ink);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: 900;
+    flex-shrink: 0;
+  }
+  .cover-5 .feature-text {
+    font-size: 20px;
+    font-weight: 800;
+  }
+  .cover-5 .feature-sub {
+    font-size: 14px;
+    font-weight: 600;
+    color: #555;
+    margin-top: 4px;
+  }
+
+  /* === 封面 6：情绪爽感 === */
+  .cover-6 {
+    background: var(--mint);
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+  }
+  .cover-6 .emoji-burst {
+    font-size: 100px;
+    margin-bottom: 20px;
+    line-height: 1;
+  }
+  .cover-6 h1 {
+    font-size: 58px;
+    font-weight: 900;
+    margin-bottom: 16px;
+    text-shadow: 3px 3px 0 var(--ink);
+    color: #fff;
+  }
+  .cover-6 .desc {
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .cover-6 .stamps {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none;
+  }
+  .cover-6 .stamp {
+    position: absolute;
+    background: var(--coral);
+    color: #fff;
+    font-size: 18px;
+    font-weight: 900;
+    padding: 8px 16px;
+    border: 3px solid var(--ink);
+    transform: rotate(-12deg);
+  }
+  .cover-6 .stamp.s1 { top: 40px; left: 50px; }
+  .cover-6 .stamp.s2 { top: 80px; right: 60px; background: var(--amber); transform: rotate(8deg); }
+  .cover-6 .stamp.s3 { bottom: 60px; left: 80px; background: var(--lime); color: var(--ink); transform: rotate(5deg); }
+
+  /* === 封面 7：进度条截图风 === */
+  .cover-7 {
+    background: var(--paper);
+    justify-content: center;
+    align-items: center;
+  }
+  .cover-7 .browser-chrome {
+    width: 800px;
+    border: 3px solid var(--ink);
+    background: var(--card);
+    box-shadow: var(--shadow);
+  }
+  .cover-7 .browser-top {
+    height: 36px;
+    background: #ddd;
+    border-bottom: 3px solid var(--ink);
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    gap: 8px;
+  }
+  .cover-7 .dot { width: 12px; height: 12px; border: 2px solid var(--ink); border-radius: 50%; background: var(--coral); }
+  .cover-7 .dot:nth-child(2) { background: var(--amber); }
+  .cover-7 .dot:nth-child(3) { background: var(--lime); }
+  .cover-7 .url-bar {
+    flex: 1;
+    height: 22px;
+    background: #fff;
+    border: 2px solid var(--ink);
+    margin-left: 12px;
+    font-size: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    color: #666;
+  }
+  .cover-7 .browser-body {
+    padding: 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .cover-7 .fake-bar {
+    height: 28px;
+    background: var(--lime);
+    border: 2px solid var(--ink);
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    font-size: 13px;
+    font-weight: 800;
+    gap: 8px;
+  }
+  .cover-7 .fake-bar.b2 { background: var(--cyan); }
+  .cover-7 .fake-bar.b3 { background: var(--amber); }
+  .cover-7 .fake-segment {
+    height: 10px;
+    background: rgba(255,255,255,0.7);
+    border-right: 1px solid var(--ink);
+  }
+  .cover-7 h1 {
+    font-size: 42px;
+    font-weight: 900;
+    margin-bottom: 24px;
+    text-align: center;
+  }
+  .cover-7 .floating-tag {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: var(--coral);
+    color: #fff;
+    font-size: 16px;
+    font-weight: 900;
+    padding: 8px 16px;
+    border: 3px solid var(--ink);
+    transform: rotate(6deg);
+  }
+
+  /* === 封面 8：大字报风 === */
+  .cover-8 {
+    background: var(--amber);
+    justify-content: center;
+    align-items: center;
+    padding: 0;
+  }
+  .cover-8 .mega-text {
+    font-size: 120px;
+    font-weight: 900;
+    line-height: 1.05;
+    text-align: center;
+    color: var(--ink);
+    text-shadow: 4px 4px 0 #fff;
+    padding: 0 60px;
+  }
+  .cover-8 .mega-sub {
+    position: absolute;
+    bottom: 48px;
+    font-size: 28px;
+    font-weight: 800;
+    background: var(--card);
+    padding: 10px 28px;
+    border: 3px solid var(--ink);
+    box-shadow: var(--shadow-sm);
+  }
+  .cover-8 .mega-tag {
+    position: absolute;
+    top: 36px;
+    left: 36px;
+    background: var(--coral);
+    color: #fff;
+    font-size: 20px;
+    font-weight: 900;
+    padding: 10px 20px;
+    border: 3px solid var(--ink);
+    transform: rotate(-6deg);
+  }
+
+  /* === 4:3 覆盖样式 === */
+  .cover-1.ratio-43 h1 { font-size: 78px; }
+  .cover-1.ratio-43 .sub { font-size: 30px; }
+  .cover-1.ratio-43 .deadline { right: -40px; top: 80px; width: 280px; height: 280px; font-size: 84px; }
+  .cover-1.ratio-43 .deadline span { font-size: 64px; }
+
+  .cover-2.ratio-43 h1 { font-size: 68px; margin-bottom: 52px; }
+  .cover-2.ratio-43 .blood-bar { width: 780px; height: 56px; margin-bottom: 40px; }
+  .cover-2.ratio-43 .blood-text { font-size: 32px; }
+
+  .cover-3.ratio-43 .big-num { font-size: 220px; }
+  .cover-3.ratio-43 h2 { font-size: 50px; }
+  .cover-3.ratio-43 .desc { font-size: 26px; }
+  .cover-3.ratio-43 .corner-block { width: 150px; height: 150px; }
+
+  .cover-4.ratio-43 .vs-card { width: 380px; height: 460px; padding: 32px; }
+  .cover-4.ratio-43 .vs-content { font-size: 22px; }
+  .cover-4.ratio-43 .vs-title { font-size: 40px; margin-bottom: 44px; }
+  .cover-4.ratio-43 .vs-divider { font-size: 64px; }
+
+  .cover-5.ratio-43 h1 { font-size: 56px; margin-bottom: 52px; }
+  .cover-5.ratio-43 .feature-grid { width: 800px; gap: 24px; }
+  .cover-5.ratio-43 .feature-card { padding: 24px 28px; }
+  .cover-5.ratio-43 .feature-icon { width: 56px; height: 56px; font-size: 28px; }
+  .cover-5.ratio-43 .feature-text { font-size: 22px; }
+  .cover-5.ratio-43 .feature-sub { font-size: 15px; }
+
+  .cover-6.ratio-43 .emoji-burst { font-size: 120px; }
+  .cover-6.ratio-43 h1 { font-size: 68px; }
+  .cover-6.ratio-43 .desc { font-size: 30px; }
+
+  .cover-7.ratio-43 h1 { font-size: 48px; margin-bottom: 32px; }
+  .cover-7.ratio-43 .browser-chrome { width: 840px; }
+  .cover-7.ratio-43 .browser-body { padding: 48px; gap: 20px; }
+  .cover-7.ratio-43 .fake-bar { height: 32px; font-size: 15px; }
+
+  .cover-8.ratio-43 .mega-text { font-size: 140px; padding: 0 80px; }
+  .cover-8.ratio-43 .mega-sub { font-size: 32px; }
+  .cover-8.ratio-43 .mega-tag { font-size: 22px; padding: 12px 24px; }
+
+  @media print {
+    body { gap: 0; padding: 0; }
+    .cover-frame { page-break-after: always; box-shadow: none; margin: 0 auto; }
+    .label { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 方案 1：痛点钩子 -->
+<div class="label">方案 1 · 痛点钩子型 · 16:9</div>
+<div class="cover-frame cover-1">
+  <div class="dust-badge">收藏夹吃灰症</div>
+  <h1>你的B站课程<br>看了几集就弃坑？</h1>
+  <div class="sub">不是你不自律，是浏览器根本没有进度</div>
+  <div class="deadline"><span>进度<br>0%</span></div>
+</div>
+<div class="label">方案 1 · 痛点钩子型 · 4:3</div>
+<div class="cover-frame cover-1 ratio-43">
+  <div class="dust-badge">收藏夹吃灰症</div>
+  <h1>你的B站课程<br>看了几集就弃坑？</h1>
+  <div class="sub">不是你不自律，是浏览器根本没有进度</div>
+  <div class="deadline"><span>进度<br>0%</span></div>
+</div>
+
+<!-- 方案 2：血条可视化 -->
+<div class="label">方案 2 · 血条可视化型 · 16:9</div>
+<div class="cover-frame cover-2">
+  <div class="badge-row">
+    <div class="badge">Chrome 扩展</div>
+    <div class="badge">免费开源</div>
+  </div>
+  <h1>浏览器头顶长出了<br>课程血条</h1>
+  <div class="blood-bar">
+    <div class="blood-fill" style="width:65%"></div>
+    <div class="blood-empty"></div>
+  </div>
+  <div class="blood-text">TabBoard · 视频进度追踪器</div>
+</div>
+<div class="label">方案 2 · 血条可视化型 · 4:3</div>
+<div class="cover-frame cover-2 ratio-43">
+  <div class="badge-row">
+    <div class="badge">Chrome 扩展</div>
+    <div class="badge">免费开源</div>
+  </div>
+  <h1>浏览器头顶长出了<br>课程血条</h1>
+  <div class="blood-bar">
+    <div class="blood-fill" style="width:65%"></div>
+    <div class="blood-empty"></div>
+  </div>
+  <div class="blood-text">TabBoard · 视频进度追踪器</div>
+</div>
+
+<!-- 方案 3：数据冲击 -->
+<div class="label">方案 3 · 数据冲击型 · 16:9</div>
+<div class="cover-frame cover-3">
+  <div class="corner-block corner-tl"></div>
+  <div class="corner-block corner-br"></div>
+  <div class="big-num">0%</div>
+  <h2>学了5门课，进度全是0</h2>
+  <div class="desc">直到我装了这个插件，情况才变了</div>
+</div>
+<div class="label">方案 3 · 数据冲击型 · 4:3</div>
+<div class="cover-frame cover-3 ratio-43">
+  <div class="corner-block corner-tl"></div>
+  <div class="corner-block corner-br"></div>
+  <div class="big-num">0%</div>
+  <h2>学了5门课，进度全是0</h2>
+  <div class="desc">直到我装了这个插件，情况才变了</div>
+</div>
+
+<!-- 方案 4：Before / After -->
+<div class="label">方案 4 · 对比型 · 16:9</div>
+<div class="cover-frame cover-4">
+  <div class="vs-title">Before → After</div>
+  <div class="vs-row">
+    <div class="vs-card before">
+      <div class="vs-label">BEFORE</div>
+      <div class="vs-content">
+        <div class="line">❌ 疯狂翻历史记录</div>
+        <div class="line">❌ 标签页爆炸</div>
+        <div class="line">❌ 同一视频看3遍开头</div>
+        <div class="line">❌ 收藏夹永远吃灰</div>
+      </div>
+    </div>
+    <div class="vs-divider">VS</div>
+    <div class="vs-card after">
+      <div class="vs-label">AFTER</div>
+      <div class="vs-content">
+        <div class="line">✅ 顶部血条一目了然</div>
+        <div class="line">✅ 自动记录断点</div>
+        <div class="line">✅ 多课程并行追踪</div>
+        <div class="line">✅ 批量导入课程</div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="label">方案 4 · 对比型 · 4:3</div>
+<div class="cover-frame cover-4 ratio-43">
+  <div class="vs-title">Before → After</div>
+  <div class="vs-row">
+    <div class="vs-card before">
+      <div class="vs-label">BEFORE</div>
+      <div class="vs-content">
+        <div class="line">❌ 疯狂翻历史记录</div>
+        <div class="line">❌ 标签页爆炸</div>
+        <div class="line">❌ 同一视频看3遍开头</div>
+        <div class="line">❌ 收藏夹永远吃灰</div>
+      </div>
+    </div>
+    <div class="vs-divider">VS</div>
+    <div class="vs-card after">
+      <div class="vs-label">AFTER</div>
+      <div class="vs-content">
+        <div class="line">✅ 顶部血条一目了然</div>
+        <div class="line">✅ 自动记录断点</div>
+        <div class="line">✅ 多课程并行追踪</div>
+        <div class="line">✅ 批量导入课程</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 方案 5：功能清单 -->
+<div class="label">方案 5 · 功能清单型 · 16:9</div>
+<div class="cover-frame cover-5">
+  <h1>TabBoard 视频进度</h1>
+  <div class="feature-grid">
+    <div class="feature-card">
+      <div class="feature-icon">▶</div>
+      <div>
+        <div class="feature-text">自动追踪</div>
+        <div class="feature-sub">看视频自动记进度，零操作</div>
+      </div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon" style="background:var(--coral)">⚡</div>
+      <div>
+        <div class="feature-text">批量导入</div>
+        <div class="feature-sub">粘贴链接一键导入整门课程</div>
+      </div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon" style="background:var(--amber)">📊</div>
+      <div>
+        <div class="feature-text">多课程并行</div>
+        <div class="feature-sub">Python、日语、剪辑同时追踪</div>
+      </div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon" style="background:var(--lime);color:var(--ink)">🎯</div>
+      <div>
+        <div class="feature-text">全站提醒</div>
+        <div class="feature-sub">换网页进度条依然挂在头顶</div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="label">方案 5 · 功能清单型 · 4:3</div>
+<div class="cover-frame cover-5 ratio-43">
+  <h1>TabBoard 视频进度</h1>
+  <div class="feature-grid">
+    <div class="feature-card">
+      <div class="feature-icon">▶</div>
+      <div>
+        <div class="feature-text">自动追踪</div>
+        <div class="feature-sub">看视频自动记进度，零操作</div>
+      </div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon" style="background:var(--coral)">⚡</div>
+      <div>
+        <div class="feature-text">批量导入</div>
+        <div class="feature-sub">粘贴链接一键导入整门课程</div>
+      </div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon" style="background:var(--amber)">📊</div>
+      <div>
+        <div class="feature-text">多课程并行</div>
+        <div class="feature-sub">Python、日语、剪辑同时追踪</div>
+      </div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon" style="background:var(--lime);color:var(--ink)">🎯</div>
+      <div>
+        <div class="feature-text">全站提醒</div>
+        <div class="feature-sub">换网页进度条依然挂在头顶</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 方案 6：情绪爽感 -->
+<div class="label">方案 6 · 情绪爽感型 · 16:9</div>
+<div class="cover-frame cover-6">
+  <div class="stamps">
+    <div class="stamp s1">已完成 x12</div>
+    <div class="stamp s2">进度 100%</div>
+    <div class="stamp s3">通关！</div>
+  </div>
+  <div class="emoji-burst">🎮</div>
+  <h1>把课程进度条<br>彻底打满</h1>
+  <div class="desc">比游戏通关还爽的学习体验</div>
+</div>
+<div class="label">方案 6 · 情绪爽感型 · 4:3</div>
+<div class="cover-frame cover-6 ratio-43">
+  <div class="stamps">
+    <div class="stamp s1">已完成 x12</div>
+    <div class="stamp s2">进度 100%</div>
+    <div class="stamp s3">通关！</div>
+  </div>
+  <div class="emoji-burst">🎮</div>
+  <h1>把课程进度条<br>彻底打满</h1>
+  <div class="desc">比游戏通关还爽的学习体验</div>
+</div>
+
+<!-- 方案 7：截图模拟 -->
+<div class="label">方案 7 · 截图模拟型 · 16:9</div>
+<div class="cover-frame cover-7">
+  <div class="floating-tag">真实界面</div>
+  <h1>你的浏览器，变成这样</h1>
+  <div class="browser-chrome">
+    <div class="browser-top">
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="url-bar">bilibili.com/video/...</div>
+    </div>
+    <div class="browser-body">
+      <div class="fake-bar">Python 入门 · 78%
+        <div class="fake-segment" style="width:40%"></div>
+        <div class="fake-segment" style="width:30%"></div>
+        <div class="fake-segment" style="width:20%"></div>
+      </div>
+      <div class="fake-bar b2">日语 N3 · 45%
+        <div class="fake-segment" style="width:25%"></div>
+        <div class="fake-segment" style="width:15%"></div>
+        <div class="fake-segment" style="width:35%"></div>
+      </div>
+      <div class="fake-bar b3">剪辑进阶 · 12%
+        <div class="fake-segment" style="width:10%"></div>
+        <div class="fake-segment" style="width:50%"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="label">方案 7 · 截图模拟型 · 4:3</div>
+<div class="cover-frame cover-7 ratio-43">
+  <div class="floating-tag">真实界面</div>
+  <h1>你的浏览器，变成这样</h1>
+  <div class="browser-chrome">
+    <div class="browser-top">
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="url-bar">bilibili.com/video/...</div>
+    </div>
+    <div class="browser-body">
+      <div class="fake-bar">Python 入门 · 78%
+        <div class="fake-segment" style="width:40%"></div>
+        <div class="fake-segment" style="width:30%"></div>
+        <div class="fake-segment" style="width:20%"></div>
+      </div>
+      <div class="fake-bar b2">日语 N3 · 45%
+        <div class="fake-segment" style="width:25%"></div>
+        <div class="fake-segment" style="width:15%"></div>
+        <div class="fake-segment" style="width:35%"></div>
+      </div>
+      <div class="fake-bar b3">剪辑进阶 · 12%
+        <div class="fake-segment" style="width:10%"></div>
+        <div class="fake-segment" style="width:50%"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 方案 8：大字报 -->
+<div class="label">方案 8 · 大字报型 · 16:9</div>
+<div class="cover-frame cover-8">
+  <div class="mega-tag">Chrome 扩展</div>
+  <div class="mega-text">专治<br>收藏从未停止<br>学习从未开始</div>
+  <div class="mega-sub">TabBoard · 视频进度追踪器</div>
+</div>
+<div class="label">方案 8 · 大字报型 · 4:3</div>
+<div class="cover-frame cover-8 ratio-43">
+  <div class="mega-tag">Chrome 扩展</div>
+  <div class="mega-text">专治<br>收藏从未停止<br>学习从未开始</div>
+  <div class="mega-sub">TabBoard · 视频进度追踪器</div>
+</div>
+
+</body>
+</html>

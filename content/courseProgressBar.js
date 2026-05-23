@@ -6,10 +6,8 @@
 (function () {
   'use strict';
 
-  const BAR_ID = 'tabboard-course-progress-bar';
+  const CONTAINER_ID = 'tabboard-course-progress-container';
   const TOOLTIP_ID = 'tabboard-course-progress-tooltip';
-  let currentGroup = null;
-  let currentVideoIndex = -1;
   let updateTimer = null;
   let isEnabled = false;
   let showOnUnrelatedTabs = false;
@@ -25,26 +23,41 @@
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   }
 
-  function removeBar() {
-    const bar = document.getElementById(BAR_ID);
-    if (bar) bar.remove();
+  function removeBars() {
+    const container = document.getElementById(CONTAINER_ID);
+    if (container) container.remove();
     const tooltip = document.getElementById(TOOLTIP_ID);
     if (tooltip) tooltip.remove();
     if (updateTimer) {
       clearInterval(updateTimer);
       updateTimer = null;
     }
-    currentGroup = null;
-    currentVideoIndex = -1;
   }
 
-  function hideBar() {
-    const bar = document.getElementById(BAR_ID);
-    if (bar) bar.remove();
+  function hideBars() {
+    const container = document.getElementById(CONTAINER_ID);
+    if (container) container.remove();
     const tooltip = document.getElementById(TOOLTIP_ID);
     if (tooltip) tooltip.remove();
-    currentGroup = null;
-    currentVideoIndex = -1;
+  }
+
+  function ensureContainer() {
+    let container = document.getElementById(CONTAINER_ID);
+    if (!container) {
+      container = document.createElement('div');
+      container.id = CONTAINER_ID;
+      container.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 2147483647;
+        display: flex;
+        flex-direction: column;
+      `;
+      document.body.appendChild(container);
+    }
+    return container;
   }
 
   async function showTooltip(segment, groupId, videoIndex, currentIdx) {
@@ -68,18 +81,34 @@
       // Extension 可能未启用
     }
 
-    const percent = getVideoDisplayProgress(video);
+    const duration = video.duration || 0;
+    const watched = video.watched || 0;
     let status;
-    if (currentIdx === -1) {
-      status = (video.duration > 0 && (video.watched || 0) / video.duration > 0.5) ? '已完成' : '未开始';
+    let percent;
+
+    if (currentIdx >= 0) {
+      // === 分支 A：课程视频内部 —— 按位置判断 ===
+      if (videoIndex < currentIdx) {
+        status = '已完成';
+        percent = duration > 0 ? Math.round((watched / duration) * 100) : 0;
+      } else if (videoIndex === currentIdx) {
+        status = '当前';
+        percent = duration > 0 ? Math.round((watched / duration) * 100) : 0;
+      } else {
+        status = '未开始';
+        percent = 0;
+      }
     } else {
-      status = videoIndex < currentIdx ? '已完成' : (videoIndex === currentIdx ? '当前' : '未开始');
+      // === 分支 B：无关页面 —— 按 50% 阈值判断 ===
+      const ratio = duration > 0 ? watched / duration : 0;
+      status = ratio > 0.5 ? '已完成' : '未开始';
+      percent = duration > 0 ? Math.round((watched / duration) * 100) : 0;
     }
 
     tooltip.innerHTML = `
       <div style="font-weight:600;font-size:12px;margin-bottom:3px;color:#333;">${video.title}</div>
       <div style="font-size:11px;color:#666;">第 ${videoIndex + 1} 课 · ${status}</div>
-      <div style="font-size:11px;color:#666;margin-top:2px;">${formatTime(video.watched || 0)} / ${formatTime(video.duration)} · ${percent}%</div>
+      <div style="font-size:11px;color:#666;margin-top:2px;">${formatTime(watched)} / ${formatTime(duration)} · ${percent}%</div>
     `;
 
     const rect = segment.getBoundingClientRect();
@@ -106,14 +135,6 @@
     if (tooltip) tooltip.style.display = 'none';
   }
 
-  function getVideoDisplayProgress(video) {
-    const duration = video.duration || 0;
-    const watched = video.watched || 0;
-    if (duration <= 0) return 0;
-    const ratio = watched / duration;
-    return ratio > 0.5 ? Math.round(ratio * 100) : 0;
-  }
-
   function getGroupDisplayProgress(videos) {
     if (!videos || videos.length === 0) return 0;
     const completed = videos.filter(v => {
@@ -127,21 +148,23 @@
 
   function createProgressBar(group, currentIdx) {
     const bar = document.createElement('div');
-    bar.id = BAR_ID;
+    bar.id = `tabboard-course-progress-bar-${group.id}`;
 
     const totalDuration = group.videos.reduce((s, v) => s + (v.duration || 0), 0);
     if (totalDuration <= 0) return bar;
 
-    const overallPercent = getGroupDisplayProgress(group.videos);
     const hasCurrentVideo = currentIdx >= 0;
+    const overallPercent = hasCurrentVideo
+      ? Math.round(
+          (group.videos.slice(0, currentIdx).reduce((s, v) => s + (v.duration || 0), 0) +
+            (group.videos[currentIdx]?.watched || 0)) /
+            totalDuration *
+            100
+        )
+      : getGroupDisplayProgress(group.videos);
 
     bar.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
       height: 20px;
-      z-index: 2147483647;
       display: flex;
       align-items: center;
       background: rgba(255,255,255,0.95);
@@ -296,46 +319,36 @@
       });
 
       if (response.success && response.group) {
-        // 当前页是课程视频，正常显示
-        currentGroup = response.group;
-        currentVideoIndex = response.currentIndex;
-
+        // 当前页是课程视频，只显示当前课程
+        const container = ensureContainer();
+        container.innerHTML = '';
         const bar = createProgressBar(response.group, response.currentIndex);
-        const oldBar = document.getElementById(BAR_ID);
-        if (oldBar) {
-          oldBar.replaceWith(bar);
-        } else {
-          document.body.appendChild(bar);
-        }
+        container.appendChild(bar);
         return;
       }
 
       // 当前页是无关 tab
       if (!showOnUnrelatedTabs) {
-        hideBar();
+        hideBars();
         return;
       }
 
-      // 获取第一个有视频的课程组来显示
+      // 显示所有课程
       const groupsRes = await chrome.runtime.sendMessage({ action: 'getVideoGroups' });
       if (groupsRes.success && groupsRes.videoGroups) {
-        const group = groupsRes.videoGroups.find(g => g.videos && g.videos.length > 0);
-        if (group) {
-          currentGroup = group;
-          currentVideoIndex = -1;
-
-          const bar = createProgressBar(group, -1);
-          const oldBar = document.getElementById(BAR_ID);
-          if (oldBar) {
-            oldBar.replaceWith(bar);
-          } else {
-            document.body.appendChild(bar);
-          }
+        const groupsWithVideos = groupsRes.videoGroups.filter(g => g.videos && g.videos.length > 0);
+        if (groupsWithVideos.length > 0) {
+          const container = ensureContainer();
+          container.innerHTML = '';
+          groupsWithVideos.forEach(group => {
+            const bar = createProgressBar(group, -1);
+            container.appendChild(bar);
+          });
           return;
         }
       }
 
-      hideBar();
+      hideBars();
     } catch (err) {
       // Extension may be disabled or page unloaded
     }
@@ -406,7 +419,7 @@
         if (isEnabled) {
           init();
         } else {
-          removeBar();
+          removeBars();
         }
       } else if (newShowUnrelated !== showOnUnrelatedTabs) {
         showOnUnrelatedTabs = newShowUnrelated;
