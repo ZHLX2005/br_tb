@@ -43,7 +43,8 @@ export async function initializeDefaultData() {
         lastView: 'timeline',
         visibleGroups: result.groups ? result.groups.map(g => g.id) : [],
         showCourseProgressBar: false,
-        showCourseProgressBarOnUnrelatedTabs: false
+        showCourseProgressBarOnUnrelatedTabs: false,
+        theme: 'neo-brutalism'
       }
     });
   } else {
@@ -61,6 +62,10 @@ export async function initializeDefaultData() {
     }
     if (updatedSettings.lastView === undefined) {
       updatedSettings.lastView = 'timeline';
+      needUpdate = true;
+    }
+    if (updatedSettings.theme === undefined) {
+      updatedSettings.theme = 'neo-brutalism';
       needUpdate = true;
     }
     if (!updatedSettings.visibleGroups) {

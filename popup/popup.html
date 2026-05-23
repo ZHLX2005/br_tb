@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TabBoard</title>
   <link rel="stylesheet" href="popup.css">
+  <link rel="stylesheet" href="themes/neo-brutalism.css">
+  <link rel="stylesheet" href="themes/classic.css">
+  <link rel="stylesheet" href="themes/dark-cockpit.css">
+  <link rel="stylesheet" href="themes/acid-graphics.css">
+  <link rel="stylesheet" href="themes/japanese.css">
   <link rel="stylesheet" href="../shared/ModalDialog.css">
 </head>
 <body>
@@ -29,6 +34,9 @@
           <span class="nav-tab-label">视频进度</span>
         </div>
       </div>
+      <button class="theme-btn" id="themeBtn" title="切换主题">
+        <span class="theme-btn-dot"></span>
+      </button>
     </nav>
 
     <!-- 页面容器 -->
@@ -126,6 +134,16 @@
         </div>
       </div>
 
+    </div>
+
+    <!-- 主题选择浮层 -->
+    <div class="theme-panel" id="themePanel">
+      <div class="theme-panel-title">主题</div>
+      <div class="theme-option active" data-theme="neo-brutalism">新粗野主义</div>
+      <div class="theme-option" data-theme="classic">经典</div>
+      <div class="theme-option" data-theme="dark-cockpit">深色座舱</div>
+      <div class="theme-option" data-theme="acid-graphics">酸性图形</div>
+      <div class="theme-option" data-theme="japanese">日式极简</div>
     </div>
   </div>
 

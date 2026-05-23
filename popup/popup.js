@@ -12,6 +12,62 @@ import { loadVideoProgress, bindVideoProgressEvents, refreshCurrentVideo } from 
 import { renderColorPicker, resetColorPicker } from './modules/colorPicker.js';
 import { showToast } from './modules/utils.js';
 
+// ==================== 主题切换 ====================
+
+async function loadTheme() {
+  const result = await chrome.storage.local.get(['settings']);
+  const theme = result.settings?.theme || 'neo-brutalism';
+  applyTheme(theme);
+}
+
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  document.querySelectorAll('.theme-option').forEach(opt => {
+    opt.classList.toggle('active', opt.dataset.theme === theme);
+  });
+}
+
+async function saveTheme(theme) {
+  const result = await chrome.storage.local.get(['settings']);
+  const settings = { ...result.settings, theme };
+  await chrome.storage.local.set({ settings });
+}
+
+function initTheme() {
+  const themeBtn = document.getElementById('themeBtn');
+  const themePanel = document.getElementById('themePanel');
+  if (!themeBtn || !themePanel) return;
+
+  // Toggle panel
+  themeBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    themePanel.classList.toggle('open');
+  });
+
+  // Select theme
+  themePanel.addEventListener('click', async (e) => {
+    const option = e.target.closest('.theme-option');
+    if (!option) return;
+    const theme = option.dataset.theme;
+    applyTheme(theme);
+    themePanel.classList.remove('open');
+    await saveTheme(theme);
+    showToast(document.querySelector('.app'), `主题已切换到「${option.textContent}」`, 'success');
+  });
+
+  // Close on outside click
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.theme-panel') && !e.target.closest('#themeBtn')) {
+      themePanel.classList.remove('open');
+    }
+  });
+
+  // Close on Escape
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') themePanel.classList.remove('open');
+  });
+}
+
 // ==================== 分组对话框控制 ====================
 
 /**
@@ -164,6 +220,9 @@ function bindUIEvents() {
  * 主初始化函数
  */
 async function init() {
+  // 加载主题
+  await loadTheme();
+
   // 加载各模块数据
   await Promise.all([
     loadSettings(),
@@ -196,6 +255,9 @@ async function init() {
 
   // 初始化对话框事件
   initDialogEvents();
+
+  // 初始化主题切换
+  initTheme();
 }
 
 // DOM加载完成后初始化
