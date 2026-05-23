@@ -336,7 +336,7 @@
       // 显示所有课程
       const groupsRes = await chrome.runtime.sendMessage({ action: 'getVideoGroups' });
       if (groupsRes.success && groupsRes.videoGroups) {
-        const groupsWithVideos = groupsRes.videoGroups.filter(g => g.videos && g.videos.length > 0);
+        const groupsWithVideos = groupsRes.videoGroups.filter(g => !g.archived && g.videos && g.videos.length > 0);
         if (groupsWithVideos.length > 0) {
           const container = ensureContainer();
           container.innerHTML = '';
