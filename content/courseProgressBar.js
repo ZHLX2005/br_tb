@@ -153,8 +153,15 @@
     const totalDuration = group.videos.reduce((s, v) => s + (v.duration || 0), 0);
     if (totalDuration <= 0) return bar;
 
-    const overallPercent = getGroupDisplayProgress(group.videos);
     const hasCurrentVideo = currentIdx >= 0;
+    const overallPercent = hasCurrentVideo
+      ? Math.round(
+          (group.videos.slice(0, currentIdx).reduce((s, v) => s + (v.duration || 0), 0) +
+            (group.videos[currentIdx]?.watched || 0)) /
+            totalDuration *
+            100
+        )
+      : getGroupDisplayProgress(group.videos);
 
     bar.style.cssText = `
       height: 20px;
