@@ -81,18 +81,34 @@
       // Extension 可能未启用
     }
 
-    const percent = getVideoDisplayProgress(video);
+    const duration = video.duration || 0;
+    const watched = video.watched || 0;
     let status;
-    if (currentIdx === -1) {
-      status = (video.duration > 0 && (video.watched || 0) / video.duration > 0.5) ? '已完成' : '未开始';
+    let percent;
+
+    if (currentIdx >= 0) {
+      // === 分支 A：课程视频内部 —— 按位置判断 ===
+      if (videoIndex < currentIdx) {
+        status = '已完成';
+        percent = duration > 0 ? Math.round((watched / duration) * 100) : 0;
+      } else if (videoIndex === currentIdx) {
+        status = '当前';
+        percent = duration > 0 ? Math.round((watched / duration) * 100) : 0;
+      } else {
+        status = '未开始';
+        percent = 0;
+      }
     } else {
-      status = videoIndex < currentIdx ? '已完成' : (videoIndex === currentIdx ? '当前' : '未开始');
+      // === 分支 B：无关页面 —— 按 50% 阈值判断 ===
+      const ratio = duration > 0 ? watched / duration : 0;
+      status = ratio > 0.5 ? '已完成' : '未开始';
+      percent = ratio > 0.5 ? Math.round(ratio * 100) : 0;
     }
 
     tooltip.innerHTML = `
       <div style="font-weight:600;font-size:12px;margin-bottom:3px;color:#333;">${video.title}</div>
       <div style="font-size:11px;color:#666;">第 ${videoIndex + 1} 课 · ${status}</div>
-      <div style="font-size:11px;color:#666;margin-top:2px;">${formatTime(video.watched || 0)} / ${formatTime(video.duration)} · ${percent}%</div>
+      <div style="font-size:11px;color:#666;margin-top:2px;">${formatTime(watched)} / ${formatTime(duration)} · ${percent}%</div>
     `;
 
     const rect = segment.getBoundingClientRect();
@@ -117,14 +133,6 @@
   function hideTooltip() {
     const tooltip = document.getElementById(TOOLTIP_ID);
     if (tooltip) tooltip.style.display = 'none';
-  }
-
-  function getVideoDisplayProgress(video) {
-    const duration = video.duration || 0;
-    const watched = video.watched || 0;
-    if (duration <= 0) return 0;
-    const ratio = watched / duration;
-    return ratio > 0.5 ? Math.round(ratio * 100) : 0;
   }
 
   function getGroupDisplayProgress(videos) {
