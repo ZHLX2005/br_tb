@@ -179,11 +179,10 @@
   background: #e3f2fd;
 }
 [data-theme="classic"] .focus-group-item input[type="checkbox"] {
+  appearance: auto;
   accent-color: var(--color-accent);
-  width: 15px;
-  height: 15px;
-  border: none;
-  background: transparent;
+  width: 14px;
+  height: 14px;
 }
 [data-theme="classic"] .focus-group-item input[type="checkbox"]:checked::after {
   display: none;
@@ -231,11 +230,10 @@
   background: #f5f5f5;
 }
 [data-theme="classic"] .setting-row input[type="checkbox"] {
+  appearance: auto;
   accent-color: var(--color-accent);
   width: 15px;
   height: 15px;
-  border: none;
-  background: transparent;
 }
 [data-theme="classic"] .setting-row input[type="checkbox"]:checked::after {
   display: none;

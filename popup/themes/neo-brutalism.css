@@ -482,7 +482,6 @@
   height: 8px;
   background: var(--bg-subtle);
   border-radius: 0;
-  border: var(--border-width) solid var(--border-color);
 }
 [data-theme="neo-brutalism"] .vp-group-fill {
   background: var(--color-success);
@@ -510,7 +509,6 @@
   height: 8px;
   background: var(--bg-subtle);
   border-radius: 0;
-  border: var(--border-width) solid var(--border-color);
 }
 [data-theme="neo-brutalism"] .vp-video-fill {
   background: var(--color-success);

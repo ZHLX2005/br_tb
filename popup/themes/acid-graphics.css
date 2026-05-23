@@ -245,11 +245,10 @@
   background: rgba(57,255,20,0.08);
 }
 [data-theme="acid-graphics"] .focus-group-item input[type="checkbox"] {
+  appearance: auto;
   accent-color: #39FF14;
-  width: 15px;
-  height: 15px;
-  border: none;
-  background: transparent;
+  width: 14px;
+  height: 14px;
 }
 [data-theme="acid-graphics"] .focus-group-item input[type="checkbox"]:checked::after {
   display: none;
@@ -300,11 +299,10 @@
   background: var(--bg-subtle);
 }
 [data-theme="acid-graphics"] .setting-row input[type="checkbox"] {
+  appearance: auto;
   accent-color: #39FF14;
   width: 15px;
   height: 15px;
-  border: none;
-  background: transparent;
 }
 [data-theme="acid-graphics"] .setting-row input[type="checkbox"]:checked::after {
   display: none;
@@ -502,7 +500,6 @@
   height: 8px;
   background: var(--bg-app);
   border-radius: 4px;
-  border: 1px solid var(--border-color);
 }
 [data-theme="acid-graphics"] .vp-group-fill {
   background: linear-gradient(90deg, #39FF14, #00F0FF);
@@ -515,9 +512,6 @@
 }
 [data-theme="acid-graphics"] .vp-video-item:hover {
   background: var(--bg-subtle);
-  margin: 0 -12px;
-  padding-left: 12px;
-  padding-right: 12px;
 }
 [data-theme="acid-graphics"] .vp-video-favicon {
   border-radius: var(--border-radius);
@@ -531,7 +525,6 @@
   height: 8px;
   background: var(--bg-app);
   border-radius: 4px;
-  border: 1px solid var(--border-color);
 }
 [data-theme="acid-graphics"] .vp-video-fill {
   background: linear-gradient(90deg, #39FF14, #00F0FF);

@@ -400,7 +400,7 @@
 }
 [data-theme="dark-cockpit"] .vp-current-bar {
   height: 4px;
-  background: var(--bg-subtle);
+  background: var(--bg-subtle-hover);
   border-radius: 2px;
   border: none;
 }
@@ -443,7 +443,7 @@
 }
 [data-theme="dark-cockpit"] .vp-overall-bar {
   height: 4px;
-  background: var(--bg-subtle);
+  background: var(--bg-subtle-hover);
   border-radius: 2px;
   border: none;
   margin-bottom: 16px;
@@ -490,6 +490,7 @@
 [data-theme="dark-cockpit"] .vp-group-fill {
   background: var(--color-accent);
   border-radius: 2px;
+  box-shadow: 0 0 6px rgba(91,141,239,0.30);
 }
 [data-theme="dark-cockpit"] .vp-group-toggle {
   color: var(--text-secondary);
@@ -518,6 +519,7 @@
 [data-theme="dark-cockpit"] .vp-video-fill {
   background: var(--color-accent);
   border-radius: 2px;
+  box-shadow: 0 0 6px rgba(91,141,239,0.30);
 }
 [data-theme="dark-cockpit"] .vp-video-meta {
   color: var(--text-secondary);
