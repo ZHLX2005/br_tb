@@ -20,6 +20,7 @@
   --color-danger: #B85C5C;
   --color-danger-hover: #C45C48;
   --color-danger-hover-bg: #A84E3D;
+  --color-danger-bg: #B85C5C;
   --color-success: #6B8E6B;
   --color-success-hover: #5A7A5A;
   --color-secondary: #A84E3D;
@@ -70,3 +71,565 @@
 [data-theme="japanese"] .top-nav {
   border-bottom: 1px solid #E0DCD4;
 }
+
+/* ========== Component visual styles ========== */
+
+/* --- Buttons --- */
+[data-theme="japanese"] .btn {
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  font-weight: 400;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-family: inherit;
+  line-height: 1.5;
+}
+[data-theme="japanese"] .btn:hover {
+  background: var(--bg-subtle);
+}
+[data-theme="japanese"] .btn-small,
+[data-theme="japanese"] .btn-primary {
+  background: var(--color-accent);
+  color: var(--text-on-accent);
+}
+[data-theme="japanese"] .btn-small:hover,
+[data-theme="japanese"] .btn-primary:hover {
+  background: var(--color-accent-hover);
+}
+[data-theme="japanese"] .btn-secondary {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+[data-theme="japanese"] .btn-secondary:hover {
+  background: var(--bg-subtle);
+}
+
+/* --- Quick action buttons --- */
+[data-theme="japanese"] .quick-action-btn {
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  background: var(--bg-surface);
+  transition: all 0.2s ease;
+  font-weight: 400;
+  font-family: inherit;
+  line-height: 1.5;
+}
+[data-theme="japanese"] .quick-action-btn:hover {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--text-on-accent);
+  font-weight: 500;
+  box-shadow: 0 2px 8px rgba(196, 92, 72, 0.25);
+}
+
+/* --- Group items --- */
+[data-theme="japanese"] .group-item {
+  background: var(--bg-surface);
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-color);
+  transition: all 0.15s ease;
+  padding: 10px 12px;
+}
+[data-theme="japanese"] .group-item:hover {
+  border-color: var(--bg-subtle);
+  background: var(--bg-subtle);
+  transform: none;
+  box-shadow: none;
+}
+[data-theme="japanese"] .group-item .group-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+[data-theme="japanese"] .group-item .group-name {
+  font-weight: 400;
+  color: var(--text-primary);
+}
+[data-theme="japanese"] .group-item .group-default-badge {
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  border: none;
+}
+
+/* --- Add to focus --- */
+[data-theme="japanese"] .add-to-focus {
+  font-weight: 500;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+[data-theme="japanese"] .add-to-focus:hover {
+  background: var(--bg-subtle);
+  border-color: var(--bg-subtle);
+  color: var(--text-primary);
+  transform: none;
+  box-shadow: none;
+}
+
+/* --- Group action buttons --- */
+[data-theme="japanese"] .group-item .group-actions-buttons button {
+  padding: 3px 7px;
+  font-size: 10px;
+  font-weight: 400;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+[data-theme="japanese"] .group-item .group-actions-buttons button:hover {
+  background: var(--bg-subtle);
+  color: var(--text-primary);
+  transform: none;
+  box-shadow: none;
+}
+[data-theme="japanese"] .group-item .group-actions-buttons button.delete {
+  background: var(--bg-surface);
+  color: var(--color-danger);
+}
+[data-theme="japanese"] .group-item .group-actions-buttons button.delete:hover {
+  background: var(--bg-subtle);
+}
+
+/* --- Focus search --- */
+[data-theme="japanese"] .focus-group-item {
+  background: var(--bg-surface);
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-color);
+  transition: all 0.15s ease;
+}
+[data-theme="japanese"] .focus-group-item:hover {
+  border-color: var(--bg-subtle);
+  background: var(--bg-subtle);
+}
+[data-theme="japanese"] .focus-group-item.enabled {
+  border-color: var(--border-color);
+  background: var(--bg-subtle);
+}
+[data-theme="japanese"] .focus-group-item input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  background: var(--bg-surface);
+  transition: all 0.15s ease;
+}
+[data-theme="japanese"] .focus-group-item input[type="checkbox"]:checked {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+[data-theme="japanese"] .focus-group-item input[type="checkbox"]:checked::after {
+  border: solid var(--text-on-accent);
+  border-width: 0 1.5px 1.5px 0;
+}
+[data-theme="japanese"] .focus-color-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+[data-theme="japanese"] .focus-group-name {
+  font-weight: 400;
+  color: var(--text-primary);
+}
+[data-theme="japanese"] .focus-group-count {
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+[data-theme="japanese"] .focus-group-remove {
+  width: 22px;
+  height: 22px;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  font-family: inherit;
+  font-weight: 400;
+  transition: all 0.15s ease;
+}
+[data-theme="japanese"] .focus-group-remove:hover {
+  background: var(--bg-subtle);
+  color: var(--color-danger);
+  transform: none;
+  box-shadow: none;
+}
+
+/* --- Settings --- */
+[data-theme="japanese"] .settings-list {
+  background: var(--bg-surface);
+  border-radius: var(--border-radius);
+  padding: 10px;
+  border: 1px solid var(--border-color);
+}
+[data-theme="japanese"] .setting-row {
+  border-radius: var(--border-radius);
+  transition: background 0.15s ease;
+  font-weight: 400;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+[data-theme="japanese"] .setting-row:hover {
+  background: var(--bg-subtle);
+}
+[data-theme="japanese"] .setting-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  background: var(--bg-surface);
+  transition: all 0.15s ease;
+}
+[data-theme="japanese"] .setting-row input[type="checkbox"]:checked {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+[data-theme="japanese"] .setting-row input[type="checkbox"]:checked::after {
+  border: solid var(--text-on-accent);
+  border-width: 0 1.5px 1.5px 0;
+}
+
+/* --- Dialog --- */
+[data-theme="japanese"] .dialog-content {
+  background: var(--bg-surface);
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+  animation: jp-dialogIn 0.2s ease;
+}
+@keyframes jp-dialogIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+[data-theme="japanese"] .dialog-content h3 {
+  color: var(--text-primary);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+[data-theme="japanese"] .form-group label {
+  color: var(--text-secondary);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: none;
+}
+[data-theme="japanese"] .input {
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  font-weight: 400;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  transition: all 0.15s ease;
+  line-height: 1.5;
+  padding: 8px 10px;
+}
+[data-theme="japanese"] .input:focus {
+  border-color: var(--color-accent);
+  transform: none;
+  box-shadow: none;
+}
+[data-theme="japanese"] .color-option {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-color);
+  transition: all 0.15s ease;
+}
+[data-theme="japanese"] .color-option:hover {
+  border-color: var(--color-accent);
+  transform: none;
+  box-shadow: none;
+}
+[data-theme="japanese"] .color-option.selected {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--bg-surface), 0 0 0 3px var(--color-accent);
+  transform: none;
+}
+[data-theme="japanese"] .empty-state {
+  color: var(--text-secondary);
+  font-weight: 400;
+  border: 1px dashed var(--border-color);
+  border-radius: var(--border-radius);
+  background: transparent;
+}
+
+/* --- Video progress --- */
+[data-theme="japanese"] .vp-actions-row {
+  margin-bottom: 14px;
+}
+[data-theme="japanese"] .vp-actions-row .btn-secondary {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  font-family: inherit;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+[data-theme="japanese"] .vp-actions-row .btn-secondary:hover {
+  background: var(--bg-subtle);
+  border-color: var(--bg-subtle);
+  transform: none;
+  box-shadow: none;
+}
+[data-theme="japanese"] .vp-settings-row {
+  margin-bottom: 12px;
+}
+[data-theme="japanese"] .vp-settings-row .setting-row {
+  background: var(--bg-surface);
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-color);
+  padding: 8px 12px;
+}
+[data-theme="japanese"] .vp-current-box {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  padding: 12px 14px;
+}
+[data-theme="japanese"] .vp-current-title {
+  font-weight: 500;
+  color: var(--text-primary);
+  letter-spacing: 0.02em;
+  margin-bottom: 5px;
+}
+[data-theme="japanese"] .vp-current-meta {
+  color: var(--text-secondary);
+  font-weight: 400;
+  margin-bottom: 5px;
+}
+[data-theme="japanese"] .vp-current-bar {
+  height: 6px;
+  background: var(--border-color);
+  border-radius: 3px;
+  border: none;
+}
+[data-theme="japanese"] .vp-current-fill {
+  background: var(--color-accent);
+  border-radius: 3px;
+  box-shadow: none;
+}
+[data-theme="japanese"] .vp-current-none {
+  color: var(--text-secondary);
+  font-weight: 400;
+  background: var(--bg-surface);
+  border-radius: var(--border-radius);
+  border: 1px dashed var(--border-color);
+}
+[data-theme="japanese"] .vp-current-loading {
+  color: var(--text-secondary);
+  font-weight: 400;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+}
+[data-theme="japanese"] .vp-stats {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  padding: 14px 0;
+  margin-bottom: 10px;
+}
+[data-theme="japanese"] .vp-stat-value {
+  font-weight: 500;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+[data-theme="japanese"] .vp-stat-label {
+  color: var(--text-secondary);
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  text-transform: none;
+}
+[data-theme="japanese"] .vp-overall-bar {
+  height: 6px;
+  background: var(--border-color);
+  border-radius: 3px;
+  border: none;
+  margin-bottom: 16px;
+}
+[data-theme="japanese"] .vp-overall-fill {
+  background: var(--color-accent);
+  border-radius: 3px;
+  box-shadow: none;
+}
+[data-theme="japanese"] .vp-group {
+  background: var(--bg-surface);
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-color);
+  box-shadow: none;
+}
+[data-theme="japanese"] .vp-group-header:hover {
+  background: var(--bg-subtle);
+}
+[data-theme="japanese"] .vp-group-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  border: none;
+}
+[data-theme="japanese"] .vp-group-name {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+[data-theme="japanese"] .vp-group-meta {
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+[data-theme="japanese"] .vp-group-percent {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+[data-theme="japanese"] .vp-group-bar {
+  height: 6px;
+  background: var(--border-color);
+  border-radius: 3px;
+  border: none;
+}
+[data-theme="japanese"] .vp-group-fill {
+  background: var(--color-accent);
+  border-radius: 3px;
+  box-shadow: none;
+}
+[data-theme="japanese"] .vp-group-toggle {
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+[data-theme="japanese"] .vp-video-item:hover {
+  background: var(--bg-subtle);
+  margin: 0 -12px;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+[data-theme="japanese"] .vp-video-favicon {
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-color);
+}
+[data-theme="japanese"] .vp-video-title {
+  color: var(--text-primary);
+  font-weight: 400;
+  margin-bottom: 3px;
+}
+[data-theme="japanese"] .vp-video-bar {
+  height: 6px;
+  background: var(--border-color);
+  border-radius: 3px;
+  border: none;
+  margin-bottom: 3px;
+}
+[data-theme="japanese"] .vp-video-fill {
+  background: var(--color-accent);
+  border-radius: 3px;
+  box-shadow: none;
+}
+[data-theme="japanese"] .vp-video-meta {
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+[data-theme="japanese"] .vp-video-empty {
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+[data-theme="japanese"] .vp-empty-state {
+  border: 1px dashed var(--border-color);
+  border-radius: var(--border-radius);
+  background: transparent;
+}
+[data-theme="japanese"] .vp-empty-text {
+  color: var(--text-primary);
+  font-weight: 500;
+  margin-bottom: 5px;
+}
+[data-theme="japanese"] .vp-empty-desc {
+  color: var(--text-secondary);
+}
+
+/* --- Recording --- */
+[data-theme="japanese"] .solution-recording {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+}
+[data-theme="japanese"] .recording-dot {
+  background: var(--color-danger);
+  border-radius: 3px;
+  animation: jp-pulse 1.2s infinite;
+  border: none;
+}
+@keyframes jp-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+[data-theme="japanese"] .recording-text {
+  color: var(--color-danger);
+  font-weight: 500;
+}
+[data-theme="japanese"] .recording-time {
+  color: var(--color-danger);
+  font-weight: 500;
+  background: var(--bg-subtle);
+  padding: 2px 6px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+}
+[data-theme="japanese"] .recording-info {
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+[data-theme="japanese"] .btn-stop {
+  background: var(--color-danger);
+  color: var(--text-on-accent);
+  font-weight: 500;
+  border: none;
+  border-radius: var(--border-radius);
+  font-family: inherit;
+}
+[data-theme="japanese"] .btn-stop:hover {
+  background: var(--color-danger-hover);
+}
+
+/* --- Page animation --- */
+[data-theme="japanese"] .page.active {
+  animation: jp-pageIn 0.25s ease;
+}
+@keyframes jp-pageIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* --- Section title --- */
+[data-theme="japanese"] .page-section-title {
+  font-weight: 500;
+  color: var(--text-primary);
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
+/* --- Focus hint --- */
+[data-theme="japanese"] .focus-hint {
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+/* --- Idle/start recording --- */
+[data-theme="japanese"] .idle-title {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+[data-theme="japanese"] .btn-start {
+  background: var(--color-success);
+  color: var(--text-on-accent);
+  font-weight: 500;
+  border: none;
+  border-radius: var(--border-radius);
+  font-family: inherit;
+}
+[data-theme="japanese"] .btn-start:hover {
+  background: var(--color-success-hover);
+}
+

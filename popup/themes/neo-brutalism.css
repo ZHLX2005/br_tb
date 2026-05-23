@@ -20,6 +20,7 @@
   --color-danger: #FF4D6D;
   --color-danger-hover: #FF6B85;
   --color-danger-hover-bg: #FF5555;
+  --color-danger-bg: #FF4D6D;
   --color-success: #C8FF00;
   --color-success-hover: #D4FF33;
   --color-secondary: #B8A9FF;
@@ -64,4 +65,584 @@
   /* Dialog */
   --dialog-padding: 18px;
   --dialog-width: 280px;
+}
+
+/* ========== Component visual styles ========== */
+
+/* --- Buttons --- */
+[data-theme="neo-brutalism"] .btn {
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--border-radius);
+  font-weight: 700;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.1s ease;
+  letter-spacing: 0.02em;
+  font-family: inherit;
+}
+[data-theme="neo-brutalism"] .btn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow);
+}
+[data-theme="neo-brutalism"] .btn:active {
+  transform: translate(1px, 1px);
+  box-shadow: none;
+}
+[data-theme="neo-brutalism"] .btn-small,
+[data-theme="neo-brutalism"] .btn-primary {
+  background: var(--color-accent);
+  color: var(--text-on-accent);
+}
+[data-theme="neo-brutalism"] .btn-small:hover,
+[data-theme="neo-brutalism"] .btn-primary:hover {
+  background: var(--color-accent-hover);
+}
+[data-theme="neo-brutalism"] .btn-secondary {
+  background: var(--bg-subtle);
+  color: var(--text-primary);
+}
+[data-theme="neo-brutalism"] .btn-secondary:hover {
+  background: var(--bg-subtle-hover);
+}
+
+/* --- Quick action buttons --- */
+[data-theme="neo-brutalism"] .quick-action-btn {
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--border-radius);
+  background: var(--bg-surface);
+  transition: all 0.12s ease;
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+  font-family: inherit;
+}
+[data-theme="neo-brutalism"] .quick-action-btn:hover {
+  background: var(--color-accent);
+  border-color: var(--border-color);
+  color: var(--text-on-accent);
+  font-weight: 700;
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow);
+}
+[data-theme="neo-brutalism"] .quick-action-btn:active {
+  transform: translate(1px, 1px);
+  box-shadow: none;
+}
+[data-theme="neo-brutalism"] .qa-label {
+  font-weight: inherit;
+  letter-spacing: 0.02em;
+}
+
+/* --- Group items --- */
+[data-theme="neo-brutalism"] .group-item {
+  background: var(--bg-surface);
+  border-radius: var(--border-radius);
+  border: var(--border-width) solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+  transition: all 0.12s ease;
+}
+[data-theme="neo-brutalism"] .group-item:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow);
+}
+[data-theme="neo-brutalism"] .group-item .group-color {
+  border-radius: var(--border-radius);
+  border: var(--border-width) solid var(--border-color);
+}
+[data-theme="neo-brutalism"] .group-item .group-name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+[data-theme="neo-brutalism"] .group-item .group-default-badge {
+  font-weight: 700;
+  background: var(--color-success);
+  color: var(--text-on-accent);
+  border-radius: var(--border-radius);
+  border: var(--border-width) solid var(--border-color);
+  letter-spacing: 0.02em;
+}
+
+/* --- Add to focus --- */
+[data-theme="neo-brutalism"] .add-to-focus {
+  font-weight: 700;
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--border-radius);
+  background: var(--color-secondary);
+  color: var(--text-on-accent);
+  font-family: inherit;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.1s ease;
+}
+[data-theme="neo-brutalism"] .add-to-focus:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow);
+}
+[data-theme="neo-brutalism"] .add-to-focus:active {
+  transform: translate(1px, 1px);
+  box-shadow: none;
+}
+
+/* --- Group action buttons --- */
+[data-theme="neo-brutalism"] .group-item .group-actions-buttons button {
+  font-weight: 600;
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--border-radius);
+  background: var(--bg-subtle);
+  color: var(--text-primary);
+  font-family: inherit;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.1s ease;
+}
+[data-theme="neo-brutalism"] .group-item .group-actions-buttons button:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow);
+}
+[data-theme="neo-brutalism"] .group-item .group-actions-buttons button:active {
+  transform: translate(1px, 1px);
+  box-shadow: none;
+}
+[data-theme="neo-brutalism"] .group-item .group-actions-buttons button.delete {
+  background: var(--color-danger);
+  color: var(--text-on-accent);
+  font-weight: 700;
+}
+[data-theme="neo-brutalism"] .group-item .group-actions-buttons button.delete:hover {
+  background: var(--color-danger-hover);
+}
+
+/* --- Focus search --- */
+[data-theme="neo-brutalism"] .focus-group-item {
+  background: var(--bg-surface);
+  border-radius: var(--border-radius);
+  border: var(--border-width) solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+  transition: all 0.12s ease;
+}
+[data-theme="neo-brutalism"] .focus-group-item:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow);
+}
+[data-theme="neo-brutalism"] .focus-group-item.enabled {
+  border-color: var(--border-color);
+  background: var(--color-accent);
+}
+[data-theme="neo-brutalism"] .focus-group-item input[type="checkbox"] {
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--border-radius);
+  background: var(--bg-surface);
+  transition: all 0.12s ease;
+}
+[data-theme="neo-brutalism"] .focus-group-item input[type="checkbox"]:checked {
+  background: var(--color-success);
+}
+[data-theme="neo-brutalism"] .focus-group-item input[type="checkbox"]:checked::after {
+  border: solid var(--text-on-accent);
+  border-width: 0 2px 2px 0;
+}
+[data-theme="neo-brutalism"] .focus-color-dot {
+  border-radius: var(--border-radius);
+  border: var(--border-width) solid var(--border-color);
+}
+[data-theme="neo-brutalism"] .focus-group-name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+[data-theme="neo-brutalism"] .focus-group-count {
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+[data-theme="neo-brutalism"] .focus-group-remove {
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--border-radius);
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-weight: 700;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.1s ease;
+}
+[data-theme="neo-brutalism"] .focus-group-remove:hover {
+  background: var(--color-danger-bg);
+  color: var(--text-on-accent);
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow);
+}
+[data-theme="neo-brutalism"] .focus-group-remove:active {
+  transform: translate(1px, 1px);
+  box-shadow: none;
+}
+
+/* --- Settings --- */
+[data-theme="neo-brutalism"] .settings-list {
+  background: var(--bg-surface);
+  border-radius: var(--border-radius);
+  border: var(--border-width) solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+}
+[data-theme="neo-brutalism"] .setting-row {
+  border-radius: var(--border-radius);
+  transition: all 0.1s ease;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+[data-theme="neo-brutalism"] .setting-row:hover {
+  background: var(--bg-subtle);
+}
+[data-theme="neo-brutalism"] .setting-row input[type="checkbox"] {
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--border-radius);
+  background: var(--bg-surface);
+  transition: all 0.12s ease;
+}
+[data-theme="neo-brutalism"] .setting-row input[type="checkbox"]:checked {
+  background: var(--color-success);
+}
+[data-theme="neo-brutalism"] .setting-row input[type="checkbox"]:checked::after {
+  border: solid var(--text-on-accent);
+  border-width: 0 2px 2px 0;
+}
+
+/* --- Dialog --- */
+[data-theme="neo-brutalism"] .dialog-content {
+  background: var(--bg-surface);
+  border-radius: var(--border-radius);
+  border: var(--border-width) solid var(--border-color);
+  box-shadow: var(--shadow-lg);
+  animation: nb-dialogIn 0.2s ease;
+}
+@keyframes nb-dialogIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+[data-theme="neo-brutalism"] .dialog-content h3 {
+  color: var(--text-primary);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+[data-theme="neo-brutalism"] .form-group label {
+  color: var(--text-secondary);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+[data-theme="neo-brutalism"] .input {
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--border-radius);
+  font-weight: 500;
+  background: var(--bg-subtle);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+  transition: all 0.1s ease;
+}
+[data-theme="neo-brutalism"] .input:focus {
+  background: var(--bg-surface);
+  box-shadow: var(--shadow);
+  transform: translate(-1px, -1px);
+}
+[data-theme="neo-brutalism"] .color-option {
+  border-radius: var(--border-radius);
+  border: var(--border-width) solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+  transition: all 0.1s ease;
+}
+[data-theme="neo-brutalism"] .color-option:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow);
+}
+[data-theme="neo-brutalism"] .color-option.selected {
+  border-color: var(--border-color);
+  box-shadow: 0 0 0 2px var(--bg-surface), 0 0 0 4px var(--text-on-accent), var(--shadow-sm);
+  transform: scale(1.1);
+}
+[data-theme="neo-brutalism"] .empty-state {
+  color: var(--text-secondary);
+  font-weight: 500;
+  border: var(--border-width) dashed var(--border-color);
+  border-radius: var(--border-radius);
+  background: var(--bg-subtle);
+}
+
+/* --- Video progress --- */
+[data-theme="neo-brutalism"] .vp-actions-row .btn-secondary {
+  background: var(--bg-subtle);
+  color: var(--text-primary);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--border-radius);
+  font-family: inherit;
+  font-weight: 700;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.1s ease;
+}
+[data-theme="neo-brutalism"] .vp-actions-row .btn-secondary:hover {
+  background: var(--bg-subtle-hover);
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow);
+}
+[data-theme="neo-brutalism"] .vp-actions-row .btn-secondary:active {
+  transform: translate(1px, 1px);
+  box-shadow: none;
+}
+[data-theme="neo-brutalism"] .vp-settings-row .setting-row {
+  background: var(--bg-surface);
+  border-radius: var(--border-radius);
+  border: var(--border-width) solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+}
+[data-theme="neo-brutalism"] .vp-current-box {
+  background: var(--bg-surface);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-sm);
+}
+[data-theme="neo-brutalism"] .vp-current-title {
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.02em;
+}
+[data-theme="neo-brutalism"] .vp-current-meta {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+[data-theme="neo-brutalism"] .vp-current-bar {
+  height: 8px;
+  background: var(--bg-subtle);
+  border-radius: 0;
+  border: var(--border-width) solid var(--border-color);
+}
+[data-theme="neo-brutalism"] .vp-current-fill {
+  background: var(--color-success);
+  border-radius: 0;
+}
+[data-theme="neo-brutalism"] .vp-current-none {
+  color: var(--text-secondary);
+  font-weight: 600;
+  background: var(--bg-surface);
+  border-radius: var(--border-radius);
+  border: var(--border-width) dashed var(--border-color);
+}
+[data-theme="neo-brutalism"] .vp-current-loading {
+  color: var(--text-secondary);
+  font-weight: 500;
+  background: var(--bg-surface);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--border-radius);
+}
+[data-theme="neo-brutalism"] .vp-stats {
+  background: var(--bg-surface);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-sm);
+}
+[data-theme="neo-brutalism"] .vp-stat-value {
+  font-weight: 900;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+[data-theme="neo-brutalism"] .vp-stat-label {
+  color: var(--text-secondary);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+[data-theme="neo-brutalism"] .vp-overall-bar {
+  height: 12px;
+  background: var(--bg-subtle);
+  border-radius: 0;
+  border: var(--border-width) solid var(--border-color);
+}
+[data-theme="neo-brutalism"] .vp-overall-fill {
+  background: var(--color-success);
+  border-radius: 0;
+}
+[data-theme="neo-brutalism"] .vp-group {
+  background: var(--bg-surface);
+  border-radius: var(--border-radius);
+  border: var(--border-width) solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+}
+[data-theme="neo-brutalism"] .vp-group-header:hover {
+  background: var(--bg-subtle);
+}
+[data-theme="neo-brutalism"] .vp-group-color {
+  border-radius: var(--border-radius);
+  border: var(--border-width) solid var(--border-color);
+}
+[data-theme="neo-brutalism"] .vp-group-name {
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.02em;
+}
+[data-theme="neo-brutalism"] .vp-group-meta {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+[data-theme="neo-brutalism"] .vp-group-percent {
+  font-weight: 800;
+  color: var(--text-primary);
+}
+[data-theme="neo-brutalism"] .vp-group-bar {
+  height: 8px;
+  background: var(--bg-subtle);
+  border-radius: 0;
+  border: var(--border-width) solid var(--border-color);
+}
+[data-theme="neo-brutalism"] .vp-group-fill {
+  background: var(--color-success);
+  border-radius: 0;
+}
+[data-theme="neo-brutalism"] .vp-group-toggle {
+  color: var(--text-secondary);
+  font-weight: 700;
+}
+[data-theme="neo-brutalism"] .vp-video-item:hover {
+  background: var(--bg-subtle);
+  margin: 0 -12px;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+[data-theme="neo-brutalism"] .vp-video-favicon {
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-color);
+}
+[data-theme="neo-brutalism"] .vp-video-title {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+[data-theme="neo-brutalism"] .vp-video-bar {
+  height: 8px;
+  background: var(--bg-subtle);
+  border-radius: 0;
+  border: var(--border-width) solid var(--border-color);
+}
+[data-theme="neo-brutalism"] .vp-video-fill {
+  background: var(--color-success);
+  border-radius: 0;
+}
+[data-theme="neo-brutalism"] .vp-video-meta {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+[data-theme="neo-brutalism"] .vp-video-empty {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+[data-theme="neo-brutalism"] .vp-empty-state {
+  border: var(--border-width) dashed var(--border-color);
+  border-radius: var(--border-radius);
+  background: var(--bg-subtle);
+}
+[data-theme="neo-brutalism"] .vp-empty-text {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+[data-theme="neo-brutalism"] .vp-empty-desc {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* --- Recording --- */
+[data-theme="neo-brutalism"] .solution-recording {
+  background: var(--bg-surface);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-sm);
+}
+[data-theme="neo-brutalism"] .recording-dot {
+  background: var(--color-danger-bg);
+  border-radius: 0;
+  animation: nb-pulse 1.2s infinite;
+  border: var(--border-width) solid var(--border-color);
+}
+@keyframes nb-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.85); }
+}
+[data-theme="neo-brutalism"] .recording-text {
+  color: var(--color-danger-bg);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+[data-theme="neo-brutalism"] .recording-time {
+  color: var(--color-danger-bg);
+  font-weight: 700;
+  background: var(--bg-subtle);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--border-radius);
+}
+[data-theme="neo-brutalism"] .recording-info {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+[data-theme="neo-brutalism"] .btn-stop {
+  background: var(--color-danger-bg);
+  color: var(--text-on-accent);
+  font-weight: 700;
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--border-radius);
+  font-family: inherit;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.1s ease;
+}
+[data-theme="neo-brutalism"] .btn-stop:hover {
+  background: var(--color-danger-hover-bg);
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow);
+}
+[data-theme="neo-brutalism"] .btn-stop:active {
+  transform: translate(1px, 1px);
+  box-shadow: none;
+}
+
+/* --- Page animation --- */
+[data-theme="neo-brutalism"] .page.active {
+  animation: nb-pageIn 0.2s ease;
+}
+@keyframes nb-pageIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* --- Section title --- */
+[data-theme="neo-brutalism"] .page-section-title {
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* --- Scrollbar --- */
+[data-theme="neo-brutalism"] .page-container::-webkit-scrollbar-thumb,
+[data-theme="neo-brutalism"] .groups-list::-webkit-scrollbar-thumb {
+  border-radius: 0;
+  border: 1px solid var(--bg-subtle);
+}
+
+/* --- Focus hint --- */
+[data-theme="neo-brutalism"] .focus-hint {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* --- Idle/start recording --- */
+[data-theme="neo-brutalism"] .idle-title {
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.02em;
+}
+[data-theme="neo-brutalism"] .btn-start {
+  background: var(--color-success);
+  color: var(--text-on-accent);
+  font-weight: 700;
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--border-radius);
+  font-family: inherit;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.1s ease;
+}
+[data-theme="neo-brutalism"] .btn-start:hover {
+  background: var(--color-success-hover);
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow);
+}
+[data-theme="neo-brutalism"] .btn-start:active {
+  transform: translate(1px, 1px);
+  box-shadow: none;
 }

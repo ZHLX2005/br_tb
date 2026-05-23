@@ -20,6 +20,7 @@
   --color-danger: #EF5C5C;
   --color-danger-hover: #F07070;
   --color-danger-hover-bg: #EF5C5C;
+  --color-danger-bg: #EF5C5C;
   --color-success: #47D18C;
   --color-success-hover: #5CDA9A;
   --color-secondary: #5B8DEF;
@@ -78,3 +79,548 @@
   border-radius: 1px;
   box-shadow: 0 0 8px rgba(91,141,239,0.30);
 }
+
+/* ========== Component visual styles ========== */
+
+/* --- Buttons --- */
+[data-theme="dark-cockpit"] .btn {
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--border-radius);
+  font-weight: 400;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-family: inherit;
+}
+[data-theme="dark-cockpit"] .btn:hover {
+  background: var(--bg-subtle-hover);
+  border-color: var(--border-color);
+}
+[data-theme="dark-cockpit"] .btn-small,
+[data-theme="dark-cockpit"] .btn-primary {
+  background: var(--color-accent);
+  color: var(--text-on-accent);
+}
+[data-theme="dark-cockpit"] .btn-small:hover,
+[data-theme="dark-cockpit"] .btn-primary:hover {
+  background: var(--color-accent-hover);
+}
+[data-theme="dark-cockpit"] .btn-secondary {
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+}
+[data-theme="dark-cockpit"] .btn-secondary:hover {
+  background: var(--bg-subtle-hover);
+  color: var(--text-primary);
+}
+
+/* --- Quick action buttons --- */
+[data-theme="dark-cockpit"] .quick-action-btn {
+  border-radius: var(--border-radius);
+  background: var(--bg-surface);
+  transition: all 0.2s ease;
+  font-weight: 400;
+  font-family: inherit;
+  border: 1px solid transparent;
+  line-height: 1.4;
+}
+[data-theme="dark-cockpit"] .quick-action-btn:hover {
+  background: var(--color-accent);
+  color: #fff;
+  font-weight: 500;
+  box-shadow: 0 0 24px rgba(91,141,239,0.30);
+}
+[data-theme="dark-cockpit"] .quick-action-btn:active {
+  transform: scale(0.985);
+}
+
+/* --- Group items --- */
+[data-theme="dark-cockpit"] .group-item {
+  background: var(--bg-surface);
+  border-radius: var(--border-radius);
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+}
+[data-theme="dark-cockpit"] .group-item:hover {
+  background: var(--bg-subtle-hover);
+  border-color: rgba(255,255,255,0.10);
+}
+[data-theme="dark-cockpit"] .group-item .group-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px var(--border-color);
+}
+[data-theme="dark-cockpit"] .group-item .group-name {
+  font-weight: 400;
+  color: var(--text-primary);
+}
+[data-theme="dark-cockpit"] .group-item .group-default-badge {
+  background: rgba(91,141,239,0.12);
+  color: var(--color-accent);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  border: none;
+}
+
+/* --- Add to focus --- */
+[data-theme="dark-cockpit"] .add-to-focus {
+  font-weight: 500;
+  border-radius: 4px;
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  font-family: inherit;
+  border: 1px solid var(--border-color);
+  transition: all 0.15s ease;
+}
+[data-theme="dark-cockpit"] .add-to-focus:hover {
+  background: rgba(91,141,239,0.12);
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+/* --- Group action buttons --- */
+[data-theme="dark-cockpit"] .group-item .group-actions-buttons button {
+  padding: 3px 7px;
+  font-size: 10px;
+  font-weight: 400;
+  border-radius: 4px;
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  font-family: inherit;
+  border: 1px solid var(--border-color);
+  transition: all 0.15s ease;
+}
+[data-theme="dark-cockpit"] .group-item .group-actions-buttons button:hover {
+  background: var(--bg-subtle-hover);
+  color: var(--text-primary);
+}
+[data-theme="dark-cockpit"] .group-item .group-actions-buttons button.delete {
+  background: rgba(239,92,92,0.12);
+  color: var(--color-danger);
+}
+[data-theme="dark-cockpit"] .group-item .group-actions-buttons button.delete:hover {
+  background: rgba(239,92,92,0.2);
+}
+
+/* --- Focus search --- */
+[data-theme="dark-cockpit"] .focus-group-item {
+  background: var(--bg-surface);
+  border-radius: var(--border-radius);
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+}
+[data-theme="dark-cockpit"] .focus-group-item:hover {
+  background: var(--bg-subtle-hover);
+  border-color: rgba(255,255,255,0.10);
+}
+[data-theme="dark-cockpit"] .focus-group-item.enabled {
+  border-color: transparent;
+  background: rgba(91,141,239,0.12);
+}
+[data-theme="dark-cockpit"] .focus-group-item input[type="checkbox"] {
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 4px;
+  background: var(--bg-subtle);
+  transition: all 0.15s ease;
+}
+[data-theme="dark-cockpit"] .focus-group-item input[type="checkbox"]:checked {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  box-shadow: 0 0 8px rgba(91,141,239,0.30);
+}
+[data-theme="dark-cockpit"] .focus-group-item input[type="checkbox"]:checked::after {
+  border: solid var(--text-on-accent);
+  border-width: 0 1.5px 1.5px 0;
+}
+[data-theme="dark-cockpit"] .focus-color-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px var(--border-color);
+}
+[data-theme="dark-cockpit"] .focus-group-name {
+  font-weight: 400;
+  color: var(--text-primary);
+}
+[data-theme="dark-cockpit"] .focus-group-count {
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+[data-theme="dark-cockpit"] .focus-group-remove {
+  width: 22px;
+  height: 22px;
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-family: inherit;
+  font-weight: 400;
+  transition: all 0.15s ease;
+}
+[data-theme="dark-cockpit"] .focus-group-remove:hover {
+  background: rgba(239,92,92,0.12);
+  color: var(--color-danger);
+}
+
+/* --- Settings --- */
+[data-theme="dark-cockpit"] .settings-list {
+  background: var(--bg-surface);
+  border-radius: var(--border-radius);
+  padding: 8px;
+  border: 1px solid var(--border-color);
+}
+[data-theme="dark-cockpit"] .setting-row {
+  border-radius: 6px;
+  transition: all 0.15s ease;
+  font-weight: 400;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+[data-theme="dark-cockpit"] .setting-row:hover {
+  background: var(--bg-subtle);
+}
+[data-theme="dark-cockpit"] .setting-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 4px;
+  background: var(--bg-subtle);
+  transition: all 0.15s ease;
+}
+[data-theme="dark-cockpit"] .setting-row input[type="checkbox"]:checked {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  box-shadow: 0 0 8px rgba(91,141,239,0.30);
+}
+[data-theme="dark-cockpit"] .setting-row input[type="checkbox"]:checked::after {
+  border: solid var(--text-on-accent);
+  border-width: 0 1.5px 1.5px 0;
+}
+
+/* --- Dialog --- */
+[data-theme="dark-cockpit"] .dialog-content {
+  background: var(--bg-surface);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 24px 48px rgba(0,0,0,0.50);
+  animation: dc-dialogIn 0.2s ease;
+}
+@keyframes dc-dialogIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+[data-theme="dark-cockpit"] .dialog-content h3 {
+  color: var(--text-primary);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+[data-theme="dark-cockpit"] .form-group label {
+  color: var(--text-secondary);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: none;
+}
+[data-theme="dark-cockpit"] .input {
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-weight: 400;
+  background: var(--bg-app);
+  color: var(--text-primary);
+  transition: all 0.15s ease;
+  line-height: 1.5;
+  padding: 8px 10px;
+}
+[data-theme="dark-cockpit"] .input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(91,141,239,0.12);
+  transform: none;
+}
+[data-theme="dark-cockpit"] .color-option {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  border: 1px solid var(--border-color);
+  transition: all 0.15s ease;
+}
+[data-theme="dark-cockpit"] .color-option:hover {
+  border-color: var(--color-accent);
+  transform: none;
+  box-shadow: none;
+}
+[data-theme="dark-cockpit"] .color-option.selected {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(91,141,239,0.12);
+  transform: none;
+}
+[data-theme="dark-cockpit"] .empty-state {
+  color: var(--text-secondary);
+  font-weight: 400;
+  border: var(--border-width) dashed var(--border-color);
+  border-radius: var(--border-radius);
+  background: transparent;
+}
+
+/* --- Video progress --- */
+[data-theme="dark-cockpit"] .vp-actions-row .btn-secondary {
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  font-family: inherit;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+[data-theme="dark-cockpit"] .vp-actions-row .btn-secondary:hover {
+  background: var(--bg-subtle-hover);
+  color: var(--text-primary);
+  border-color: rgba(255,255,255,0.10);
+  transform: none;
+  box-shadow: none;
+}
+[data-theme="dark-cockpit"] .vp-settings-row .setting-row {
+  background: var(--bg-surface);
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-color);
+}
+[data-theme="dark-cockpit"] .vp-current-box {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+}
+[data-theme="dark-cockpit"] .vp-current-title {
+  font-weight: 400;
+  color: var(--text-primary);
+  letter-spacing: 0.02em;
+}
+[data-theme="dark-cockpit"] .vp-current-meta {
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+[data-theme="dark-cockpit"] .vp-current-bar {
+  height: 4px;
+  background: var(--bg-subtle);
+  border-radius: 2px;
+  border: none;
+}
+[data-theme="dark-cockpit"] .vp-current-fill {
+  background: var(--color-accent);
+  border-radius: 2px;
+  box-shadow: 0 0 8px rgba(91,141,239,0.30);
+}
+[data-theme="dark-cockpit"] .vp-current-none {
+  color: var(--text-secondary);
+  font-weight: 400;
+  background: var(--bg-surface);
+  border-radius: var(--border-radius);
+  border: 1px dashed var(--border-color);
+}
+[data-theme="dark-cockpit"] .vp-current-loading {
+  color: var(--text-secondary);
+  font-weight: 400;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+}
+[data-theme="dark-cockpit"] .vp-stats {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  padding: 14px 0;
+  margin-bottom: 10px;
+}
+[data-theme="dark-cockpit"] .vp-stat-value {
+  font-weight: 500;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+}
+[data-theme="dark-cockpit"] .vp-stat-label {
+  color: var(--text-secondary);
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+[data-theme="dark-cockpit"] .vp-overall-bar {
+  height: 4px;
+  background: var(--bg-subtle);
+  border-radius: 2px;
+  border: none;
+  margin-bottom: 16px;
+}
+[data-theme="dark-cockpit"] .vp-overall-fill {
+  background: var(--color-accent);
+  border-radius: 2px;
+  box-shadow: 0 0 8px rgba(91,141,239,0.30);
+}
+[data-theme="dark-cockpit"] .vp-group {
+  background: var(--bg-surface);
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-color);
+  box-shadow: none;
+}
+[data-theme="dark-cockpit"] .vp-group-header:hover {
+  background: var(--bg-subtle);
+}
+[data-theme="dark-cockpit"] .vp-group-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px var(--border-color);
+  border: none;
+}
+[data-theme="dark-cockpit"] .vp-group-name {
+  font-weight: 400;
+  color: var(--text-primary);
+}
+[data-theme="dark-cockpit"] .vp-group-meta {
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+[data-theme="dark-cockpit"] .vp-group-percent {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+[data-theme="dark-cockpit"] .vp-group-bar {
+  height: 4px;
+  background: var(--bg-subtle);
+  border-radius: 2px;
+  border: none;
+}
+[data-theme="dark-cockpit"] .vp-group-fill {
+  background: var(--color-accent);
+  border-radius: 2px;
+}
+[data-theme="dark-cockpit"] .vp-group-toggle {
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+[data-theme="dark-cockpit"] .vp-video-item:hover {
+  background: var(--bg-subtle);
+  margin: 0 -12px;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+[data-theme="dark-cockpit"] .vp-video-favicon {
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-color);
+}
+[data-theme="dark-cockpit"] .vp-video-title {
+  color: var(--text-primary);
+  font-weight: 400;
+}
+[data-theme="dark-cockpit"] .vp-video-bar {
+  height: 4px;
+  background: var(--bg-subtle);
+  border-radius: 2px;
+  border: none;
+}
+[data-theme="dark-cockpit"] .vp-video-fill {
+  background: var(--color-accent);
+  border-radius: 2px;
+}
+[data-theme="dark-cockpit"] .vp-video-meta {
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+[data-theme="dark-cockpit"] .vp-video-empty {
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+[data-theme="dark-cockpit"] .vp-empty-state {
+  border: var(--border-width) dashed var(--border-color);
+  border-radius: var(--border-radius);
+  background: transparent;
+}
+[data-theme="dark-cockpit"] .vp-empty-text {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+[data-theme="dark-cockpit"] .vp-empty-desc {
+  color: var(--text-secondary);
+}
+
+/* --- Recording --- */
+[data-theme="dark-cockpit"] .solution-recording {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+}
+[data-theme="dark-cockpit"] .recording-dot {
+  background: var(--color-danger);
+  border-radius: 50%;
+  animation: dc-pulse 1.2s infinite;
+  border: none;
+}
+@keyframes dc-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+[data-theme="dark-cockpit"] .recording-text {
+  color: var(--color-danger);
+  font-weight: 500;
+}
+[data-theme="dark-cockpit"] .recording-time {
+  color: var(--color-danger);
+  font-weight: 500;
+  background: var(--bg-subtle);
+  padding: 2px 6px;
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-color);
+}
+[data-theme="dark-cockpit"] .recording-info {
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+[data-theme="dark-cockpit"] .btn-stop {
+  background: var(--color-danger);
+  color: var(--text-on-accent);
+  font-weight: 500;
+  border-radius: var(--border-radius);
+  font-family: inherit;
+  border: none;
+}
+[data-theme="dark-cockpit"] .btn-stop:hover {
+  background: var(--color-danger-hover);
+}
+
+/* --- Page animation --- */
+[data-theme="dark-cockpit"] .page.active {
+  animation: dc-pageIn 0.2s ease;
+}
+@keyframes dc-pageIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* --- Section title --- */
+[data-theme="dark-cockpit"] .page-section-title {
+  font-weight: 500;
+  color: var(--text-primary);
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+/* --- Focus hint --- */
+[data-theme="dark-cockpit"] .focus-hint {
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+/* --- Idle/start recording --- */
+[data-theme="dark-cockpit"] .idle-title {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+[data-theme="dark-cockpit"] .btn-start {
+  background: var(--color-success);
+  color: var(--text-on-accent);
+  font-weight: 500;
+  border: none;
+  border-radius: var(--border-radius);
+  font-family: inherit;
+}
+[data-theme="dark-cockpit"] .btn-start:hover {
+  background: var(--color-success-hover);
+}
+

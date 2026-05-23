@@ -20,6 +20,7 @@
   --color-danger: #ef5350;
   --color-danger-hover: #e53935;
   --color-danger-hover-bg: #c62828;
+  --color-danger-bg: #ef5350;
   --color-success: #66bb6a;
   --color-success-hover: #43a047;
   --color-secondary: #90caf9;
@@ -65,3 +66,465 @@
   --dialog-padding: 16px;
   --dialog-width: 260px;
 }
+
+/* ========== Component visual styles ========== */
+
+/* --- Buttons --- */
+[data-theme="classic"] .btn {
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--border-radius);
+  font-size: 11px;
+  font-weight: 500;
+  background: white;
+  color: var(--text-primary);
+}
+[data-theme="classic"] .btn:hover {
+  background: var(--bg-subtle);
+}
+[data-theme="classic"] .btn-small,
+[data-theme="classic"] .btn-primary {
+  background: var(--color-accent);
+  color: white;
+}
+[data-theme="classic"] .btn-small:hover,
+[data-theme="classic"] .btn-primary:hover {
+  background: var(--color-accent-hover);
+}
+[data-theme="classic"] .btn-secondary {
+  background: var(--bg-subtle);
+  color: var(--text-primary);
+}
+[data-theme="classic"] .btn-secondary:hover {
+  background: var(--bg-subtle-hover);
+}
+
+/* --- Quick action buttons --- */
+[data-theme="classic"] .quick-action-btn {
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--border-radius);
+  background: white;
+  transition: all 0.2s;
+  font-weight: 500;
+  font-family: inherit;
+}
+[data-theme="classic"] .quick-action-btn:hover {
+  border-color: var(--color-accent);
+  background: #e3f2fd;
+  color: var(--text-primary);
+}
+
+/* --- Group items --- */
+[data-theme="classic"] .group-item {
+  background: white;
+  border-radius: var(--border-radius);
+  border-left: 3px solid var(--color-accent);
+  box-shadow: var(--shadow-sm);
+}
+[data-theme="classic"] .group-item .group-color {
+  border-radius: 3px;
+}
+[data-theme="classic"] .group-item .group-name {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+[data-theme="classic"] .group-item .group-default-badge {
+  font-size: 9px;
+  font-weight: 500;
+  background: #e3f2fd;
+  color: var(--color-accent-hover);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+/* --- Add to focus --- */
+[data-theme="classic"] .add-to-focus {
+  font-weight: 500;
+  border: none;
+  border-radius: 3px;
+  background: #e3f2fd;
+  color: var(--color-accent-hover);
+  font-family: inherit;
+}
+[data-theme="classic"] .add-to-focus:hover {
+  background: var(--color-accent);
+  color: white;
+}
+
+/* --- Group action buttons --- */
+[data-theme="classic"] .group-item .group-actions-buttons button {
+  padding: 2px 5px;
+  font-size: 10px;
+  border: none;
+  border-radius: 3px;
+  background: #e8e8e8;
+  color: var(--text-secondary);
+  font-family: inherit;
+}
+[data-theme="classic"] .group-item .group-actions-buttons button.delete {
+  background: #ffebee;
+  color: var(--color-danger);
+}
+[data-theme="classic"] .group-item .group-actions-buttons button.delete:hover {
+  background: #ffcdd2;
+}
+
+/* --- Focus search --- */
+[data-theme="classic"] .focus-group-item {
+  background: var(--bg-surface);
+  border-radius: var(--border-radius);
+  border: var(--border-width) solid var(--border-color);
+}
+[data-theme="classic"] .focus-group-item.enabled {
+  border-color: var(--color-accent);
+  background: #e3f2fd;
+}
+[data-theme="classic"] .focus-group-item input[type="checkbox"] {
+  accent-color: var(--color-accent);
+  width: 15px;
+  height: 15px;
+  border: none;
+  background: transparent;
+}
+[data-theme="classic"] .focus-group-item input[type="checkbox"]:checked::after {
+  display: none;
+}
+[data-theme="classic"] .focus-color-dot {
+  border-radius: 3px;
+}
+[data-theme="classic"] .focus-group-name {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+[data-theme="classic"] .focus-group-count {
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+[data-theme="classic"] .focus-group-remove {
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 3px;
+  background: #e8e8e8;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-weight: 500;
+}
+[data-theme="classic"] .focus-group-remove:hover {
+  background: #ffcdd2;
+  color: var(--color-danger);
+}
+
+/* --- Settings --- */
+[data-theme="classic"] .settings-list {
+  background: white;
+  border-radius: var(--border-radius);
+  padding: 8px;
+  box-shadow: var(--shadow-sm);
+}
+[data-theme="classic"] .setting-row {
+  border-radius: 4px;
+  transition: background 0.15s;
+  font-weight: 400;
+  color: var(--text-primary);
+}
+[data-theme="classic"] .setting-row:hover {
+  background: #f5f5f5;
+}
+[data-theme="classic"] .setting-row input[type="checkbox"] {
+  accent-color: var(--color-accent);
+  width: 15px;
+  height: 15px;
+  border: none;
+  background: transparent;
+}
+[data-theme="classic"] .setting-row input[type="checkbox"]:checked::after {
+  display: none;
+}
+
+/* --- Dialog --- */
+[data-theme="classic"] .dialog-content {
+  background: white;
+  border-radius: var(--border-radius);
+  border: var(--border-width) solid var(--border-color);
+  box-shadow: var(--shadow-lg);
+}
+[data-theme="classic"] .dialog-content h3 {
+  color: var(--color-accent-hover);
+  font-weight: 600;
+}
+[data-theme="classic"] .form-group label {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+[data-theme="classic"] .input {
+  border: var(--border-width) solid var(--border-color);
+  border-radius: 4px;
+  font-weight: 400;
+  background: white;
+  color: var(--text-primary);
+}
+[data-theme="classic"] .input:focus {
+  border-color: var(--color-accent);
+}
+[data-theme="classic"] .color-option {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  border: 2px solid transparent;
+  transition: border-color 0.15s;
+}
+[data-theme="classic"] .color-option:hover {
+  border-color: var(--color-accent);
+}
+[data-theme="classic"] .color-option.selected {
+  border-color: #333;
+  box-shadow: none;
+  transform: none;
+}
+[data-theme="classic"] .empty-state {
+  color: var(--text-secondary);
+  font-weight: 400;
+  border: var(--border-width) dashed var(--border-color);
+  border-radius: var(--border-radius);
+  background: transparent;
+}
+
+/* --- Video progress --- */
+[data-theme="classic"] .vp-actions-row .btn-secondary {
+  background: #e0e0e0;
+  color: var(--text-primary);
+  font-size: 11px;
+  padding: 5px 10px;
+  border: none;
+  border-radius: 4px;
+  font-family: inherit;
+  font-weight: 400;
+}
+[data-theme="classic"] .vp-actions-row .btn-secondary:hover {
+  background: #d0d0d0;
+}
+[data-theme="classic"] .vp-settings-row .setting-row {
+  background: white;
+  border-radius: var(--border-radius);
+  border: var(--border-width) solid var(--border-color);
+  padding: 6px 10px;
+}
+[data-theme="classic"] .vp-current-box {
+  background: white;
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--border-radius);
+  padding: 10px 12px;
+}
+[data-theme="classic"] .vp-current-title {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+[data-theme="classic"] .vp-current-meta {
+  color: var(--text-secondary);
+}
+[data-theme="classic"] .vp-current-bar {
+  height: 4px;
+  background: #e9ecef;
+  border-radius: 2px;
+  border: none;
+}
+[data-theme="classic"] .vp-current-fill {
+  background: linear-gradient(90deg, #42a5f5, #66bb6a);
+  border-radius: 2px;
+}
+[data-theme="classic"] .vp-current-none {
+  color: var(--text-secondary);
+  font-weight: 400;
+  background: white;
+  border-radius: var(--border-radius);
+  border: var(--border-width) dashed var(--border-color);
+}
+[data-theme="classic"] .vp-current-loading {
+  color: var(--text-secondary);
+  font-weight: 400;
+  background: white;
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--border-radius);
+}
+[data-theme="classic"] .vp-stats {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+[data-theme="classic"] .vp-stat-value {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+[data-theme="classic"] .vp-stat-label {
+  color: var(--text-secondary);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+}
+[data-theme="classic"] .vp-overall-bar {
+  height: 6px;
+  background: #e9ecef;
+  border-radius: 3px;
+  border: none;
+}
+[data-theme="classic"] .vp-overall-fill {
+  background: linear-gradient(90deg, #42a5f5, #66bb6a);
+  border-radius: 3px;
+}
+[data-theme="classic"] .vp-group {
+  background: white;
+  border-radius: var(--border-radius);
+  border: var(--border-width) solid var(--border-color);
+  box-shadow: none;
+}
+[data-theme="classic"] .vp-group-header:hover {
+  background: var(--bg-subtle);
+}
+[data-theme="classic"] .vp-group-color {
+  border-radius: 3px;
+  border: none;
+}
+[data-theme="classic"] .vp-group-name {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+[data-theme="classic"] .vp-group-meta {
+  color: var(--text-secondary);
+}
+[data-theme="classic"] .vp-group-percent {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+[data-theme="classic"] .vp-group-bar {
+  height: 4px;
+  background: #e9ecef;
+  border-radius: 2px;
+  border: none;
+}
+[data-theme="classic"] .vp-group-fill {
+  background: linear-gradient(90deg, #42a5f5, #66bb6a);
+  border-radius: 2px;
+}
+[data-theme="classic"] .vp-group-toggle {
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+[data-theme="classic"] .vp-video-item:hover {
+  background: var(--bg-subtle);
+}
+[data-theme="classic"] .vp-video-favicon {
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-color);
+}
+[data-theme="classic"] .vp-video-title {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+[data-theme="classic"] .vp-video-bar {
+  height: 4px;
+  background: #e9ecef;
+  border-radius: 2px;
+  border: none;
+}
+[data-theme="classic"] .vp-video-fill {
+  background: linear-gradient(90deg, #42a5f5, #66bb6a);
+  border-radius: 2px;
+}
+[data-theme="classic"] .vp-video-meta {
+  color: var(--text-secondary);
+}
+[data-theme="classic"] .vp-video-empty {
+  color: var(--text-secondary);
+}
+[data-theme="classic"] .vp-empty-state {
+  border: var(--border-width) dashed var(--border-color);
+  border-radius: var(--border-radius);
+  background: transparent;
+}
+[data-theme="classic"] .vp-empty-text {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+[data-theme="classic"] .vp-empty-desc {
+  color: var(--text-secondary);
+}
+
+/* --- Recording --- */
+[data-theme="classic"] .solution-recording {
+  background: white;
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--border-radius);
+  padding: 10px;
+}
+[data-theme="classic"] .recording-dot {
+  background: var(--color-danger);
+  border-radius: 50%;
+  animation: cl-pulse 1.2s infinite;
+  border: none;
+}
+@keyframes cl-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+[data-theme="classic"] .recording-text {
+  color: var(--color-danger);
+  font-weight: 600;
+}
+[data-theme="classic"] .recording-time {
+  color: var(--color-danger);
+  font-weight: 500;
+  background: var(--bg-subtle);
+  padding: 2px 6px;
+  border-radius: var(--border-radius);
+  border: none;
+}
+[data-theme="classic"] .recording-info {
+  color: var(--text-secondary);
+}
+[data-theme="classic"] .btn-stop {
+  background: var(--color-danger);
+  color: white;
+  font-weight: 500;
+  border: none;
+  border-radius: var(--border-radius);
+  font-family: inherit;
+}
+[data-theme="classic"] .btn-stop:hover {
+  background: var(--color-danger-hover);
+}
+
+/* --- Page animation --- */
+[data-theme="classic"] .page.active {
+  display: block;
+}
+
+/* --- Section title --- */
+[data-theme="classic"] .page-section-title {
+  font-weight: 600;
+  color: var(--color-accent-hover);
+}
+
+/* --- Focus hint --- */
+[data-theme="classic"] .focus-hint {
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+/* --- Idle/start recording --- */
+[data-theme="classic"] .idle-title {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+[data-theme="classic"] .btn-start {
+  background: var(--color-success);
+  color: white;
+  font-weight: 500;
+  border: none;
+  border-radius: var(--border-radius);
+  font-family: inherit;
+}
+[data-theme="classic"] .btn-start:hover {
+  background: var(--color-success-hover);
+}
+
