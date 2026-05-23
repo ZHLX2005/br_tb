@@ -102,7 +102,7 @@
       // === 分支 B：无关页面 —— 按 50% 阈值判断 ===
       const ratio = duration > 0 ? watched / duration : 0;
       status = ratio > 0.5 ? '已完成' : '未开始';
-      percent = ratio > 0.5 ? Math.round(ratio * 100) : 0;
+      percent = duration > 0 ? Math.round((watched / duration) * 100) : 0;
     }
 
     tooltip.innerHTML = `
