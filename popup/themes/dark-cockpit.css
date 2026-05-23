@@ -482,8 +482,8 @@
   color: var(--text-primary);
 }
 [data-theme="dark-cockpit"] .vp-group-bar {
-  height: 4px;
-  background: var(--bg-subtle);
+  height: 3px;
+  background: var(--bg-subtle-hover);
   border-radius: 2px;
   border: none;
 }
@@ -510,8 +510,8 @@
   font-weight: 400;
 }
 [data-theme="dark-cockpit"] .vp-video-bar {
-  height: 4px;
-  background: var(--bg-subtle);
+  height: 3px;
+  background: var(--bg-subtle-hover);
   border-radius: 2px;
   border: none;
 }

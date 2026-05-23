@@ -486,14 +486,14 @@
   color: var(--text-primary);
 }
 [data-theme="japanese"] .vp-group-bar {
-  height: 6px;
+  height: 4px;
   background: var(--border-color);
-  border-radius: 3px;
+  border-radius: 2px;
   border: none;
 }
 [data-theme="japanese"] .vp-group-fill {
   background: var(--color-accent);
-  border-radius: 3px;
+  border-radius: 2px;
   box-shadow: none;
 }
 [data-theme="japanese"] .vp-group-toggle {
@@ -516,15 +516,15 @@
   margin-bottom: 3px;
 }
 [data-theme="japanese"] .vp-video-bar {
-  height: 6px;
+  height: 4px;
   background: var(--border-color);
-  border-radius: 3px;
+  border-radius: 2px;
   border: none;
   margin-bottom: 3px;
 }
 [data-theme="japanese"] .vp-video-fill {
   background: var(--color-accent);
-  border-radius: 3px;
+  border-radius: 2px;
   box-shadow: none;
 }
 [data-theme="japanese"] .vp-video-meta {

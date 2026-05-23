@@ -400,6 +400,7 @@
   height: 4px;
   background: #e9ecef;
   border-radius: 2px;
+  margin-top: 2px;
   border: none;
 }
 [data-theme="classic"] .vp-group-fill {
@@ -422,13 +423,13 @@
   font-weight: 500;
 }
 [data-theme="classic"] .vp-video-bar {
-  height: 4px;
+  height: 3px;
   background: #e9ecef;
   border-radius: 2px;
   border: none;
 }
 [data-theme="classic"] .vp-video-fill {
-  background: linear-gradient(90deg, #42a5f5, #66bb6a);
+  background: #66bb6a;
   border-radius: 2px;
 }
 [data-theme="classic"] .vp-video-meta {
