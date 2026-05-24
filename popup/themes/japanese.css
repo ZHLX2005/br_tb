@@ -71,6 +71,18 @@
 [data-theme="japanese"] .top-nav {
   border-bottom: 1px solid #E0DCD4;
 }
+/* 还原原分支的底部边框指示器风格，避免基线四边边框方案导致切换抖动 */
+[data-theme="japanese"] .nav-tab {
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+[data-theme="japanese"] .nav-tab.active {
+  border-bottom-color: var(--color-accent);
+  background: transparent;
+  box-shadow: none;
+  transform: none;
+}
 
 /* ========== Component visual styles ========== */
 
