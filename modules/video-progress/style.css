@@ -581,6 +581,63 @@
   border-bottom: none;
 }
 
+/* Sort Videos Page */
+.sort-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sort-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  cursor: grab;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
+.sort-item:hover {
+  background: #f8f9fa;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.sort-item.dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+}
+
+.sort-handle {
+  font-size: 14px;
+  color: #bbb;
+  cursor: grab;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.sort-index {
+  font-size: 13px;
+  color: #888;
+  font-weight: 600;
+  min-width: 24px;
+  text-align: center;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.sort-title {
+  font-size: 14px;
+  color: #333;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* Responsive */
 @media (max-width: 600px) {
   .stats-grid {
