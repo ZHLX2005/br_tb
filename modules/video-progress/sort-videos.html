@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>排序视频 - TabBoard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="video-progress-container">
+    <header class="vp-header">
+      <div class="vp-header-left">
+        <h1 id="pageTitle">排序视频</h1>
+        <p class="subtitle">拖动调整顺序，或翻转整个课程</p>
+      </div>
+      <div class="vp-header-actions">
+        <button id="reverseBtn" class="btn btn-secondary">翻转顺序</button>
+        <button id="saveBtn" class="btn btn-primary">保存</button>
+        <button id="cancelBtn" class="btn btn-secondary">取消</button>
+      </div>
+    </header>
+
+    <div id="sortList" class="sort-list">
+      <!-- Dynamic content -->
+    </div>
+  </div>
+
+  <script type="module" src="sort-videos-shell.js"></script>
+</body>
+</html>

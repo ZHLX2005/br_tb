@@ -98,6 +98,9 @@ class VideoProgressView {
         case 'delete-group':
           this.deleteGroup(groupId);
           break;
+        case 'sort-group':
+          this.openSortPage(groupId);
+          break;
         case 'archive-group':
           this.archiveGroup(groupId);
           break;
@@ -156,6 +159,10 @@ class VideoProgressView {
 
   openArchivePage() {
     window.location.href = chrome.runtime.getURL('modules/video-progress/archive.html');
+  }
+
+  openSortPage(groupId) {
+    window.location.href = chrome.runtime.getURL(`modules/video-progress/sort-videos.html?groupId=${groupId}`);
   }
 
   async createGroup() {
@@ -675,6 +682,7 @@ class VideoProgressView {
             <button class="btn btn-small" data-action="add-to-group" data-group-id="${group.id}" title="添加当前页面视频">+ 添加视频</button>
             <button class="btn btn-small" data-action="open-group" data-group-id="${group.id}" title="打开所有视频">打开全部</button>
             <button class="btn btn-small btn-icon" data-action="rename-group" data-group-id="${group.id}" title="重命名">✎</button>
+            <button class="btn btn-small btn-icon" data-action="sort-group" data-group-id="${group.id}" title="排序视频" style="background:#e3f2fd;color:#1976d2;">☰</button>
             <button class="btn btn-small btn-icon" data-action="archive-group" data-group-id="${group.id}" title="归档课程" style="background:#fff3e0;color:#ff9800;">⤓</button>
             <button class="btn btn-small btn-icon btn-danger" data-action="delete-group" data-group-id="${group.id}" title="删除">✕</button>
           </div>

@@ -251,6 +251,21 @@ function setupVideoProgressListeners() {
             break;
           }
 
+          case 'reorderGroupVideos': {
+            const result = await chrome.storage.local.get(['videoGroups']);
+            const videoGroups = ('videoGroups' in result) ? result.videoGroups : [];
+            const group = videoGroups.find(g => g.id === request.groupId);
+            if (group && Array.isArray(request.videoIds)) {
+              const videoMap = new Map(group.videos.map(v => [v.id, v]));
+              group.videos = request.videoIds.map(id => videoMap.get(id)).filter(Boolean);
+              await chrome.storage.local.set({ videoGroups });
+              sendResponse({ success: true });
+            } else {
+              sendResponse({ success: false, error: 'Group not found' });
+            }
+            break;
+          }
+
           case 'openVideoProgressPage': {
             await openVideoProgressPage();
             sendResponse({ success: true });
