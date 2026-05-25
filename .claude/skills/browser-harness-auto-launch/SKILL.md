@@ -2,8 +2,11 @@
 name: browser-harness-auto-launch
 description: 当需要使用 browser-harness 进行浏览器自动化、网页爬取、CDP 操作、数据提取时触发。核心原则是：自己启动浏览器，不询问用户。
 ---
-
 # Browser Harness — 自动启动与执行
+
+加载依赖的 /browser-harness 这个skill 启动浏览器 
+
+
 
 ## 触发条件
 
@@ -26,6 +29,7 @@ browser-harness -c 'print(page_info())'
 ```
 
 `run.py` 内部会调用 `ensure_daemon()`，它会自动：
+
 1. 查找本地已运行的 Chrome（端口 9222）
 2. 如果找到，直接连接
 3. 如果没找到，自动启动 Chrome（带 `--remote-debugging-port=9222`）
@@ -35,6 +39,7 @@ browser-harness -c 'print(page_info())'
 ### Step 2: 如果连接失败（极少数）
 
 Windows 下手动兜底：
+
 ```powershell
 Start-Process "chrome" -ArgumentList "--remote-debugging-port=9222","--user-data-dir=$env:TEMP\chrome_dev"
 ```
@@ -104,11 +109,11 @@ SPA 分页（无刷新）：点击后 `sleep(2)` 等待 DOM 更新，再提取�
 while True:
     # extract current page
     result = js("...")
-    
+  
     # check next
     has_next = js("...")
     if not has_next: break
-    
+  
     # click next
     js("document.querySelector('.next-page').click()")
     sleep(2)  # wait for XHR + re-render
@@ -116,14 +121,14 @@ while True:
 
 ## 错误案例
 
-| 错误操作 | 实际后果 | 正确做法 |
-|---------|---------|---------|
-| 问用户"Chrome 打开了吗" | 打断用户、降低效率 | 直接执行 browser-harness，`ensure_daemon()` 会自动处理 |
-| 内联复杂 JS 到 browser-harness `-c` | 引号转义失败，SyntaxError | 写 `.py` 文件再 `exec(open('file').read())`，或改用 CDP evaluate_script |
-| 直接拼接 `href` 和 origin | Bilibili 的 `href` 可能已带 `//www.bilibili.com`，导致 `https://www.bilibili.com//www.bilibili.com/...` | 用正则提取 path：`href.match(/\/video\/BV[a-zA-Z0-9]+/)`，再拼接 |
-| SPA 分页点击后立即提取 | 拿到的是旧页面数据 | 点击后 `sleep(2)` 或等待特定元素变化 |
-| 假设页面一次性渲染全部内容 | 懒加载导致漏数据 | 先 `scroll_down(800)` 多次再提取 |
-| 用 `goto_url` 替代 `new_tab` | 覆盖用户当前正在使用的标签页 | 首导航用 `new_tab(url)` |
+| 错误操作                              | 实际后果                                                                                                      | 正确做法                                                                    |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| 问用户"Chrome 打开了吗"               | 打断用户、降低效率                                                                                            | 直接执行 browser-harness，`ensure_daemon()` 会自动处理                    |
+| 内联复杂 JS 到 browser-harness `-c` | 引号转义失败，SyntaxError                                                                                     | 写 `.py` 文件再 `exec(open('file').read())`，或改用 CDP evaluate_script |
+| 直接拼接 `href` 和 origin           | Bilibili 的 `href` 可能已带 `//www.bilibili.com`，导致 `https://www.bilibili.com//www.bilibili.com/...` | 用正则提取 path：`href.match(/\/video\/BV[a-zA-Z0-9]+/)`，再拼接          |
+| SPA 分页点击后立即提取                | 拿到的是旧页面数据                                                                                            | 点击后 `sleep(2)` 或等待特定元素变化                                      |
+| 假设页面一次性渲染全部内容            | 懒加载导致漏数据                                                                                              | 先 `scroll_down(800)` 多次再提取                                          |
+| 用 `goto_url` 替代 `new_tab`      | 覆盖用户当前正在使用的标签页                                                                                  | 首导航用 `new_tab(url)`                                                   |
 
 ## B站视频课程组提取与导入
 
@@ -181,12 +186,12 @@ https://www.bilibili.com/video/BV1J44y1o7gf
 
 ### B站提取注意事项
 
-| 页面类型 | 提取方式 | 注意 |
-|---------|---------|------|
-| **合集页** | `a[href*="/video/BV"]` | 可能混有推荐视频，需按 DOM 结构过滤（如只取 `.video-list` 内的链接） |
-| **收藏夹** | 同上 | 收藏夹可能跨页，需翻页提取 |
-| **UP主空间-投稿** | 同上 | 投稿视频可能非常多，按时间范围筛选后再提取 |
-| **单个视频页** | `a[href*="/video/BV"]`（推荐区） | 不推荐，推荐区混有大量无关视频 |
+| 页面类型                | 提取方式                           | 注意                                                                   |
+| ----------------------- | ---------------------------------- | ---------------------------------------------------------------------- |
+| **合集页**        | `a[href*="/video/BV"]`           | 可能混有推荐视频，需按 DOM 结构过滤（如只取 `.video-list` 内的链接） |
+| **收藏夹**        | 同上                               | 收藏夹可能跨页，需翻页提取                                             |
+| **UP主空间-投稿** | 同上                               | 投稿视频可能非常多，按时间范围筛选后再提取                             |
+| **单个视频页**    | `a[href*="/video/BV"]`（推荐区） | 不推荐，推荐区混有大量无关视频                                         |
 
 ### 过滤无关链接
 
