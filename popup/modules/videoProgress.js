@@ -18,6 +18,7 @@ export async function loadVideoProgress() {
       chrome.runtime.sendMessage({ action: 'getSettings' })
     ]);
     videoGroups = groupsRes.success ? (groupsRes.videoGroups || []) : [];
+    videoGroups = videoGroups.filter(g => !g.archived);
     renderVideoProgress();
 
     const settings = settingsRes.success ? (settingsRes.settings || {}) : {};
@@ -298,7 +299,7 @@ async function captureCurrentVideo() {
 
     // 获取课程组列表
     const groupsResponse = await chrome.runtime.sendMessage({ action: 'getVideoGroups' });
-    const groups = groupsResponse.success ? (groupsResponse.videoGroups || []) : [];
+    const groups = (groupsResponse.success ? (groupsResponse.videoGroups || []) : []).filter(g => !g.archived);
 
     if (groups.length === 0) {
       const name = await window.modal.prompt('还没有课程组，请输入课程名称创建:', {

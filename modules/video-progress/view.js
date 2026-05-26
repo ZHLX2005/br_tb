@@ -600,7 +600,7 @@ class VideoProgressView {
     statsEl.innerHTML = `
       <div class="stats-grid">
         <div class="stat-card">
-          <div class="stat-value">${this.videoGroups.length}</div>
+          <div class="stat-value">${activeGroups.length}</div>
           <div class="stat-label">课程</div>
         </div>
         <div class="stat-card">
