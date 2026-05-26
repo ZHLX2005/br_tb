@@ -23,13 +23,17 @@ export function getUrlBase(url) {
   }
 }
 
-// 规范化 URL：B站视频页去掉 query/hash，非B站保持原样
+// 规范化 URL：B站视频页保留 BV 和分P(p=x)，去掉追踪参数与 hash，非B站保持原样
 export function normalizeUrl(url) {
   try {
     const u = new URL(url);
     if (u.hostname.includes('bilibili.com') && u.pathname.startsWith('/video/')) {
       let path = u.pathname;
       if (path.endsWith('/')) path = path.slice(0, -1);
+      const p = u.searchParams.get('p');
+      if (p) {
+        return `${u.protocol}//${u.hostname}${path}?p=${p}`;
+      }
       return `${u.protocol}//${u.hostname}${path}`;
     }
     return url;
