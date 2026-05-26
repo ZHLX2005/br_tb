@@ -303,6 +303,23 @@ function setupVideoProgressListeners() {
             break;
           }
 
+          case 'updateVideoUrl': {
+            const result = await chrome.storage.local.get(['videoGroups']);
+            const videoGroups = ('videoGroups' in result) ? result.videoGroups : [];
+            const group = videoGroups.find(g => g.id === request.groupId);
+            if (group) {
+              const video = group.videos.find(v => v.id === request.videoId);
+              if (video) {
+                video.url = request.url;
+                await chrome.storage.local.set({ videoGroups });
+                sendResponse({ success: true });
+                return;
+              }
+            }
+            sendResponse({ success: false, error: 'Video not found' });
+            break;
+          }
+
           case 'detectPageVideos': {
             // This is handled by content script, but we ack here
             sendResponse({ success: true });

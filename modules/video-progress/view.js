@@ -122,6 +122,9 @@ class VideoProgressView {
         case 'remove-video':
           this.removeVideo(groupId, videoId);
           break;
+        case 'edit-video-url':
+          this.editVideoUrl(groupId, videoId);
+          break;
         case 'add-to-group':
           this.addDetectedVideoToGroup(groupId);
           break;
@@ -321,6 +324,45 @@ class VideoProgressView {
       await this.loadVideoGroups();
       this.render();
       this.showToast('视频已移除', 'info');
+    }
+  }
+
+  async editVideoUrl(groupId, videoId) {
+    const group = this.videoGroups.find(g => g.id === groupId);
+    const video = group?.videos.find(v => v.id === videoId);
+    if (!video) return;
+
+    const newUrl = await modal.prompt('编辑视频链接:', {
+      title: '编辑链接',
+      defaultValue: video.url,
+      placeholder: 'https://www.bilibili.com/video/BV...',
+      confirmText: '保存',
+      cancelText: '取消'
+    });
+    if (!newUrl || !newUrl.trim() || newUrl.trim() === video.url) return;
+
+    const normalized = normalizeUrl(newUrl.trim());
+
+    // 检查同组内是否已存在该链接
+    const duplicate = group.videos.find(v => v.id !== videoId && v.url === normalized);
+    if (duplicate) {
+      this.showToast('该链接已在课程中存在', 'warning');
+      return;
+    }
+
+    const response = await chrome.runtime.sendMessage({
+      action: 'updateVideoUrl',
+      groupId,
+      videoId,
+      url: normalized
+    });
+
+    if (response.success) {
+      await this.loadVideoGroups();
+      this.render();
+      this.showToast('链接已更新', 'success');
+    } else {
+      this.showToast('更新失败: ' + (response.error || ''), 'error');
     }
   }
 
@@ -712,6 +754,7 @@ class VideoProgressView {
                       <div class="video-progress-fill" style="width: ${videoProgress}%"></div>
                     </div>
                   </div>
+                  <button class="btn btn-icon btn-small" data-action="edit-video-url" data-group-id="${group.id}" data-video-id="${video.id}" title="编辑链接" onclick="event.stopPropagation()" style="background:#e3f2fd;color:#1976d2;margin-right:4px;">✎</button>
                   <button class="btn btn-icon btn-small btn-danger" data-action="remove-video" data-group-id="${group.id}" data-video-id="${video.id}" title="移除" onclick="event.stopPropagation()">✕</button>
                 </div>
               `;
