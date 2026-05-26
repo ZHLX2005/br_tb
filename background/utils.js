@@ -31,7 +31,7 @@ export function normalizeUrl(url) {
       let path = u.pathname;
       if (path.endsWith('/')) path = path.slice(0, -1);
       const p = u.searchParams.get('p');
-      if (p) {
+      if (p && p !== '1') {
         return `${u.protocol}//${u.hostname}${path}?p=${p}`;
       }
       return `${u.protocol}//${u.hostname}${path}`;
