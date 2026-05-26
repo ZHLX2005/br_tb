@@ -258,6 +258,51 @@ function setupVideoProgressListeners() {
             break;
           }
 
+          case 'normalizeAllVideoUrls': {
+            const result = await chrome.storage.local.get(['videoGroups']);
+            const videoGroups = ('videoGroups' in result) ? result.videoGroups : [];
+            let changedCount = 0;
+            let dedupCount = 0;
+
+            for (const group of videoGroups) {
+              if (!group.videos || group.videos.length === 0) continue;
+
+              const seen = new Map(); // normalizedUrl -> mergedVideo
+              const newVideos = [];
+
+              for (const video of group.videos) {
+                const normalized = normalizeUrl(video.url);
+                if (normalized !== video.url) {
+                  changedCount++;
+                }
+
+                if (seen.has(normalized)) {
+                  // 合并重复项
+                  dedupCount++;
+                  const existing = seen.get(normalized);
+                  existing.watched = Math.max(existing.watched || 0, video.watched || 0);
+                  existing.duration = Math.max(existing.duration || 0, video.duration || 0);
+                  if ((video.title || '').length > (existing.title || '').length) {
+                    existing.title = video.title;
+                  }
+                  if ((video.pageTitle || '').length > (existing.pageTitle || '').length) {
+                    existing.pageTitle = video.pageTitle;
+                  }
+                } else {
+                  const copy = { ...video, url: normalized };
+                  seen.set(normalized, copy);
+                  newVideos.push(copy);
+                }
+              }
+
+              group.videos = newVideos;
+            }
+
+            await chrome.storage.local.set({ videoGroups });
+            sendResponse({ success: true, changedCount, dedupCount });
+            break;
+          }
+
           case 'detectPageVideos': {
             // This is handled by content script, but we ack here
             sendResponse({ success: true });

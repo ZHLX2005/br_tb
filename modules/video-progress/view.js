@@ -63,6 +63,25 @@ class VideoProgressView {
       });
     }
 
+    const normalizeBtn = document.getElementById('normalizeUrlsBtn');
+    if (normalizeBtn) {
+      normalizeBtn.addEventListener('click', async () => {
+        const confirmed = await modal.confirm(
+          '这将移除所有视频链接中的 ?p=1 参数，并合并重复项。确定要继续吗？',
+          { title: '整理链接', type: 'warning', confirmText: '整理', cancelText: '取消' }
+        );
+        if (!confirmed) return;
+        const res = await chrome.runtime.sendMessage({ action: 'normalizeAllVideoUrls' });
+        if (res.success) {
+          await this.loadVideoGroups();
+          this.render();
+          this.showToast(`整理完成: 更新 ${res.changedCount} 条, 合并 ${res.dedupCount} 条重复`, 'success');
+        } else {
+          this.showToast('整理失败', 'error');
+        }
+      });
+    }
+
     // Event delegation for dynamically created elements
     document.addEventListener('click', (e) => {
       // 点击标题输入框时不触发 data-action（避免和 open-video 冲突）
