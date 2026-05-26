@@ -5,20 +5,7 @@
 
 import { modal } from '../../shared/ModalDialog.js';
 import { getVideoDisplayProgress, getGroupDisplayProgress, formatDuration, getGroupTotals } from './progress-utils.js';
-
-function normalizeUrl(url) {
-  try {
-    const u = new URL(url);
-    if (u.hostname.includes('bilibili.com') && u.pathname.startsWith('/video/')) {
-      let path = u.pathname;
-      if (path.endsWith('/')) path = path.slice(0, -1);
-      return `${u.protocol}//${u.hostname}${path}`;
-    }
-    return url;
-  } catch {
-    return url;
-  }
-}
+import { normalizeUrl } from '../../background/utils.js';
 
 class VideoProgressView {
   constructor(dataManager, mode = 'full') {

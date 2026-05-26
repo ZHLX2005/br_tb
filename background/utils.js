@@ -23,6 +23,21 @@ export function getUrlBase(url) {
   }
 }
 
+// 规范化 URL：B站视频页去掉 query/hash，非B站保持原样
+export function normalizeUrl(url) {
+  try {
+    const u = new URL(url);
+    if (u.hostname.includes('bilibili.com') && u.pathname.startsWith('/video/')) {
+      let path = u.pathname;
+      if (path.endsWith('/')) path = path.slice(0, -1);
+      return `${u.protocol}//${u.hostname}${path}`;
+    }
+    return url;
+  } catch {
+    return url;
+  }
+}
+
 // 显示 toast 消息
 export function showToast(tabId, options) {
   chrome.tabs.sendMessage(tabId, {

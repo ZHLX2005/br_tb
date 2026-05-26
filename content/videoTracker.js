@@ -7,20 +7,6 @@
 (function () {
   'use strict';
 
-  function normalizeUrl(url) {
-    try {
-      const u = new URL(url);
-      if (u.hostname.includes('bilibili.com') && u.pathname.startsWith('/video/')) {
-        let path = u.pathname;
-        if (path.endsWith('/')) path = path.slice(0, -1);
-        return `${u.protocol}//${u.hostname}${path}`;
-      }
-      return url;
-    } catch {
-      return url;
-    }
-  }
-
   const videoTracker = {
     videos: [],
     trackedVideos: new Map(), // video element -> { duration, watched, title, url }
@@ -44,7 +30,7 @@
           duration: 0,
           watched: 0,
           title: this.getVideoTitle(video),
-          url: normalizeUrl(window.location.href),
+          url: window.location.href,
           favicon: this.getFavicon(),
           pageTitle: document.title
         });
@@ -177,7 +163,7 @@
     },
 
     reportProgress() {
-      const currentUrl = normalizeUrl(window.location.href);
+      const currentUrl = window.location.href;
       this.trackedVideos.forEach((info) => {
         if (info.duration > 0) {
           chrome.runtime.sendMessage({
@@ -194,7 +180,7 @@
     },
 
     getDetectedVideos() {
-      const currentUrl = normalizeUrl(window.location.href);
+      const currentUrl = window.location.href;
       const result = [];
       this.trackedVideos.forEach((info, video) => {
         result.push({

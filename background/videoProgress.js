@@ -3,23 +3,9 @@
  * Handles video group CRUD and watch progress updates
  */
 
-import { generateId } from './utils.js';
+import { generateId, normalizeUrl } from './utils.js';
 
 const COLORS = ['#ef5350', '#ec407a', '#ab47bc', '#7e57c2', '#5c6bc0', '#42a5f5', '#29b6f6', '#26c6da', '#26a69a', '#66bb6a', '#9ccc65', '#d4e157', '#ffee58', '#ffca28', '#ffa726', '#ff7043'];
-
-function normalizeUrl(url) {
-  try {
-    const u = new URL(url);
-    if (u.hostname.includes('bilibili.com') && u.pathname.startsWith('/video/')) {
-      let path = u.pathname;
-      if (path.endsWith('/')) path = path.slice(0, -1);
-      return `${u.protocol}//${u.hostname}${path}`;
-    }
-    return url;
-  } catch {
-    return url;
-  }
-}
 
 /**
  * Open the video progress page
