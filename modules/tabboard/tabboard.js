@@ -7,6 +7,7 @@ import DataManager from '../shared/data-manager.js';
 import EventBus from '../shared/event-bus.js';
 import TimelineModule from '../timeline/index.js';
 import GroupModule from '../group/index.js';
+import LeetCodeModule from '../leetcode/index.js';
 
 class AppShell {
   constructor() {
@@ -34,6 +35,7 @@ class AppShell {
     document.getElementById('groupViewBtn')?.addEventListener('click', () => this.switchView('group'));
     document.getElementById('recordingViewBtn')?.addEventListener('click', () => this._openRecordingPage());
     document.getElementById('videoProgressViewBtn')?.addEventListener('click', () => this._openVideoProgressPage());
+    document.getElementById('leetcodeViewBtn')?.addEventListener('click', () => this.switchView('leetcode'));
   }
 
   _setupRefreshButton() {
@@ -84,6 +86,10 @@ class AppShell {
         container = document.getElementById('groupView');
         ModuleClass = GroupModule;
         break;
+      case 'leetcode':
+        container = document.getElementById('leetcodePanel');
+        ModuleClass = LeetCodeModule;
+        break;
       case 'timeline':
       default:
         container = document.getElementById('timelineView');
@@ -106,9 +112,11 @@ class AppShell {
     document.getElementById('groupViewBtn')?.classList.toggle('active', viewName === 'group');
     document.getElementById('recordingViewBtn')?.classList.toggle('active', viewName === 'recording');
     document.getElementById('videoProgressViewBtn')?.classList.toggle('active', viewName === 'videoProgress');
+    document.getElementById('leetcodeViewBtn')?.classList.toggle('active', viewName === 'leetcode');
 
     document.getElementById('timelineView').style.display = viewName === 'timeline' ? 'block' : 'none';
     document.getElementById('groupView').style.display = viewName === 'group' ? 'block' : 'none';
+    document.getElementById('leetcodeView').style.display = viewName === 'leetcode' ? 'block' : 'none';
   }
 
   _openRecordingPage() {

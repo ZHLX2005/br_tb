@@ -94,6 +94,12 @@ export async function initializeDefaultData() {
   if (!result.recordings) {
     await chrome.storage.local.set({ recordings: [] });
   }
+
+  // 初始化 LeetCode 150 进度
+  const lcResult = await chrome.storage.local.get(['leetcodeProgress']);
+  if (!lcResult.leetcodeProgress) {
+    await chrome.storage.local.set({ leetcodeProgress: {} });
+  }
 }
 
 // 设置相关的消息监听器
