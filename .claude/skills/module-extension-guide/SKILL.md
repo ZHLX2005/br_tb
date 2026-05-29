@@ -204,14 +204,21 @@ export default <FeatureName>View;
 如果现有 `tabboard.css` 已超过 500 行，拆分策略：
 
 ```
-tabboard.css   → 通用基础样式（:root, header, nav, buttons, 右键菜单, toast）
-group.css      → jKanban 看板样式
-timeline.css   → Timeline 视图样式
-leetcode.css   → LeetCode 面板样式
-<feature>.css  → 新模块样式
+modules/tabboard/tabboard.css   → 通用基础样式（:root, header, nav, buttons, 右键菜单, toast）
+modules/group/style.css         → jKanban 看板样式
+modules/timeline/style.css      → Timeline 视图样式
+modules/leetcode/style.css      → LeetCode 面板样式
+modules/<feature>/style.css     → 新模块样式
 ```
 
-拆分后更新 `tabboard.html` 引入所有拆分后的 CSS 文件。
+拆分后更新 `tabboard.html` 引入所有拆分后的 CSS 文件：
+```html
+<link rel="stylesheet" href="tabboard.css">
+<link rel="stylesheet" href="../group/style.css">
+<link rel="stylesheet" href="../timeline/style.css">
+<link rel="stylesheet" href="../leetcode/style.css">
+<link rel="stylesheet" href="../<feature>/style.css">
+```
 
 ### Phase 5: 数据层注册
 
