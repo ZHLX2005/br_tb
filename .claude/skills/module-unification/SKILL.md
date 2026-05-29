@@ -2,7 +2,6 @@
 name: module-unification
 description: 当用户要求重构模块目录、统一模块结构、拆分功能模块、或新增模块时触发。适用于 Chrome 扩展或前端项目的模块化重构。
 ---
-
 # Module Unification — 模块统一化重构
 
 ## 触发条件
@@ -76,19 +75,23 @@ class BaseModule {
 ## 迁移流程（必须按序执行）
 
 ### Phase 1: 建立共享层
+
 1. 创建 `modules/shared/` 目录
 2. 迁移共用代码（DataManager、EventManager、Utils、第三方库等）
 3. **关键步骤**：全局搜索所有对旧路径的引用，确保无遗漏
 4. Commit: `refactor: create shared layer`
 
 ### Phase 2: 逐个提取模块
+
 对每个功能模块：
+
 1. 创建 `modules/<feature>/` 目录
 2. 创建 `index.js`：实现 BaseModule 接口，引入 `view.js`
 3. 创建 `view.js`：从原大文件中迁移视图代码，**更新所有 import 路径**
 4. Commit: `refactor: extract <feature> module`
 
 ### Phase 3: 重写 Shell
+
 1. 重写页面入口为 `AppShell`，负责：
    - 初始化 DataManager / EventBus
    - 根据当前视图 `new` 对应模块
@@ -97,31 +100,35 @@ class BaseModule {
 2. Commit: `refactor: rewrite shell with module dispatch`
 
 ### Phase 4: 更新独立页面入口
+
 如果某个模块有独立页面（如 recording.html）：
+
 1. 创建 `-shell.js` 作为该页面的独立入口
 2. 使用 DataManager + Module 初始化并渲染
 3. 更新 HTML 的 `script src`
 4. Commit: `refactor: add <feature>-shell.js`
 
 ### Phase 5: 清理旧文件
+
 1. 删除已迁移的旧目录和文件
 2. **再次全局搜索旧路径引用**，确认无遗漏
 3. Commit: `refactor: remove old directories after migration`
 
 ### Phase 6: 验证
+
 1. 在浏览器/目标环境中加载项目
 2. 逐个验证每个模块的功能
 3. 检查 Console 是否有 404 或模块加载错误
 
 ## 错误案例
 
-| 错误操作 | 实际后果 | 正确做法 |
-|---------|---------|---------|
-| 只检查 `modules/` 内的 import 路径，未检查 `background/`、`popup/`、`content/` 等外部目录 | Chrome 扩展 service worker 加载失败：`"An unknown error occurred when fetching the script"` | 重构前用 `grep -r "旧路径"` 全局搜索所有引用 |
-| 删除旧文件后立即 commit，未验证运行时加载 | 运行时模块解析失败，功能不可用 | 删除前先验证新路径已正确更新在所有文件中 |
-| 模块入口 `index.js` 未实现 `destroy()` | 切换视图时内存泄漏、重复事件绑定、DOM 污染 | 每个模块必须清理 timer、observer、全局插入的 DOM |
-| 将第三方库留在某个模块目录下 | 其他模块引用路径混乱，重复依赖 | 所有第三方库统一放入 `modules/shared/lib/` |
-| view.js 保留页面自动初始化代码 | 模块在 Shell 外部被意外初始化，导致重复渲染 | 移除 `document.addEventListener('DOMContentLoaded', ...)` 等自动初始化逻辑 |
+| 错误操作                                                                                          | 实际后果                                                                                      | 正确做法                                                                     |
+| ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| 只检查 `modules/` 内的 import 路径，未检查 `background/`、`popup/`、`content/` 等外部目录 | Chrome 扩展 service worker 加载失败：`"An unknown error occurred when fetching the script"` | 重构前用 `grep -r "旧路径"` 全局搜索所有引用                               |
+| 删除旧文件后立即 commit，未验证运行时加载                                                         | 运行时模块解析失败，功能不可用                                                                | 删除前先验证新路径已正确更新在所有文件中                                     |
+| 模块入口 `index.js` 未实现 `destroy()`                                                        | 切换视图时内存泄漏、重复事件绑定、DOM 污染                                                    | 每个模块必须清理 timer、observer、全局插入的 DOM                             |
+| 将第三方库留在某个模块目录下                                                                      | 其他模块引用路径混乱，重复依赖                                                                | 所有第三方库统一放入 `modules/shared/lib/`                                 |
+| view.js 保留页面自动初始化代码                                                                    | 模块在 Shell 外部被意外初始化，导致重复渲染                                                   | 移除 `document.addEventListener('DOMContentLoaded', ...)` 等自动初始化逻辑 |
 
 ## 新增模块快速指南
 
@@ -259,25 +266,25 @@ git commit -m "feat: add <feature-name> module"
 
 ### 防御式编程（view.js 中必须遵守）
 
-| 场景 | 规范 |
-|------|------|
-| DOM 元素不存在 | `const el = document.getElementById('x'); if (!el) return;` |
-| 数据为空 | 渲染空状态，不抛异常 |
-| 异步操作 | 始终 `try/catch`，错误时 toast 提示 |
-| 动态插入的 DOM | 用 class + 事件委托，避免重复绑定 |
-| 全局搜索/右键菜单 | 先执行 `_hideXxx()` 再创建新的，防止叠加 |
-| 定时器 | 在 `destroy()` 中 `clearInterval` / `clearTimeout` |
-| `chrome.runtime.sendMessage` | 检查 `chrome.runtime.lastError` |
+| 场景                           | 规范                                                          |
+| ------------------------------ | ------------------------------------------------------------- |
+| DOM 元素不存在                 | `const el = document.getElementById('x'); if (!el) return;` |
+| 数据为空                       | 渲染空状态，不抛异常                                          |
+| 异步操作                       | 始终 `try/catch`，错误时 toast 提示                         |
+| 动态插入的 DOM                 | 用 class + 事件委托，避免重复绑定                             |
+| 全局搜索/右键菜单              | 先执行 `_hideXxx()` 再创建新的，防止叠加                    |
+| 定时器                         | 在 `destroy()` 中 `clearInterval` / `clearTimeout`      |
+| `chrome.runtime.sendMessage` | 检查 `chrome.runtime.lastError`                             |
 
 ### 命名规范
 
-| 层级 | 前缀/后缀 | 示例 |
-|------|----------|------|
-| 模块目录 | 小写连字符 | `modules/focus-search/` |
-| 入口类 | `Module` 后缀 | `FocusSearchModule` |
-| 视图类 | `View` 后缀 | `FocusSearchView` |
-| CSS 类名 | 模块名前缀 | `.focus-search-list` |
-| data 属性 | `data-<feature>-<field>` | `data-focus-search-id` |
+| 层级      | 前缀/后缀                  | 示例                      |
+| --------- | -------------------------- | ------------------------- |
+| 模块目录  | 小写连字符                 | `modules/focus-search/` |
+| 入口类    | `Module` 后缀            | `FocusSearchModule`     |
+| 视图类    | `View` 后缀              | `FocusSearchView`       |
+| CSS 类名  | 模块名前缀                 | `.focus-search-list`    |
+| data 属性 | `data-<feature>-<field>` | `data-focus-search-id`  |
 
 ### 性能约束
 

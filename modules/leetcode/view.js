@@ -26,6 +26,13 @@ class LeetCodeView {
 
   render() {
     if (!this.container) return;
+    // 更新头部统计条
+    const headerStats = document.getElementById('stats');
+    if (headerStats) {
+      const s = this._calcStats();
+      const pct = s.total > 0 ? Math.round((s.done / s.total) * 100) : 0;
+      headerStats.textContent = `${s.done}/${s.total} 已完成 · ${pct}%`;
+    }
     // 首次渲染时默认展开所有分类
     if (this.expandedCategories.size === 0) {
       for (const cat of PROBLEM_CATEGORIES) {
