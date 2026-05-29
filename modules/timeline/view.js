@@ -193,6 +193,7 @@ class TimelineView {
    */
   render() {
     const emptyState = document.getElementById('emptyState');
+    const stats = document.getElementById('stats');
     const timelineList = document.getElementById('timelineList');
 
     // 根据筛选状态过滤快照
@@ -202,7 +203,7 @@ class TimelineView {
     const totalSnapshots = filteredSnapshots.length;
     const totalTabs = filteredSnapshots.reduce((sum, s) => sum + s.tabs.length, 0);
     const filterLabel = this.filterMarkedOnly ? ' (已标记)' : '';
-    const statsText = `${totalSnapshots} 个快照${filterLabel} · ${totalTabs} 个标签页`;
+    stats.textContent = `${totalSnapshots} 个快照${filterLabel} · ${totalTabs} 个标签页`;
 
     if (filteredSnapshots.length === 0) {
       timelineList.innerHTML = '';
@@ -225,7 +226,6 @@ class TimelineView {
 
     // 渲染快照列表
     timelineList.innerHTML = `
-      <div class="timeline-stats-bar">${statsText}</div>
       <div class="timeline-actions-header">
         <button class="timeline-action-btn restore-all-btn" title="恢复所有快照">打开全部</button>
         <button class="timeline-action-btn clear-all-btn" title="清空所有快照">清空</button>

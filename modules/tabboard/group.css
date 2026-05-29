@@ -1,0 +1,265 @@
+/* jKanban 容器 */
+#tabboard {
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 12px;
+}
+
+/* 分组视图操作按钮区域 */
+.board-actions-header {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
+
+.board-actions-header .board-action-btn {
+  padding: 4px 10px;
+  font-size: 11px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+  background: white;
+  color: var(--text);
+}
+
+.board-actions-header .board-action-btn:hover {
+  background: var(--bg);
+}
+
+/* jKanban 看板样式覆盖 */
+.kanban-container {
+  display: flex;
+  gap: 10px;
+  height: 100%;
+  align-items: stretch;
+}
+
+/* 看板列 */
+.kanban-board {
+  flex-shrink: 0;
+  background: var(--card-bg);
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  width: 280px !important;
+  min-width: 200px !important;
+  max-width: 600px !important;
+}
+
+/* 看板标题 */
+.kanban-title-board {
+  padding: 10px 12px;
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 600;
+  font-size: 13px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+/* 分组颜色 */
+.kanban-board-red .kanban-title-board {
+  background: linear-gradient(135deg, rgba(255,107,107,0.1), transparent);
+  border-bottom: 2px solid var(--color-red);
+  color: var(--color-red);
+}
+
+.kanban-board-teal .kanban-title-board {
+  background: linear-gradient(135deg, rgba(78,205,196,0.1), transparent);
+  border-bottom: 2px solid var(--color-teal);
+  color: var(--color-teal);
+}
+
+.kanban-board-blue .kanban-title-board {
+  background: linear-gradient(135deg, rgba(69,183,209,0.1), transparent);
+  border-bottom: 2px solid var(--color-blue);
+  color: var(--color-blue);
+}
+
+.kanban-board-yellow .kanban-title-board {
+  background: linear-gradient(135deg, rgba(249,202,36,0.12), transparent);
+  border-bottom: 2px solid var(--color-yellow);
+  color: #b8940d;
+}
+
+.kanban-board-purple .kanban-title-board {
+  background: linear-gradient(135deg, rgba(108,92,231,0.1), transparent);
+  border-bottom: 2px solid var(--color-purple);
+  color: var(--color-purple);
+}
+
+.kanban-board-purple-light .kanban-title-board {
+  background: linear-gradient(135deg, rgba(162,155,254,0.1), transparent);
+  border-bottom: 2px solid var(--color-purple-light);
+  color: var(--color-purple-light);
+}
+
+.kanban-board-pink .kanban-title-board {
+  background: linear-gradient(135deg, rgba(253,121,168,0.1), transparent);
+  border-bottom: 2px solid var(--color-pink);
+  color: var(--color-pink);
+}
+
+.kanban-board-green .kanban-title-board {
+  background: linear-gradient(135deg, rgba(0,184,148,0.1), transparent);
+  border-bottom: 2px solid var(--color-green);
+  color: var(--color-green);
+}
+
+.kanban-board-orange .kanban-title-board {
+  background: linear-gradient(135deg, rgba(225,112,85,0.1), transparent);
+  border-bottom: 2px solid var(--color-orange);
+  color: var(--color-orange);
+}
+
+.kanban-board-sky .kanban-title-board {
+  background: linear-gradient(135deg, rgba(116,185,255,0.1), transparent);
+  border-bottom: 2px solid var(--color-sky);
+  color: var(--color-sky);
+}
+
+/* 看板操作按钮 */
+.board-actions {
+  display: flex;
+  gap: 4px;
+  margin-left: 8px;
+}
+
+.board-action-btn {
+  padding: 3px 6px;
+  font-size: 11px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  background: rgba(255,255,255,0.8);
+  color: var(--text-light);
+  transition: all 0.15s;
+}
+
+.board-action-btn:hover {
+  background: var(--primary);
+  color: white;
+}
+
+/* 看板内容区域 */
+.kanban-drag {
+  flex: 1;
+  padding: 8px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* 标签卡片 */
+.kanban-item {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0;
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+}
+
+.kanban-item:hover {
+  box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+  transform: translateY(-1px);
+}
+
+.kanban-item.gu-mirror {
+  opacity: 0.5;
+  transform: rotate(2deg);
+}
+
+/* 自定义标签卡片内容 */
+.kanban-item-content {
+  padding: 8px;
+  position: relative;
+}
+
+.kanban-item-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.kanban-item-favicon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.kanban-item-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kanban-item-visits {
+  font-size: 10px;
+  color: var(--primary);
+  background: var(--primary-light);
+  padding: 1px 5px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.kanban-item-url {
+  font-size: 10px;
+  color: var(--text-light);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: 2px;
+}
+
+.kanban-item-time {
+  font-size: 9px;
+  color: #999;
+}
+
+.kanban-item-delete {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 18px;
+  height: 18px;
+  border: none;
+  background: transparent;
+  color: var(--text-light);
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: all 0.15s;
+  padding: 0;
+  line-height: 1;
+}
+
+.kanban-item:hover .kanban-item-delete {
+  opacity: 1;
+}
+
+.kanban-item-delete:hover {
+  background: var(--danger);
+  color: white;
+}
