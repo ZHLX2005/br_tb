@@ -248,20 +248,26 @@ if (!result.<featureKey>) {
 
 ---
 
-## 头部统计条处理
+## 头部统计条处理（view.js 方案必须处理）
 
-切换视图时，头部 `#stats` 需要被当前视图更新，否则会残留"加载中..."或其他视图的数据。
+> **重要：选择 view.js 内嵌方案时，每个视图必须在 `render()` 中主动更新头部 `#stats`，否则切换后会一直显示"加载中..."或残留其他视图的数据。**
+>
+> 跳转新页面方案不存在此问题，因为每个页面有自己的独立头部或不需要共享统计条。
 
 **在 view.js 的 `render()` 中必须处理：**
 
 ```javascript
 render() {
+  // 1. 先更新头部统计条，避免"加载中..."残留
   const headerStats = document.getElementById('stats');
   if (headerStats) {
-    // 显示本视图的统计摘要
-    headerStats.textContent = '...';
+    const stats = this._calcStats(); // 或从 data 中提取
+    headerStats.textContent = `${stats.done}/${stats.total} 已完成 · ${stats.percent}%`;
   }
-  // ...渲染主体
+
+  // 2. 再渲染主体内容
+  this.container.innerHTML = this._buildHTML();
+  this._bindEvents();
 }
 ```
 
@@ -269,6 +275,7 @@ render() {
 - TimelineView → `50 个快照 · 2382 个标签页`
 - GroupView → `2382 个标签页 · 3/5 个分组显示`
 - LeetCodeView → `45/150 已完成 · 30%`
+- 新模块 → 根据业务自定义（如 `12 个任务 · 8 个已完成`）
 
 ---
 
