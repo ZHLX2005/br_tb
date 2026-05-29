@@ -270,6 +270,17 @@
   white-space: nowrap;
 }
 
+.lc-problem-link {
+  text-decoration: none;
+  color: var(--text);
+  transition: color 0.15s;
+}
+
+.lc-problem-link:hover {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
 /* Status Button - 3次切换核心样式 */
 .lc-status-btn {
   display: flex;

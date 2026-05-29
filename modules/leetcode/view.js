@@ -3,7 +3,7 @@
  * 支持3次状态切换：未开始 -> 进行中 -> 已完成 -> 未开始
  */
 
-import { PROBLEM_CATEGORIES, STATUS_LABELS, DIFFICULTY_LABELS, getTotalProblemCount } from './problems-data.js';
+import { PROBLEM_CATEGORIES, STATUS_LABELS, DIFFICULTY_LABELS, getTotalProblemCount, getProblemUrl } from './problems-data.js';
 
 const STORAGE_KEY = 'leetcodeProgress';
 
@@ -126,12 +126,16 @@ class LeetCodeView {
     const status = this.progress[problem.id] || 0;
     const statusInfo = STATUS_LABELS[status];
     const diffInfo = DIFFICULTY_LABELS[problem.difficulty];
+    const url = getProblemUrl(problem.slug);
 
     return `
       <div class="lc-problem-row" data-id="${problem.id}">
         <div class="lc-problem-info">
           <span class="lc-problem-diff ${diffInfo.class}">${diffInfo.text}</span>
-          <span class="lc-problem-title">${problem.title}</span>
+          ${url
+            ? `<a class="lc-problem-title lc-problem-link" href="${url}" target="_blank" title="打开题目">${problem.title}</a>`
+            : `<span class="lc-problem-title">${problem.title}</span>`
+          }
         </div>
         <button class="lc-status-btn ${statusInfo.class}" data-id="${problem.id}" data-status="${status}"
           title="点击切换状态">
