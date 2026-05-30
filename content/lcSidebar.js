@@ -394,6 +394,18 @@
     .lc-prob-item.status-doing { color: #ff9800; }
     .lc-prob-icon { font-size: 10px; flex-shrink: 0; width: 12px; text-align: center; }
     .lc-prob-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .lc-open-panel-btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 11px;
+      cursor: pointer;
+      margin: 4px 0;
+      transition: opacity 120ms;
+    }
+    .lc-open-panel-btn:hover { opacity: 0.85; }
   `;
 
   // ===================== Build DOM =====================
@@ -424,6 +436,7 @@
     panel.innerHTML = `
       <div id="${WRAPPER_ID}-header">
         <div id="${WRAPPER_ID}-title">LeetCode 150</div>
+        <button id="${WRAPPER_ID}-open-panel" class="lc-open-panel-btn">打开面板</button>
         <div id="${WRAPPER_ID}-stats">${done} 已完成 · ${doing} 进行中 · ${total} 总计</div>
         <input type="text" id="${WRAPPER_ID}-search" placeholder="搜索题目...">
       </div>
@@ -449,6 +462,11 @@
         const visible = [...cat.querySelectorAll('.lc-prob-item')].some(i => i.style.display !== 'none');
         cat.style.display = visible ? '' : 'none';
       });
+    });
+
+    // 打开面板按钮
+    document.getElementById(WRAPPER_ID + '-open-panel').addEventListener('click', () => {
+      chrome.runtime.sendMessage({ action: 'openTabboard', view: 'leetcode' });
     });
 
     // Category collapse

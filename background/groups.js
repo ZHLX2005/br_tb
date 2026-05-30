@@ -420,6 +420,12 @@ function setupGroupsListeners() {
         }
 
         case 'openTabboard': {
+          if (request.view) {
+            const { settings } = await chrome.storage.local.get(['settings']);
+            await chrome.storage.local.set({
+              settings: { ...settings, lastView: request.view }
+            });
+          }
           await openTabboard();
           sendResponse({ success: true });
           break;
