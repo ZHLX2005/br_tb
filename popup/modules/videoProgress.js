@@ -4,6 +4,7 @@
  */
 
 import { escapeHtml, showToast } from './utils.js';
+import { normalizeUrl } from '../../background/utils.js';
 import { getVideoDisplayProgress, getGroupDisplayProgress } from '../../modules/video-progress/progress-utils.js';
 
 let videoGroups = [];
@@ -67,8 +68,9 @@ export async function refreshCurrentVideo() {
     // 查找该视频是否已在课程组中
     let foundGroup = null;
     let foundVideo = null;
+    const normalizedVideoUrl = normalizeUrl(video.url);
     for (const g of videoGroups) {
-      const v = g.videos.find(x => x.url === video.url);
+      const v = g.videos.find(x => x.url === normalizedVideoUrl);
       if (v) {
         foundGroup = g;
         foundVideo = v;
