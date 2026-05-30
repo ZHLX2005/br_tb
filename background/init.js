@@ -60,6 +60,10 @@ export async function initializeDefaultData() {
       updatedSettings.showCourseProgressBarOnUnrelatedTabs = false;
       needUpdate = true;
     }
+    if (updatedSettings.showLcSidebar === undefined) {
+      updatedSettings.showLcSidebar = false;
+      needUpdate = true;
+    }
     if (updatedSettings.lastView === undefined) {
       updatedSettings.lastView = 'timeline';
       needUpdate = true;

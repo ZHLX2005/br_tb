@@ -9,6 +9,7 @@ import { loadSettings, bindSettingsListeners } from './modules/settings.js';
 import { loadFocusSearchGroups, toggleFocusSearchGroup } from './modules/focusSearch.js';
 import { bindQuickActionsListeners } from './modules/quickActions.js';
 import { loadVideoProgress, bindVideoProgressEvents, refreshCurrentVideo } from './modules/videoProgress.js';
+import { loadLcSidebarSetting, bindLcSidebarEvents } from './modules/lcSettings.js';
 import { renderColorPicker, resetColorPicker } from './modules/colorPicker.js';
 import { showToast } from './modules/utils.js';
 
@@ -246,6 +247,10 @@ async function init() {
   await loadVideoProgress();
   bindVideoProgressEvents();
   await refreshCurrentVideo();
+
+  // 绑定刷题侧边栏设置
+  await loadLcSidebarSetting();
+  bindLcSidebarEvents();
 
   // 绑定UI事件
   bindUIEvents();

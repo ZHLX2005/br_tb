@@ -1,0 +1,15 @@
+[2026-05-30T05:31:44Z] [d4ece623-b4a4-4be7-8678-6088d4c56e84] /dot-nav-sidebar 创建一个注入脚本 类似于视频注入的效果   @content/courseProgressBar.js 这是头部栏 然后我需要在右边创建一个等待刷题的dot条 悬浮展开 然后点击跳转   @popup/popup.html 在popup创建一个按钮 可以选择是否打开 模仿
+
+courseProgressBar的注入架构  /using-superpowers
+[2026-05-30T05:39:36Z] [d4ece623-b4a4-4be7-8678-6088d4c56e84]   1. content/lcSidebar.js — 内容脚本
+  - 仅在 leetcode.cn 域名下激活  在所有页面都激活
+[2026-05-30T05:41:52Z] [d4ece623-b4a4-4be7-8678-6088d4c56e84] 就是要在所有页面显示和注入
+[2026-05-30T05:45:33Z] [d4ece623-b4a4-4be7-8678-6088d4c56e84] 1.fix:dot没有动态效果 2.使用 @modules/leetcode\ 当中存在的leecode的状态 展示出没有开始的前5个
+[2026-05-30T05:45:52Z] [d4ece623-b4a4-4be7-8678-6088d4c56e84] 1.fix:dot没有动态效果 2.使用 @modules/leetcode\ 当中存在的leecode的状态 展示出没有开始的前5个(抽取到backgroud)
+[2026-05-30T05:46:38Z] [0716d29d-bd3f-4f4b-8e1f-99827f77d749] @background\ 编写扩展规范规则 防止腐蚀
+[2026-05-30T05:48:16Z] [0716d29d-bd3f-4f4b-8e1f-99827f77d749] /key_board_2 编写skill呀
+[2026-05-30T05:49:31Z] [0716d29d-bd3f-4f4b-8e1f-99827f77d749] /key_board_2 编写skill呀
+[2026-05-30T05:50:38Z] [0716d29d-bd3f-4f4b-8e1f-99827f77d749] /key_board_2 编写skill,让ai阅读一个目录  给出模块扩展的skill 一个创建skill的元skill 用于防止腐蚀
+[2026-05-30T05:53:35Z] [d4ece623-b4a4-4be7-8678-6088d4c56e84] 不对 leetcodeProgress获得的没有开始的题目不对
+[2026-05-30T05:55:27Z] [0716d29d-bd3f-4f4b-8e1f-99827f77d749] /codebase-module-generator  @popup\
+[2026-05-30T05:58:23Z] [0716d29d-bd3f-4f4b-8e1f-99827f77d749]   ├── POPUP_STANDARDS.md                    # popup 模块规范  不要生成文档 /key_board_2  @.claude/skills/codebase-module-generator\ 修复

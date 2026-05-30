@@ -26,6 +26,11 @@
       "matches": ["<all_urls>"],
       "js": ["content/courseProgressBar.js"],
       "run_at": "document_end"
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content/lcSidebar.js"],
+      "run_at": "document_end"
     }
   ],
   "action": {
