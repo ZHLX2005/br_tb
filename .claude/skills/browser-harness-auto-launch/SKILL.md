@@ -38,13 +38,22 @@ browser-harness -c 'print(page_info())'
 
 ### Step 2: 如果连接失败（极少数）
 
-Windows 下手动兜底：
+Windows 下手动兜底命令（**固定 user-data-dir 路径**为 `$env:TEMP\chrome_dev`）：
 
 ```powershell
 Start-Process "chrome" -ArgumentList "--remote-debugging-port=9222","--user-data-dir=$env:TEMP\chrome_dev"
 ```
 
-然后再执行 browser-harness。
+> **为什么固定 user-data-dir？**
+> - 让 CDP 端口（9222）有唯一对应的 Chrome 实例，避免和用户日常 Chrome 冲突
+> - 关闭调试 Chrome 时不会影响用户的书签/历史
+> - `$env:TEMP\chrome_dev` 是临时目录，重启系统自动清理
+
+启动后**先 sleep 3 秒**等待 Chrome 就绪，再执行 browser-harness：
+
+```bash
+sleep 3 && browser-harness -c 'new_tab("https://example.com"); print(page_info())'
+```
 
 ## 脚本编写规范
 
