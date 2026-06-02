@@ -4,6 +4,7 @@
  */
 
 import { generateId, showToast, getUrlBase } from './utils.js';
+import { openTabboard } from './tabboard.js';
 
 // 获取默认分组ID
 async function getDefaultGroupId() {
@@ -126,26 +127,7 @@ async function addCurrentTabToDefaultGroup() {
   }
 }
 
-// 打开标签页管理看板
-async function openTabboard() {
-  // 检查是否已经打开了看板
-  const tabs = await chrome.tabs.query({});
-  const existingTab = tabs.find(tab => tab.url?.includes('modules/tabboard/tabboard.html'));
-
-  if (existingTab) {
-    // 如果已存在，激活它并确保固定
-    await chrome.tabs.update(existingTab.id, { active: true });
-    if (!existingTab.pinned) {
-      await chrome.tabs.update(existingTab.id, { pinned: true });
-    }
-  } else {
-    // 创建新的固定标签页
-    await chrome.tabs.create({
-      url: chrome.runtime.getURL('modules/tabboard/tabboard.html'),
-      pinned: true
-    });
-  }
-}
+// 打开标签页管理看板（已抽到 ./tabboard.js，统一处理跨窗口焦点）
 
 // 导出函数供外部使用
 export {
