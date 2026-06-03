@@ -366,28 +366,35 @@
 
       const groups = (groupsRes && groupsRes.groups) || [];
       const allTabs = (tabsRes && tabsRes.tabs) || {};
-      const gotoGroup = groups.find(g => g.goto === true);
+      const gotoGroups = groups.filter(g => g.goto === true);
 
-      if (!gotoGroup) {
+      if (gotoGroups.length === 0) {
         menuData = EMPTY_MENU;
         return;
       }
 
-      const groupTabs = (allTabs[gotoGroup.id] || []).slice(0, 6);
-      const items = groupTabs
-        .filter(t => t && t.url)
-        .map(t => ({
-          name: t.title || t.url,
-          url: t.url,
-          children: []
-        }));
+      // 标题截断到 7 字符(圆环 50px 圆点的可视范围)
+      const truncate = (s, n = 7) => (s && s.length > n ? s.slice(0, n) : (s || ''));
+
+      const subGroups = gotoGroups.map(g => {
+        const groupTabs = (allTabs[g.id] || []).slice(0, 6);
+        const items = groupTabs
+          .filter(t => t && t.url)
+          .map(t => ({
+            name: truncate(t.title || t.url, 7),
+            url: t.url,
+            children: []
+          }));
+        return {
+          name: truncate(g.name || '📄 面包', 7),
+          children: items
+        };
+      }).filter(g => g.children.length > 0);
 
       menuData = {
         name: 'goto',
         isRoot: true,
-        children: items.length > 0
-          ? [{ name: gotoGroup.name || '📄 面包', children: items }]
-          : []
+        children: subGroups
       };
     } catch (err) {
       // Extension context may be invalid; keep EMPTY_MENU

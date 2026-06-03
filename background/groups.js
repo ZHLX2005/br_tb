@@ -227,6 +227,46 @@ function setupGroupsListeners() {
           break;
         }
 
+        case 'updateTab': {
+          // 编辑 tab 字段(title/url/favicon),用于在 group 看板右键编辑
+          const { tabId, groupId, updates } = request;
+          if (!tabId || !groupId || !updates) {
+            sendResponse({ success: false, error: '缺少参数' });
+            break;
+          }
+          const updResult = await chrome.storage.local.get(['tabs']);
+          const updTabs = updResult.tabs || {};
+          const groupTabs = updTabs[groupId];
+          if (!Array.isArray(groupTabs)) {
+            sendResponse({ success: false, error: '分组不存在' });
+            break;
+          }
+          const updTab = groupTabs.find(t => t.id === tabId);
+          if (!updTab) {
+            sendResponse({ success: false, error: '标签不存在' });
+            break;
+          }
+          // 仅允许更新 title/url/favicon 字段
+          if (typeof updates.title === 'string' && updates.title.trim()) {
+            updTab.title = updates.title.trim();
+          }
+          if (typeof updates.url === 'string' && updates.url.trim()) {
+            try {
+              new URL(updates.url.trim());
+              updTab.url = updates.url.trim();
+            } catch (e) {
+              sendResponse({ success: false, error: 'URL 格式无效' });
+              break;
+            }
+          }
+          if (typeof updates.favicon === 'string') {
+            updTab.favicon = updates.favicon;
+          }
+          await chrome.storage.local.set({ tabs: updTabs });
+          sendResponse({ success: true });
+          break;
+        }
+
         case 'moveTab': {
           const moveResult = await chrome.storage.local.get(['tabs']);
           const tabsData = moveResult.tabs || {};
@@ -360,7 +400,7 @@ function setupGroupsListeners() {
         }
 
         case 'setGroupAsGoto': {
-          // 切换 group 的 goto 标志:同时只能有一个 group.goto === true
+          // 切换 group 的 goto 标志:支持多个 group.goto === true(圆环多层)
           const gotoResult = await chrome.storage.local.get(['groups']);
           const gotoGroups = gotoResult.groups || [];
           const target = gotoGroups.find(g => g.id === request.groupId);
@@ -369,14 +409,11 @@ function setupGroupsListeners() {
             break;
           }
           const wasGoto = target.goto === true;
-          // 切换:当前是 goto → 取消;否则设为 goto(其他都清除)
-          for (const g of gotoGroups) {
-            g.goto = (!wasGoto && g.id === request.groupId);
-          }
+          target.goto = !wasGoto;
           await chrome.storage.local.set({ groups: gotoGroups });
           // 通知所有 content script 刷新 goto 圆环
           broadcastGotoRefresh();
-          sendResponse({ success: true, isGoto: !wasGoto });
+          sendResponse({ success: true, isGoto: target.goto });
           break;
         }
 

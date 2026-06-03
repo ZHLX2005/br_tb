@@ -276,6 +276,9 @@ class GroupView {
     const container = document.getElementById('tabboard');
     container.removeEventListener('click', this._handleDeleteButtonClick);
     container.addEventListener('click', this._handleDeleteButtonClick.bind(this), true);
+
+    container.removeEventListener('contextmenu', this._handleItemContextMenu);
+    container.addEventListener('contextmenu', this._handleItemContextMenu.bind(this), true);
   }
 
   /**
@@ -297,6 +300,27 @@ class GroupView {
     if (tabId && groupId) {
       await this.dataManager.sendMessage('deleteTab', { tabId, groupId });
     }
+  }
+
+  /**
+   * 处理项目右键 - 弹出编辑对话框(供 goto 圆环显示用)
+   */
+  _handleItemContextMenu(e) {
+    const itemEl = e.target.closest('.kanban-item');
+    if (!itemEl) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+
+    const tabId = itemEl.getAttribute('data-eid');
+    const boardEl = itemEl.closest('.kanban-board');
+    const groupId = boardEl?.getAttribute('data-id');
+    if (!tabId || !groupId) return;
+
+    const tab = this._findTab(tabId);
+    if (!tab) return;
+
+    this._showEditTabDialog(tab, groupId);
   }
 
   /**
@@ -446,21 +470,19 @@ class GroupView {
     try {
       const result = await this.dataManager.sendMessage('setGroupAsGoto', { groupId });
       if (result && result.success) {
-        // 更新本地内存中的 group.goto 状态
-        for (const g of this.groups) {
-          g.goto = (g.id === groupId) ? result.isGoto : false;
-        }
+        // 更新本地内存中的 group.goto 状态(允许多个 group 同时 goto)
+        targetGroup.goto = result.isGoto;
         // 重新渲染以更新所有 board 按钮的激活态
         this.render();
 
         if (result.isGoto) {
           const tabCount = Math.min(6, (this.tabs[groupId] || []).length);
           const msg = tabCount > 0
-            ? `已将 "${targetGroup.name}" 设为 goto 圆环展示源\n(圆环将显示该分组前 ${tabCount} 个标签)`
-            : `已将 "${targetGroup.name}" 设为 goto 圆环展示源\n(分组为空,圆环暂不显示菜单项)`;
+            ? `已将 "${targetGroup.name}" 加入 goto 圆环展示\n(圆环将显示该分组前 ${tabCount} 个标签)`
+            : `已将 "${targetGroup.name}" 加入 goto 圆环展示\n(分组为空,圆环暂不显示菜单项)`;
           alert(msg);
         } else {
-          alert(`已移除 "${targetGroup.name}" 的 goto 状态`);
+          alert(`已从 goto 圆环移除 "${targetGroup.name}"`);
         }
       } else {
         alert(`操作失败: ${result?.error || '未知错误'}`);
@@ -1286,6 +1308,115 @@ class GroupView {
 
     // 聚焦输入框
     document.getElementById('new-group-name').focus();
+  }
+
+  /**
+   * 显示编辑 tab 对话框(右键触发)
+   * 允许修改 title / url,标题过长时用于缩短以适配 goto 圆环显示
+   */
+  _showEditTabDialog(tab, groupId) {
+    const existing = document.getElementById('edit-tab-dialog');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'edit-tab-dialog';
+    overlay.style.cssText = `
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5); z-index: 10001;
+      display: flex; align-items: center; justify-content: center;
+    `;
+
+    const dialog = document.createElement('div');
+    dialog.style.cssText = `
+      background: #f8f9fa; border-radius: 8px; padding: 20px;
+      min-width: 460px; max-width: 600px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    `;
+
+    dialog.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h3 style="margin: 0; font-size: 18px;">编辑标签(用于 goto 圆环显示)</h3>
+        <button class="et-close-btn" style="background: none; border: none; font-size: 20px; cursor: pointer;">×</button>
+      </div>
+      <div style="margin-bottom: 12px;">
+        <label style="display: block; margin-bottom: 5px; font-weight: 500;">标题</label>
+        <input type="text" class="et-title" style="
+          width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px;
+          font-size: 14px; box-sizing: border-box;
+        " value="${escapeHtml(tab.title)}" maxlength="60">
+      </div>
+      <div style="margin-bottom: 12px;">
+        <label style="display: block; margin-bottom: 5px; font-weight: 500;">链接 URL</label>
+        <input type="text" class="et-url" style="
+          width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px;
+          font-size: 14px; box-sizing: border-box;
+        " value="${escapeHtml(tab.url)}">
+      </div>
+      <div style="text-align: right; padding-top: 12px; border-top: 1px solid #ddd;">
+        <button class="et-cancel-btn" style="
+          margin-right: 10px; padding: 8px 16px; cursor: pointer;
+          background: #6c757d; color: white; border: none; border-radius: 4px;
+        ">取消</button>
+        <button class="et-save-btn" style="
+          padding: 8px 16px; cursor: pointer; background: #007bff; color: white;
+          border: none; border-radius: 4px;
+        ">保存</button>
+      </div>
+    `;
+
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    const titleInput = dialog.querySelector('.et-title');
+    const urlInput = dialog.querySelector('.et-url');
+    const closeDialog = () => overlay.remove();
+
+    // 关闭
+    dialog.querySelector('.et-close-btn').addEventListener('click', closeDialog);
+    dialog.querySelector('.et-cancel-btn').addEventListener('click', closeDialog);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeDialog(); });
+    document.addEventListener('keydown', function onEsc(e) {
+      if (e.key === 'Escape') { closeDialog(); document.removeEventListener('keydown', onEsc); }
+    });
+
+    // 自动选中 title
+    setTimeout(() => { titleInput.focus(); titleInput.select(); }, 0);
+
+    // 保存
+    const saveHandler = async () => {
+      const newTitle = titleInput.value.trim();
+      const newUrl = urlInput.value.trim();
+      if (!newTitle) { alert('标题不能为空'); return; }
+      if (!newUrl) { alert('URL 不能为空'); return; }
+      try { new URL(newUrl); } catch (e) { alert('URL 格式无效'); return; }
+
+      const saveBtn = dialog.querySelector('.et-save-btn');
+      saveBtn.disabled = true;
+      saveBtn.textContent = '保存中…';
+      try {
+        const result = await this.dataManager.sendMessage('updateTab', {
+          tabId: tab.id, groupId, updates: { title: newTitle, url: newUrl }
+        });
+        if (result && result.success) {
+          await this.dataManager.loadData();
+          this.render();
+          closeDialog();
+        } else {
+          alert(`保存失败: ${result?.error || '未知错误'}`);
+          saveBtn.disabled = false;
+          saveBtn.textContent = '保存';
+        }
+      } catch (err) {
+        alert(`保存失败: ${err.message || err}`);
+        saveBtn.disabled = false;
+        saveBtn.textContent = '保存';
+      }
+    };
+
+    dialog.querySelector('.et-save-btn').addEventListener('click', saveHandler);
+    dialog.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) saveHandler();
+    });
   }
 
   /**
