@@ -44,6 +44,7 @@ export async function initializeDefaultData() {
         visibleGroups: result.groups ? result.groups.map(g => g.id) : [],
         showCourseProgressBar: false,
         showCourseProgressBarOnUnrelatedTabs: false,
+        showGotoRing: false,
         theme: 'neo-brutalism'
       }
     });
@@ -62,6 +63,10 @@ export async function initializeDefaultData() {
     }
     if (updatedSettings.showLcSidebar === undefined) {
       updatedSettings.showLcSidebar = false;
+      needUpdate = true;
+    }
+    if (updatedSettings.showGotoRing === undefined) {
+      updatedSettings.showGotoRing = false;
       needUpdate = true;
     }
     if (updatedSettings.lastView === undefined) {

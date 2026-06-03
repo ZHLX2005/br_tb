@@ -12,6 +12,7 @@ import { setupRecordingListeners } from './recording.js';
 import { setupFocusListeners } from './focus.js';
 import { initActionClickHandler } from './sidepanel.js';
 import { setupVideoProgressListeners } from './videoProgress.js';
+import { setupGotoListeners } from './goto.js';
 
 // 初始化各模块
 initializeDefaultData();
@@ -28,5 +29,6 @@ setupTimelineListeners();
 setupRecordingListeners();
 setupFocusListeners();
 setupVideoProgressListeners();
+setupGotoListeners();
 
 console.log('[TabBoard] Background Service Worker 已启动');
