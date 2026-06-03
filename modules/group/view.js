@@ -79,6 +79,7 @@ class GroupView {
       <button class="board-action-btn refresh-sort-btn" title="按点击次数刷新排序">刷新排序</button>
       <button class="board-action-btn open-all-groups-btn" title="打开所有分组">打开全部</button>
       <button class="board-action-btn clear-all-groups-btn" title="清空所有分组">清空</button>
+      <button class="board-action-btn import-bookmarks-btn" title="从浏览器书签导入">📑 导入书签</button>
       <button class="board-action-btn export-groups-btn" title="导出分组数据">导出</button>
       <button class="board-action-btn import-groups-btn" title="导入分组数据">导入</button>
     `;
@@ -423,6 +424,7 @@ class GroupView {
     const refreshSortBtn = document.querySelector('.refresh-sort-btn');
     const openAllBtn = document.querySelector('.open-all-groups-btn');
     const clearAllBtn = document.querySelector('.clear-all-groups-btn');
+    const importBookmarksBtn = document.querySelector('.import-bookmarks-btn');
     const exportBtn = document.querySelector('.export-groups-btn');
     const importBtn = document.querySelector('.import-groups-btn');
 
@@ -460,6 +462,10 @@ class GroupView {
         if (!confirmed) return;
         await this.dataManager.sendMessage('clearAllGroups');
       });
+    }
+
+    if (importBookmarksBtn) {
+      importBookmarksBtn.addEventListener('click', () => this._showBookmarkImportDialog());
     }
 
     if (exportBtn) {
@@ -512,6 +518,269 @@ class GroupView {
 
       await this.dataManager.loadData();
       this.render();
+    });
+  }
+
+  /**
+   * 显示书签导入对话框
+   * 从浏览器书签树中选择书签，导入到指定分组
+   */
+  _showBookmarkImportDialog() {
+    if (this.groups.length === 0) {
+      alert('请先创建一个分组再导入书签');
+      return;
+    }
+
+    // 移除已存在的对话框
+    const existing = document.getElementById('bookmark-import-dialog');
+    if (existing) existing.remove();
+
+    // 选中书签的临时存储：{ [bookmarkId]: { title, url } }
+    const selectedBookmarks = new Map();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'bookmark-import-dialog';
+    overlay.style.cssText = `
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5); z-index: 10000;
+      display: flex; align-items: center; justify-content: center;
+    `;
+
+    const dialog = document.createElement('div');
+    dialog.style.cssText = `
+      background: #f8f9fa; border-radius: 8px; padding: 20px;
+      width: 720px; max-width: 90vw; height: 560px; max-height: 85vh;
+      display: flex; flex-direction: column; gap: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    `;
+
+    // 头部
+    const header = document.createElement('div');
+    header.style.cssText = 'display: flex; justify-content: space-between; align-items: center;';
+    header.innerHTML = `
+      <h3 style="margin:0; font-size:18px;">从浏览器书签导入</h3>
+      <button class="bm-close-btn" style="background:none; border:none; font-size:20px; cursor:pointer;">×</button>
+    `;
+    dialog.appendChild(header);
+
+    // 工具栏：全选/全不选 + 目标分组
+    const toolbar = document.createElement('div');
+    toolbar.style.cssText = 'display:flex; align-items:center; gap:10px; flex-wrap: wrap;';
+    toolbar.innerHTML = `
+      <button class="bm-select-all-btn" style="padding:6px 12px; cursor:pointer;">全选书签</button>
+      <button class="bm-deselect-all-btn" style="padding:6px 12px; cursor:pointer;">全不选</button>
+      <span style="margin-left:auto; display:flex; align-items:center; gap:6px;">
+        <span style="font-weight:500;">目标分组：</span>
+        <select class="bm-target-group" style="padding:6px 10px; min-width:160px;">
+          ${this.groups.map(g => `<option value="${g.id}">${escapeHtml(g.name)}</option>`).join('')}
+        </select>
+      </span>
+    `;
+    dialog.appendChild(toolbar);
+
+    // 书签树容器
+    const treeContainer = document.createElement('div');
+    treeContainer.className = 'bm-tree';
+    treeContainer.style.cssText = `
+      flex: 1; overflow: auto; background: white; border-radius: 4px;
+      padding: 10px; border: 1px solid #e0e0e0; min-height: 0;
+    `;
+    treeContainer.innerHTML = '<div style="text-align:center; color:#888; padding:20px;">加载书签中…</div>';
+    dialog.appendChild(treeContainer);
+
+    // 底部状态栏 + 导入按钮
+    const footer = document.createElement('div');
+    footer.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding-top:10px; border-top:1px solid #ddd;';
+    footer.innerHTML = `
+      <span class="bm-selected-count" style="color:#666; font-size:13px;">已选 0 个</span>
+      <div>
+        <button class="bm-cancel-btn" style="margin-right:10px; padding:8px 16px; cursor:pointer; background:#6c757d; color:white; border:none; border-radius:4px;">取消</button>
+        <button class="bm-import-btn" style="padding:8px 16px; cursor:pointer; background:#007bff; color:white; border:none; border-radius:4px;">导入</button>
+      </div>
+    `;
+    dialog.appendChild(footer);
+
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    const closeDialog = () => overlay.remove();
+    const updateCount = () => {
+      footer.querySelector('.bm-selected-count').textContent = `已选 ${selectedBookmarks.size} 个`;
+    };
+
+    // 关闭按钮
+    header.querySelector('.bm-close-btn').addEventListener('click', closeDialog);
+    footer.querySelector('.bm-cancel-btn').addEventListener('click', closeDialog);
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) closeDialog();
+    });
+    document.addEventListener('keydown', function onEsc(e) {
+      if (e.key === 'Escape') {
+        closeDialog();
+        document.removeEventListener('keydown', onEsc);
+      }
+    });
+
+    // 全选/全不选
+    footer.previousElementSibling; // (treeContainer not used here)
+    toolbar.querySelector('.bm-select-all-btn').addEventListener('click', () => {
+      treeContainer.querySelectorAll('.bm-bookmark-item').forEach(el => {
+        if (!el.classList.contains('selected')) {
+          el.classList.add('selected');
+          selectedBookmarks.set(el.dataset.id, {
+            title: el.dataset.title,
+            url: el.dataset.url
+          });
+        }
+      });
+      updateCount();
+    });
+    toolbar.querySelector('.bm-deselect-all-btn').addEventListener('click', () => {
+      treeContainer.querySelectorAll('.bm-bookmark-item.selected').forEach(el => el.classList.remove('selected'));
+      selectedBookmarks.clear();
+      updateCount();
+    });
+
+    // 渲染书签节点（递归）
+    const renderNode = (node, level = 0) => {
+      const wrap = document.createElement('div');
+      wrap.className = 'bm-node';
+
+      if (node.url) {
+        // 书签
+        const item = document.createElement('div');
+        item.className = 'bm-bookmark-item';
+        item.dataset.id = node.id;
+        item.dataset.title = node.title || node.url;
+        item.dataset.url = node.url;
+        item.style.cssText = `
+          display:flex; align-items:center; gap:8px;
+          padding:6px 8px 6px ${8 + level * 16}px;
+          margin: 2px 0; border-radius: 4px; cursor: pointer;
+          transition: background 0.15s;
+        `;
+        item.innerHTML = `
+          <span style="font-size:14px;">🔗</span>
+          <span style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(node.title || node.url)}</span>
+          <span style="color:#888; font-size:11px; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(node.url)}</span>
+        `;
+        item.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (item.classList.toggle('selected')) {
+            selectedBookmarks.set(node.id, { title: node.title || node.url, url: node.url });
+          } else {
+            selectedBookmarks.delete(node.id);
+          }
+          updateCount();
+        });
+        item.addEventListener('mouseenter', () => { item.style.background = '#f0f4ff'; });
+        item.addEventListener('mouseleave', () => {
+          item.style.background = item.classList.contains('selected') ? '#e3f2fd' : '';
+        });
+        wrap.appendChild(item);
+      } else if (node.children) {
+        // 文件夹
+        const folder = document.createElement('div');
+        folder.className = 'bm-folder';
+        folder.style.cssText = 'margin: 2px 0;';
+
+        const folderHeader = document.createElement('div');
+        folderHeader.className = 'bm-folder-header';
+        folderHeader.style.cssText = `
+          display:flex; align-items:center; gap:6px;
+          padding: 6px 8px 6px ${8 + level * 16}px;
+          cursor:pointer; border-radius:4px; user-select:none;
+        `;
+        folderHeader.innerHTML = `
+          <span class="bm-folder-icon" style="font-size:12px; transition: transform 0.15s;">▶</span>
+          <span style="font-size:14px;">📁</span>
+          <span style="flex:1; font-weight:500;">${escapeHtml(node.title || '未命名文件夹')}</span>
+          <span class="bm-folder-count" style="color:#888; font-size:12px;">${node.children.length} 项</span>
+        `;
+        folderHeader.addEventListener('click', () => folder.classList.toggle('expanded'));
+        folderHeader.addEventListener('mouseenter', () => { folderHeader.style.background = '#f0f0f0'; });
+        folderHeader.addEventListener('mouseleave', () => { folderHeader.style.background = ''; });
+        folder.appendChild(folderHeader);
+
+        const children = document.createElement('div');
+        children.className = 'bm-folder-children';
+        children.style.cssText = 'display:none;';
+        node.children.forEach(child => {
+          children.appendChild(renderNode(child, level + 1));
+        });
+        folder.appendChild(children);
+
+        // 监听 expanded 切换
+        const observer = new MutationObserver(() => {
+          const expanded = folder.classList.contains('expanded');
+          children.style.display = expanded ? 'block' : 'none';
+          folderHeader.querySelector('.bm-folder-icon').style.transform = expanded ? 'rotate(90deg)' : '';
+        });
+        observer.observe(folder, { attributes: true, attributeFilter: ['class'] });
+
+        wrap.appendChild(folder);
+      }
+
+      return wrap;
+    };
+
+    // 加载书签树
+    chrome.bookmarks.getTree((bookmarkTree) => {
+      treeContainer.innerHTML = '';
+      const rootChildren = [];
+      bookmarkTree.forEach(root => {
+        if (root.children) rootChildren.push(...root.children);
+      });
+
+      if (rootChildren.length === 0) {
+        treeContainer.innerHTML = '<div style="text-align:center; color:#888; padding:20px;">暂无书签</div>';
+        return;
+      }
+
+      rootChildren.forEach(child => treeContainer.appendChild(renderNode(child)));
+    });
+
+    // 导入按钮
+    footer.querySelector('.bm-import-btn').addEventListener('click', async () => {
+      if (selectedBookmarks.size === 0) {
+        alert('请至少选择一个书签');
+        return;
+      }
+      const groupId = toolbar.querySelector('.bm-target-group').value;
+      if (!groupId) {
+        alert('请选择目标分组');
+        return;
+      }
+
+      const importBtn = footer.querySelector('.bm-import-btn');
+      importBtn.disabled = true;
+      importBtn.textContent = '导入中…';
+
+      let successCount = 0;
+      let failCount = 0;
+      for (const [, bm] of selectedBookmarks) {
+        try {
+          await this.dataManager.sendMessage('addTab', {
+            tab: {
+              title: bm.title,
+              url: bm.url,
+              favicon: `https://www.google.com/s2/favicons?domain=${new URL(bm.url).hostname}&sz=32`,
+              timestamp: new Date().toISOString()
+            },
+            groupId
+          });
+          successCount++;
+        } catch (e) {
+          failCount++;
+        }
+      }
+
+      await this.dataManager.loadData();
+      this.render();
+      closeDialog();
+
+      const groupName = this.groups.find(g => g.id === groupId)?.name || '目标分组';
+      alert(`导入完成：成功 ${successCount} 个${failCount > 0 ? `，失败 ${failCount} 个` : ''}\n目标分组：${groupName}`);
     });
   }
 

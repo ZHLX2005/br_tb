@@ -263,3 +263,39 @@
   background: var(--danger);
   color: white;
 }
+
+/* ============ 书签导入对话框 ============ */
+.bm-bookmark-item.selected {
+  background: #e3f2fd !important;
+  box-shadow: inset 3px 0 0 #007bff;
+}
+
+.bm-folder.expanded > .bm-folder-header .bm-folder-icon {
+  transform: rotate(90deg);
+}
+
+.bm-folder-header:hover {
+  background: #f0f0f0;
+}
+
+.bm-bookmark-item:hover {
+  background: #f0f4ff;
+}
+
+.bm-tree::-webkit-scrollbar {
+  width: 8px;
+}
+
+.bm-tree::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.bm-tree::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.bm-tree::-webkit-scrollbar-thumb:hover {
+  background: #a1a1a1;
+}
