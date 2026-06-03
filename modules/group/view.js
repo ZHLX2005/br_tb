@@ -229,12 +229,16 @@ class GroupView {
       const header = board.querySelector('.kanban-title-board');
       if (header && !header.querySelector('.board-actions')) {
         const boardId = board.getAttribute('data-id');
+        const isGoto = this.groups.find(g => g.id === boardId)?.goto === true;
+        const gotoText = isGoto ? 'Goto✓' : 'Goto';
+        const gotoTitle = isGoto ? '已在 goto 圆环展示,点击取消' : '设为 goto 圆环展示源';
         const actions = document.createElement('div');
         actions.className = 'board-actions';
         actions.innerHTML = `
           <button class="board-action-btn open-all" data-board-id="${boardId}" title="打开所有">Open</button>
           <button class="board-action-btn clear-group" data-board-id="${boardId}" title="清空分组">Clear</button>
           <button class="board-action-btn delete-group" data-board-id="${boardId}" title="删除分组">Del</button>
+          <button class="board-action-btn push-to-goto ${isGoto ? 'goto-active' : ''}" data-board-id="${boardId}" title="${gotoTitle}">${gotoText}</button>
         `;
         header.appendChild(actions);
       }
@@ -257,6 +261,11 @@ class GroupView {
     document.querySelectorAll('.delete-group').forEach(btn => {
       btn.removeEventListener('click', this._handleDeleteGroup);
       btn.addEventListener('click', this._handleDeleteGroup.bind(this));
+    });
+
+    document.querySelectorAll('.push-to-goto').forEach(btn => {
+      btn.removeEventListener('click', this._handlePushToGotoRing);
+      btn.addEventListener('click', this._handlePushToGotoRing.bind(this));
     });
   }
 
@@ -413,6 +422,57 @@ class GroupView {
     await this.dataManager.sendMessage('deleteGroup', { groupId });
     await this.dataManager.loadData();
     this.render();
+  }
+
+  /**
+   * 处理 goto 按钮 - 切换 group 的 goto 标志
+   * 同时只能有一个 group.goto === true
+   * - 若当前 group 已经是 goto 源 → 取消(再次点击移除 goto 状态)
+   * - 否则 → 设为 goto 源(其他 group 的 goto 自动清除)
+   */
+  async _handlePushToGotoRing(e) {
+    e.stopPropagation();
+    const btn = e.currentTarget;
+    const groupId = btn.dataset.boardId;
+    const targetGroup = this.groups.find(g => g.id === groupId);
+    if (!targetGroup) return;
+
+    const willBeGoto = targetGroup.goto !== true;
+
+    btn.disabled = true;
+    const originalText = btn.textContent;
+    btn.textContent = willBeGoto ? '设置中…' : '移除中…';
+
+    try {
+      const result = await this.dataManager.sendMessage('setGroupAsGoto', { groupId });
+      if (result && result.success) {
+        // 更新本地内存中的 group.goto 状态
+        for (const g of this.groups) {
+          g.goto = (g.id === groupId) ? result.isGoto : false;
+        }
+        // 重新渲染以更新所有 board 按钮的激活态
+        this.render();
+
+        if (result.isGoto) {
+          const tabCount = Math.min(6, (this.tabs[groupId] || []).length);
+          const msg = tabCount > 0
+            ? `已将 "${targetGroup.name}" 设为 goto 圆环展示源\n(圆环将显示该分组前 ${tabCount} 个标签)`
+            : `已将 "${targetGroup.name}" 设为 goto 圆环展示源\n(分组为空,圆环暂不显示菜单项)`;
+          alert(msg);
+        } else {
+          alert(`已移除 "${targetGroup.name}" 的 goto 状态`);
+        }
+      } else {
+        alert(`操作失败: ${result?.error || '未知错误'}`);
+      }
+    } catch (err) {
+      alert(`操作失败: ${err.message || err}`);
+    } finally {
+      btn.disabled = false;
+      if (document.body.contains(btn)) {
+        btn.textContent = originalText;
+      }
+    }
   }
 
   /**

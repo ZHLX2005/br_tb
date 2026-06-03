@@ -359,6 +359,27 @@ function setupGroupsListeners() {
           break;
         }
 
+        case 'setGroupAsGoto': {
+          // 切换 group 的 goto 标志:同时只能有一个 group.goto === true
+          const gotoResult = await chrome.storage.local.get(['groups']);
+          const gotoGroups = gotoResult.groups || [];
+          const target = gotoGroups.find(g => g.id === request.groupId);
+          if (!target) {
+            sendResponse({ success: false, error: 'Group not found' });
+            break;
+          }
+          const wasGoto = target.goto === true;
+          // 切换:当前是 goto → 取消;否则设为 goto(其他都清除)
+          for (const g of gotoGroups) {
+            g.goto = (!wasGoto && g.id === request.groupId);
+          }
+          await chrome.storage.local.set({ groups: gotoGroups });
+          // 通知所有 content script 刷新 goto 圆环
+          broadcastGotoRefresh();
+          sendResponse({ success: true, isGoto: !wasGoto });
+          break;
+        }
+
         case 'openTab': {
           await chrome.tabs.create({ url: request.url });
           sendResponse({ success: true });
@@ -764,4 +785,20 @@ function setupGroupsListeners() {
 
   return true; // 异步响应
   });
+}
+
+/**
+ * 向所有 tab 广播 goto 圆环刷新消息
+ */
+async function broadcastGotoRefresh() {
+  try {
+    const tabs = await chrome.tabs.query({});
+    for (const tab of tabs) {
+      if (tab.id && !tab.url?.startsWith('chrome://')) {
+        chrome.tabs.sendMessage(tab.id, { action: 'refreshGotoRing' }).catch(() => {});
+      }
+    }
+  } catch (e) {
+    // ignore
+  }
 }

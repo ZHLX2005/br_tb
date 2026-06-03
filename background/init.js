@@ -18,9 +18,9 @@ export async function initializeDefaultData() {
 
   if (!result.groups) {
     const defaultGroups = [
-      { id: generateId(), name: '工作', color: DEFAULT_COLORS[0], isDefault: true },
-      { id: generateId(), name: '学习', color: DEFAULT_COLORS[1], isDefault: false },
-      { id: generateId(), name: '娱乐', color: DEFAULT_COLORS[2], isDefault: false }
+      { id: generateId(), name: '工作', color: DEFAULT_COLORS[0], isDefault: true, goto: false },
+      { id: generateId(), name: '学习', color: DEFAULT_COLORS[1], isDefault: false, goto: false },
+      { id: generateId(), name: '娱乐', color: DEFAULT_COLORS[2], isDefault: false, goto: false }
     ];
     await chrome.storage.local.set({ groups: defaultGroups });
   }
@@ -108,6 +108,46 @@ export async function initializeDefaultData() {
   const lcResult = await chrome.storage.local.get(['leetcodeProgress']);
   if (!lcResult.leetcodeProgress) {
     await chrome.storage.local.set({ leetcodeProgress: {} });
+  }
+
+  // 初始化 goto 圆环：检查是否存在 goto=true 的 group，若无则创建"📄 面包"分组
+  const finalGroups = (await chrome.storage.local.get(['groups'])).groups || result.groups || [];
+  const hasGotoGroup = finalGroups.some(g => g.goto === true);
+
+  if (!hasGotoGroup) {
+    // 创建一个新的"面包"分组,并把 6 个示例 URL 作为初始 tabs
+    const breadGroup = {
+      id: generateId(),
+      name: '📄 面包',
+      color: '#f9ca24',
+      isDefault: false,
+      goto: true
+    };
+    finalGroups.push(breadGroup);
+
+    const finalTabs = (await chrome.storage.local.get(['tabs'])).tabs || result.tabs || {};
+    finalTabs[breadGroup.id] = [
+      { id: generateId(), title: '上海演唱会', url: 'https://www.bilibili.com/video/BV1L48qzsESK?spm_id_from=333.788.videopod.sections', favicon: '', timestamp: new Date().toISOString() },
+      { id: generateId(), title: '宁波演唱会', url: 'https://www.bilibili.com/video/BV1pca3zPECZ/?spm_id_from=333.337.search-card.all.click&vd_source=b00eb5ad0e31d2629f81cb48d7fab1f2', favicon: '', timestamp: new Date().toISOString() },
+      { id: generateId(), title: '北京演唱会', url: 'https://www.bilibili.com/video/BV13hSzYfEfD?spm_id_from=333.788.videopod.sections&vd_source=b00eb5ad0e31d2629f81cb48d7fab1f2', favicon: '', timestamp: new Date().toISOString() },
+      { id: generateId(), title: '广州演唱会', url: 'https://www.bilibili.com/video/BV1g2oiYqEiM?spm_id_from=333.788.videopod.sections&vd_source=b00eb5ad0e31d2629f81cb48d7fab1f2', favicon: '', timestamp: new Date().toISOString() },
+      { id: generateId(), title: '成都演唱会', url: 'https://www.bilibili.com/video/BV1dUjkzqEUj/?spm_id_from=333.788.videopod.sections&vd_source=b00eb5ad0e31d2629f81cb48d7fab1f2', favicon: '', timestamp: new Date().toISOString() },
+      { id: generateId(), title: '天津演唱会', url: 'https://www.bilibili.com/video/BV1hNq1BTEG8/?spm_id_from=333.337.search-card.all.click', favicon: '', timestamp: new Date().toISOString() },
+    ];
+
+    await chrome.storage.local.set({ groups: finalGroups, tabs: finalTabs });
+  } else {
+    // 为旧 group 补 goto 字段(迁移)
+    let needUpdate = false;
+    for (const g of finalGroups) {
+      if (g.goto === undefined) {
+        g.goto = false;
+        needUpdate = true;
+      }
+    }
+    if (needUpdate) {
+      await chrome.storage.local.set({ groups: finalGroups });
+    }
   }
 }
 

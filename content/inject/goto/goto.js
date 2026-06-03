@@ -3,9 +3,9 @@
  * 在所有页面右下角显示一个可拖动的圆环，hover 展开成辐射式菜单
  * 依赖 chrome.storage.local 中 settings.showGotoRing
  *
- * 数据来源（内联默认菜单，后续将切换到 modules/group/index.js）：
- *   1. 内联 DEFAULT_MENU_DATA（迁移自 bro_chat 默认数据）
- *   2. 未来：从 chrome.storage.local 读取 groups + tabs，转换为相同结构
+ * 数据来源：从 groups 中找到 goto=true 的 group,圆环动态从该 group 的 tabs
+ * 中取前 6 个 tab 渲染菜单项;由 background/groups.js 的 setGroupAsGoto
+ * 控制哪个 group 是 goto 源。
  */
 
 (function () {
@@ -13,44 +13,8 @@
 
   const WRAPPER_ID = 'tabboard-goto-ring';
 
-  // ===================== 默认菜单数据（迁移自 bro_chat） =====================
-  // 结构：{ name, isRoot, children: [{ name, children: [{ name, url, children: [] }] }] }
-  // 后续可被 modules/group/index.js 的数据替换
-  const DEFAULT_MENU_DATA = {
-    name: '快捷菜单',
-    isRoot: true,
-    children: [
-      {
-        name: '📄 feed',
-        children: [
-          { name: 'IT老齐', url: 'https://www.itlaoqi.com/chapter.html?sid=143&cid=3292', children: [] },
-          { name: 'NOTION', url: 'https://www.notion.so/', children: [] },
-          { name: 'B站', url: 'https://www.bilibili.com', children: [] },
-          { name: 'github', url: 'https://github.com/', children: [] },
-          { name: 'gitee', url: 'https://gitee.com/', children: [] },
-        ]
-      },
-      {
-        name: '📄 面包',
-        children: [
-          { name: '上海演唱会', url: 'https://www.bilibili.com/video/BV1L48qzsESK?spm_id_from=333.788.videopod.sections', children: [] },
-          { name: '宁波演唱会', url: 'https://www.bilibili.com/video/BV1pca3zPECZ/?spm_id_from=333.337.search-card.all.click&vd_source=b00eb5ad0e31d2629f81cb48d7fab1f2', children: [] },
-          { name: '北京演唱会', url: 'https://www.bilibili.com/video/BV13hSzYfEfD?spm_id_from=333.788.videopod.sections&vd_source=b00eb5ad0e31d2629f81cb48d7fab1f2', children: [] },
-          { name: '广州演唱会', url: 'https://www.bilibili.com/video/BV1g2oiYqEiM?spm_id_from=333.788.videopod.sections&vd_source=b00eb5ad0e31d2629f81cb48d7fab1f2', children: [] },
-          { name: '成都演唱会', url: 'https://www.bilibili.com/video/BV1dUjkzqEUj/?spm_id_from=333.788.videopod.sections&vd_source=b00eb5ad0e31d2629f81cb48d7fab1f2', children: [] },
-          { name: '天津演唱会', url: 'https://www.bilibili.com/video/BV1hNq1BTEG8/?spm_id_from=333.337.search-card.all.click', children: [] },
-        ]
-      },
-      {
-        name: '📄 网站跳转',
-        children: [
-          { name: 'gitee_api', url: 'https://gitee.com/api/v5/swagger', children: [] },
-          { name: '高德地图', url: 'https://ditu.amap.com/', children: [] },
-          { name: '抖音', url: 'https://www.douyin.com', children: [] },
-        ]
-      }
-    ]
-  };
+  // 空菜单（兜底：仅在 extension context 不可用时使用）
+  const EMPTY_MENU = { name: 'goto', isRoot: true, children: [] };
 
   // 防止重复注入
   if (window.__tabboardGotoRingInjected) {
@@ -62,7 +26,7 @@
   let isEnabled = false;
   let wrapper = null;
   let styleEl = null;
-  let menuData = DEFAULT_MENU_DATA;
+  let menuData = EMPTY_MENU;
   let isActive = false;
   let isDragging = false;
   let currentMenuItems = [];
@@ -391,6 +355,45 @@
     clearSubmenus();
   }
 
+  // ===================== 数据加载 =====================
+  // 圆环菜单动态计算：从 groups 找到 goto=true 的 group,拉取该 group 的前 5 个 tab
+  async function loadMenuDataFromStorage() {
+    try {
+      const [groupsRes, tabsRes] = await Promise.all([
+        chrome.storage.local.get(['groups']),
+        chrome.storage.local.get(['tabs'])
+      ]);
+
+      const groups = (groupsRes && groupsRes.groups) || [];
+      const allTabs = (tabsRes && tabsRes.tabs) || {};
+      const gotoGroup = groups.find(g => g.goto === true);
+
+      if (!gotoGroup) {
+        menuData = EMPTY_MENU;
+        return;
+      }
+
+      const groupTabs = (allTabs[gotoGroup.id] || []).slice(0, 6);
+      const items = groupTabs
+        .filter(t => t && t.url)
+        .map(t => ({
+          name: t.title || t.url,
+          url: t.url,
+          children: []
+        }));
+
+      menuData = {
+        name: 'goto',
+        isRoot: true,
+        children: items.length > 0
+          ? [{ name: gotoGroup.name || '📄 面包', children: items }]
+          : []
+      };
+    } catch (err) {
+      // Extension context may be invalid; keep EMPTY_MENU
+    }
+  }
+
   // ===================== 初始化 =====================
   async function init() {
     try {
@@ -402,6 +405,7 @@
         removeRing();
         return;
       }
+      await loadMenuDataFromStorage();
       buildRing();
     } catch (err) {
       // Extension context may be invalid
@@ -420,6 +424,18 @@
         else removeRing();
       }
     }
+    if (changes.tabs || changes.groups) {
+      // 源 group 的 tabs 或 groups 本身变化时,刷新内存中的数据
+      loadMenuDataFromStorage();
+    }
+  });
+
+  // ===================== 后端主动推送刷新 =====================
+  chrome.runtime.onMessage.addListener((request) => {
+    if (request && request.action === 'refreshGotoRing') {
+      loadMenuDataFromStorage();
+    }
+    return false;
   });
 
   if (document.readyState === 'loading') {

@@ -1,6 +1,9 @@
 /**
  * Goto 模块 - 处理 goto 圆环相关消息
- * 提供 openUrl 消息：复用同域 path 前缀的标签页，否则新开
+ *
+ * 数据来源：圆环的内容由 groups 中 goto=true 的 group 决定。
+ * group/view 的 Goto 按钮调用 background/groups.js 的 setGroupAsGoto 切换 goto 状态。
+ * 本模块只负责 openUrl 消息处理(open 复用同域 path 前缀的标签页)。
  */
 
 async function handleOpenUrl(targetUrl) {
