@@ -79,7 +79,7 @@ class GroupView {
       <button class="board-action-btn refresh-sort-btn" title="按点击次数刷新排序">刷新排序</button>
       <button class="board-action-btn open-all-groups-btn" title="打开所有分组">打开全部</button>
       <button class="board-action-btn clear-all-groups-btn" title="清空所有分组">清空</button>
-      <button class="board-action-btn import-bookmarks-btn" title="从浏览器书签导入">📑 导入书签</button>
+      <button class="board-action-btn import-bookmarks-btn" title="从浏览器书签导入">导入书签</button>
       <button class="board-action-btn export-groups-btn" title="导出分组数据">导出</button>
       <button class="board-action-btn import-groups-btn" title="导入分组数据">导入</button>
     `;
