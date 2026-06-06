@@ -300,11 +300,32 @@
       background: white;
       z-index: 1;
     }
+    #${WRAPPER_ID}-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
     #${WRAPPER_ID}-title {
       font-size: 12px;
       font-weight: 600;
       color: #333;
     }
+    .lc-close-btn {
+      background: transparent;
+      border: none;
+      color: #999;
+      font-size: 16px;
+      line-height: 1;
+      width: 22px;
+      height: 22px;
+      border-radius: 4px;
+      cursor: pointer;
+      padding: 0;
+      transition: background 120ms, color 120ms;
+      flex-shrink: 0;
+    }
+    .lc-close-btn:hover { background: #f0f0f0; color: #e53935; }
     #${WRAPPER_ID}-stats {
       font-size: 10px;
       color: #888;
@@ -435,7 +456,10 @@
 
     panel.innerHTML = `
       <div id="${WRAPPER_ID}-header">
-        <div id="${WRAPPER_ID}-title">LeetCode 150</div>
+        <div id="${WRAPPER_ID}-header-row">
+          <div id="${WRAPPER_ID}-title">LeetCode 150</div>
+          <button id="${WRAPPER_ID}-close" class="lc-close-btn" title="关闭刷题侧边栏">×</button>
+        </div>
         <button id="${WRAPPER_ID}-open-panel" class="lc-open-panel-btn">打开面板</button>
         <div id="${WRAPPER_ID}-stats">${done} 已完成 · ${doing} 进行中 · ${total} 总计</div>
         <input type="text" id="${WRAPPER_ID}-search" placeholder="搜索题目...">
@@ -467,6 +491,15 @@
     // 打开面板按钮
     document.getElementById(WRAPPER_ID + '-open-panel').addEventListener('click', () => {
       chrome.runtime.sendMessage({ action: 'openTabboard', view: 'leetcode' });
+    });
+
+    // 关闭按钮：持久化 showLcSidebar=false，刷新后也不会再出现
+    document.getElementById(WRAPPER_ID + '-close').addEventListener('click', (e) => {
+      e.stopPropagation();
+      chrome.runtime.sendMessage({
+        action: 'updateSettings',
+        settings: { showLcSidebar: false }
+      });
     });
 
     // Category collapse
