@@ -6,6 +6,20 @@
 import { generateId, showToast, DEFAULT_COLORS } from './utils.js';
 import SearchHelper from '../modules/shared/search-helper.js';
 
+// 计算所有快照中的总标签数
+function countTotalTabs(snapshots) {
+  return snapshots.reduce((total, snapshot) => total + snapshot.tabs.length, 0);
+}
+
+// 限制快照总数不超过指定标签数（通过删除最旧的快照）
+function limitSnapshotsByTabCount(snapshots, maxTabs = 1000) {
+  while (snapshots.length > 0 && countTotalTabs(snapshots) > maxTabs) {
+    // 删除最旧的快照（数组末尾）
+    snapshots.pop();
+  }
+  return snapshots;
+}
+
 // 收集当前窗口所有标签页到 Timeline（创建快照）
 async function collectCurrentWindowTabs() {
   const tabs = await chrome.tabs.query({ currentWindow: true });
@@ -55,10 +69,8 @@ async function collectCurrentWindowTabs() {
   // 添加到快照列表开头
   timelineSnapshots.unshift(newSnapshot);
 
-  // 限制最多 50 个快照（删除最旧的，即数组末尾的）
-  if (timelineSnapshots.length > 50) {
-    timelineSnapshots.splice(50);
-  }
+  // 限制总标签数不超过 1000（删除最旧的快照，即数组末尾的）
+  limitSnapshotsByTabCount(timelineSnapshots, 1000);
 
   await chrome.storage.local.set({ timelineSnapshots });
 
@@ -152,10 +164,8 @@ async function collectOtherTabs() {
   // 添加到快照列表开头
   timelineSnapshots.unshift(newSnapshot);
 
-  // 限制最多 50 个快照（删除最旧的，即数组末尾的）
-  if (timelineSnapshots.length > 50) {
-    timelineSnapshots.splice(50);
-  }
+  // 限制总标签数不超过 1000（删除最旧的快照，即数组末尾的）
+  limitSnapshotsByTabCount(timelineSnapshots, 1000);
 
   await chrome.storage.local.set({ timelineSnapshots });
 
@@ -320,12 +330,10 @@ function setupTimelineListeners() {
           // 合并导入的快照到现有快照中（去重）
           const existingIds = new Set(existingSnapshots.map(s => s.id));
           const snapshotsToAdd = request.snapshots.filter(s => !existingIds.has(s.id));
-          // 现有快照在前，新导入的在后，这样超过50个时截断的是新快照而非现有快照
+          // 现有快照在前，新导入的在后，这样超过限制时截断的是新快照而非现有快照
           const mergedSnapshots = [...existingSnapshots, ...snapshotsToAdd];
-          // 限制最多 50 个快照（删除最旧的，即数组末尾的）
-          if (mergedSnapshots.length > 50) {
-            mergedSnapshots.splice(50);
-          }
+          // 限制总标签数不超过 1000（删除最旧的快照，即数组末尾的）
+          limitSnapshotsByTabCount(mergedSnapshots, 1000);
           await chrome.storage.local.set({ timelineSnapshots: mergedSnapshots });
           sendResponse({ success: true, imported: snapshotsToAdd.length, total: mergedSnapshots.length });
           break;
