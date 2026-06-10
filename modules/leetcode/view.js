@@ -7,6 +7,16 @@ import { PROBLEM_CATEGORIES, STATUS_LABELS, DIFFICULTY_LABELS, getTotalProblemCo
 
 const STORAGE_KEY = 'leetcodeProgress';
 
+// slug 映射：插件格式 -> 可视化平台格式
+const SLUG_MAP = {
+  'remove-duplicates-from-sorted-array': 'remove-duplicates',
+  'remove-duplicates-from-sorted-array-ii': 'remove-duplicates-ii',
+};
+
+function toVizSlug(slug) {
+  return SLUG_MAP[slug] !== undefined ? SLUG_MAP[slug] : slug;
+}
+
 class LeetCodeView {
   constructor(dataManager) {
     this.dataManager = dataManager;
@@ -127,6 +137,7 @@ class LeetCodeView {
     const statusInfo = STATUS_LABELS[status];
     const diffInfo = DIFFICULTY_LABELS[problem.difficulty];
     const url = getProblemUrl(problem.slug);
+    const vizUrl = `http://47.110.80.47:81/algo/visualizer/${toVizSlug(problem.slug)}`;
 
     return `
       <div class="lc-problem-row" data-id="${problem.id}">
@@ -136,6 +147,7 @@ class LeetCodeView {
             ? `<a class="lc-problem-title lc-problem-link" href="${url}" target="_blank" title="打开题目">${problem.title}</a>`
             : `<span class="lc-problem-title">${problem.title}</span>`
           }
+          <a class="lc-viz-link" href="${vizUrl}" target="_blank" title="打开可视化">▶</a>
         </div>
         <button class="lc-status-btn ${statusInfo.class}" data-id="${problem.id}" data-status="${status}"
           title="点击切换状态">
