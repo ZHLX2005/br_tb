@@ -241,12 +241,12 @@
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       --accent: #42a5f5;
     }
-    /* 隐形悬浮触发带：右侧 16px 宽 */
+    /* 隐形悬浮触发带：右侧 32px 宽 */
     #${WRAPPER_ID}-hover-zone {
       position: fixed;
       top: 0;
       right: 0;
-      width: 16px;
+      width: 32px;
       height: 100vh;
       z-index: 999998;
     }
@@ -287,13 +287,6 @@
       fill: none;
       stroke: #e8eaf6;
       stroke-width: 3;
-    }
-    #${WRAPPER_ID}-trigger .lc-trigger-progress {
-      fill: none;
-      stroke: var(--accent);
-      stroke-width: 3;
-      stroke-linecap: round;
-      transition: stroke-dashoffset 400ms ease;
     }
     #${WRAPPER_ID}-trigger .lc-trigger-icon {
       position: absolute;
@@ -364,6 +357,20 @@
       flex-shrink: 0;
     }
     .lc-close-btn:hover { background: #f0f0f0; color: #e53935; }
+    .lc-open-panel-btn {
+      width: 100%;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: opacity 120ms;
+    }
+    .lc-open-panel-btn:hover { opacity: 0.85; }
     #${WRAPPER_ID}-stats {
       font-size: 10px;
       color: #888;
@@ -480,12 +487,10 @@
     trigger.innerHTML = `
       <svg width="36" height="36" viewBox="0 0 36 36">
         <circle class="lc-trigger-ring" cx="18" cy="18" r="14"></circle>
-        <circle class="lc-trigger-progress" cx="18" cy="18" r="14"></circle>
       </svg>
       <span class="lc-trigger-icon">LC</span>
     `;
     wrapper.appendChild(trigger);
-    updateTrigger(trigger);
     trigger.addEventListener('click', (e) => {
       e.stopPropagation();
       wrapper.classList.toggle('expanded');
@@ -503,6 +508,7 @@
           <div id="${WRAPPER_ID}-title">LeetCode 150</div>
           <button id="${WRAPPER_ID}-close" class="lc-close-btn" title="关闭">×</button>
         </div>
+        <button id="${WRAPPER_ID}-open-panel" class="lc-open-panel-btn">打开全屏看板</button>
         <div id="${WRAPPER_ID}-stats">${done} 已完成 · ${doing} 进行中 · ${total} 总计</div>
         <input type="text" id="${WRAPPER_ID}-search" placeholder="搜索题目...">
       </div>
@@ -532,6 +538,12 @@
       e.stopPropagation();
       wrapper.classList.remove('expanded');
       chrome.runtime.sendMessage({ action: 'updateSettings', settings: { showLcSidebar: false } });
+    });
+
+    // 打开全屏看板
+    panel.querySelector('#' + WRAPPER_ID + '-open-panel').addEventListener('click', (e) => {
+      e.stopPropagation();
+      chrome.runtime.sendMessage({ action: 'openTabboard', view: 'leetcode' });
     });
 
     // 分类折叠
@@ -565,23 +577,6 @@
       wrapper.classList.remove('expanded');
     };
     setTimeout(() => document.addEventListener('click', onDocClick), 0);
-  }
-
-  function updateTrigger(triggerEl) {
-    if (!triggerEl) triggerEl = document.getElementById(WRAPPER_ID + '-trigger');
-    if (!triggerEl) return;
-
-    const total = ALL_PROBLEMS.length;
-    const done = ALL_PROBLEMS.filter(p => (progress[p.id] || 0) === 2).length;
-    const percent = total > 0 ? done / total : 0;
-
-    const circle = triggerEl.querySelector('.lc-trigger-progress');
-    if (circle) {
-      const radius = 14;
-      const circumference = 2 * Math.PI * radius;
-      circle.style.strokeDasharray = `${circumference}`;
-      circle.style.strokeDashoffset = `${circumference * (1 - percent)}`;
-    }
   }
 
   function buildTodoSection() {
@@ -669,8 +664,6 @@
         if (icon) icon.textContent = STATUS_ICONS[s];
       });
     });
-
-    updateTrigger();
   }
 
   function removeSidebar() {
