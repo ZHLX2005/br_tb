@@ -92,6 +92,7 @@ setTimeout(() => {
 | 用 `mouseleave` 监听收起 | 鼠标移到面板上会先触发 mouseleave 又被鼠标重新进入 | 改成点击外部收起，不要自动 hover 收回 |
 | `display: none` 切换入口可见性 | 没有过渡动画，硬切 | 始终占位，用 `opacity` + `right` 控制 |
 | 悬浮直接展开整个大面板 | 鼠标稍微掠过就弹大块内容，干扰阅读 | hover 只浮现入口，点击才展开 |
+| 多个注入式圆环各自建 hover-zone（同 z-index、同位置重叠） | `:hover` 只对鼠标下最顶层元素生效，后建的 hover-zone 盖住先建的，**导致先建的圆环永远不浮现**（症状：两个圆环只能显示一个） | 同一页面只留一条 hover-zone；或后注入的圆环改用 `mousemove` 检测右边缘（不建 hover-zone div），避免互相遮挡 |
 
 ## 与"hover 直接展开面板"的取舍
 

@@ -1,0 +1,274 @@
+# 扩展一个新圆环 — 参考流程与样本代码
+
+> 配套 `hover-reveal.md`（原理）和 `ux-design-style.md`（设计）。这篇是 **cookbook**：照着抄就能加一个新圆环，附错误/成功样本代码对比。
+
+## 什么时候用这篇
+
+当要在 TabBoard（或任何多 content script 注入式扩展）里**新增一个悬浮圆环入口**时——番茄钟、AI 助手、笔记速记、稍后读、任意「寄生在页面右侧边缘的轻量入口」。照这篇抄，避免重复踩这次 VP 圆环踩过的坑。
+
+## 前置：现有机制（必读）
+
+- **LC 圆环** = `content/lcSidebar.js`，受 `settings.showLcSidebar` 开关控制
+- **VP 圆环** = `content/vpSidebar.js`，总是显示
+- 两者共享 `body.tabboard-side-near`：鼠标靠近右边缘时 JS 给 `<body>` 加这个 class
+- mousemove 监听靠 `window.__tabboardSideReveal` **幂等注册**——不管几个圆环文件，全局只注册一次
+- 所有圆环 CSS 统一用 `body.tabboard-side-near #我的trigger` 触发滑出
+
+## 扩展流程（5 步）
+
+### Step 1：新建 `content/xxxSidebar.js`
+
+复制下面「最小模板」，改 4 处：
+1. `WRAPPER_ID`（唯一前缀，如 `'tabboard-pomodoro-sidebar'`）
+2. `top` 位置（见 Step 3，避免和现有圆环重叠）
+3. 圆环图标（trigger 的 innerHTML）
+4. 面板内容（panel 的 innerHTML）
+
+### Step 2：`manifest.json` 注册
+
+```json
+{
+  "matches": ["<all_urls>"],
+  "js": ["content/xxxSidebar.js"],
+  "run_at": "document_end"
+}
+```
+
+### Step 3：分配垂直位置
+
+圆环 40px 高，间距 52px（净空 12px）。按加载顺序往下排：
+
+| 序号 | 圆环 | `top` |
+|------|------|-------|
+| 0 | LC | `50%` |
+| 1 | VP | `calc(50% + 52px)` |
+| 2 | 新圆环 | `calc(50% + 104px)` |
+| 3 | 下一个 | `calc(50% + 156px)` |
+
+公式：`top: calc(50% + 52 * N px)`，N = 0,1,2,3...。**trigger 和 panel 要用同一个 top。**
+
+### Step 4：决定显示条件
+
+- **总是显示**（像 VP）：`init()` 里直接 `build()`
+- **受开关控制**（像 LC）：`init()` 读 `settings.xxx`，true 才 `build()`，并在 `chrome.storage.onChanged` 里监听增删
+
+### Step 5：刷新扩展 + 强刷测试页面（Ctrl+Shift+R）
+
+content script 不会自动重新注入已打开的页面，**必须刷新页面**。
+
+---
+
+## 最小代码模板（直接抄）
+
+```javascript
+/**
+ * XXX Sidebar — 一句话描述这个圆环干什么
+ * 悬浮右侧，hover 近场浮现，点击展开面板
+ */
+(function () {
+  'use strict';
+
+  const WRAPPER_ID = 'tabboard-xxx-sidebar';   // ← 改这里：唯一前缀
+  const ACCENT = '#42a5f5';
+
+  const STYLES = `
+    #${WRAPPER_ID}-trigger {
+      width: 40px; height: 40px; border-radius: 50%; background: white;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.15); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      position: fixed; top: calc(50% + 104px); right: -16px;   /* ← 改 top */
+      transform: translateY(-50%); opacity: 0; pointer-events: none;
+      transition: right 220ms ease, opacity 180ms ease, box-shadow 200ms;
+      border: 1px solid rgba(0,0,0,0.06);
+    }
+    /* 共享 body.tabboard-side-near：所有圆环一起浮现，动效一致 */
+    body.tabboard-side-near #${WRAPPER_ID}-trigger,
+    #${WRAPPER_ID}-trigger:hover {
+      right: 8px; opacity: 1; pointer-events: auto;
+    }
+    #${WRAPPER_ID}-trigger:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.22); }
+
+    #${WRAPPER_ID}-panel {
+      position: fixed; top: calc(50% + 104px); right: 8px;   /* ← 和 trigger 同 top */
+      transform: translate(10px, -50%); width: 240px;
+      background: white; border-radius: 10px;
+      box-shadow: -2px 4px 20px rgba(0,0,0,0.18);
+      opacity: 0; visibility: hidden; pointer-events: none;
+      transition: transform 240ms cubic-bezier(.16,1,.3,1), opacity 180ms linear, visibility 0s linear 240ms;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    #${WRAPPER_ID}.expanded #${WRAPPER_ID}-panel {
+      opacity: 1; visibility: visible; pointer-events: auto;
+      transform: translate(-56px, -50%);
+      transition: transform 240ms cubic-bezier(.16,1,.3,1), opacity 180ms linear, visibility 0s;
+    }
+    /* ↓ 面板内部样式按需加，全部用 WRAPPER_ID 前缀或独立 class，避免和别的圆环冲突 */
+  `;
+
+  function build() {
+    if (document.getElementById(WRAPPER_ID)) return;
+
+    const style = document.createElement('style');
+    style.textContent = STYLES;
+    document.head.appendChild(style);
+
+    const wrapper = document.createElement('div');
+    wrapper.id = WRAPPER_ID;
+    document.body.appendChild(wrapper);
+
+    const trigger = document.createElement('div');
+    trigger.id = WRAPPER_ID + '-trigger';
+    trigger.title = 'XXX';
+    trigger.innerHTML = `<span style="font-size:11px;font-weight:700;color:${ACCENT}">XX</span>`;  // ← 改图标
+    wrapper.appendChild(trigger);
+    trigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      wrapper.classList.toggle('expanded');
+    });
+
+    const panel = document.createElement('div');
+    panel.id = WRAPPER_ID + '-panel';
+    panel.innerHTML = `<div style="padding:12px;font-size:12px;color:#333">面板内容</div>`;  // ← 改面板
+    wrapper.appendChild(panel);
+
+    // 点击外部收起（延一帧绑，避免当次点击冒泡立刻触发）
+    const onDocClick = (e) => {
+      if (!wrapper.classList.contains('expanded')) return;
+      if (wrapper.contains(e.target)) return;
+      wrapper.classList.remove('expanded');
+    };
+    setTimeout(() => document.addEventListener('click', onDocClick), 0);
+
+    // 【关键】共享近场浮现：幂等注册，多圆环只注册一次 mousemove
+    if (!window.__tabboardSideReveal) {
+      window.__tabboardSideReveal = true;
+      document.addEventListener('mousemove', (e) => {
+        document.body.classList.toggle('tabboard-side-near', e.clientX > window.innerWidth - 40);
+      });
+    }
+  }
+
+  async function init() {
+    try {
+      // 总是显示就直接 build；受开关控制就先读 settings
+      build();
+    } catch (err) { /* 扩展上下文可能失效 */ }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+```
+
+---
+
+## 错误样本（这次踩的坑，❌ vs ✅）
+
+### 坑 1：每个圆环各建 hover-zone → 只显示一个
+
+**❌ 错误**（每个 content script 都这样写）：
+```css
+#mybar-hover-zone { position: fixed; top:0; right:0; width:32px; height:100vh; z-index: 999998; }
+body:has(#mybar-hover-zone:hover) #mybar-trigger { right:8px; opacity:1; }
+```
+```js
+const hoverZone = document.createElement('div');
+hoverZone.id = WRAPPER_ID + '-hover-zone';
+document.body.appendChild(hoverZone);
+```
+**后果**：两条 hover-zone 同 z-index 完全重叠，后建的盖住先建的。CSS `:hover` 只对鼠标下**最顶层**元素生效 → 被盖住的那个圆环**永不浮现**。症状：N 个圆环只能看到 1 个。
+
+**✅ 正确**：不建 hover-zone，共享 `body.tabboard-side-near`：
+```css
+body.tabboard-side-near #mybar-trigger, #mybar-trigger:hover { right:8px; opacity:1; }
+```
+```js
+if (!window.__tabboardSideReveal) {
+  window.__tabboardSideReveal = true;
+  document.addEventListener('mousemove', (e) => {
+    document.body.classList.toggle('tabboard-side-near', e.clientX > window.innerWidth - 40);
+  });
+}
+```
+
+### 坑 2：动效不一致（LC 用 hover-zone，VP 用 mousemove）
+
+**❌ 错误**：两个圆环用不同的浮现机制（一个 `:hover`，一个 `mousemove + class`），transition 参数或触发时机不同 → 视觉上一个先出一个后出、滑入距离不同。
+
+**✅ 正确**：所有圆环统一用 `body.tabboard-side-near` + 同一套 transition。改一个地方（共享 class），所有圆环动效自动一致。
+
+### 坑 3：入口塞进度/计数装饰
+
+**❌ 错误**：trigger 里放 SVG 进度环显示完成百分比、放数字计数。
+**后果**：视觉噪声，用户要求移除。入口变重。
+**✅ 正确**：trigger 只放单一标识（字母 logo / 单图标），进度统计留到展开的面板里。
+
+### 坑 4：trigger 放在 `display:flex` 的 wrapper 里，wrapper 还有不可见但占位的 panel
+
+**❌ 错误**：
+```css
+#mybar { display:flex; right:0; }  /* wrapper flex */
+#mybar-panel { width:240px; }      /* 不可见但占位 */
+```
+**后果**：panel 占布局空间，把 trigger 从右边缘推到屏幕中间（~240px 偏移）。
+**✅ 正确**：trigger 和 panel 都 `position: fixed`，脱离 wrapper 布局流，各自独立相对视口定位。
+
+### 坑 5：同步绑 document click → 打开即关
+
+**❌ 错误**：
+```js
+document.addEventListener('click', (e) => { if(!wrapper.contains(e.target)) wrapper.classList.remove('expanded'); });
+```
+**后果**：点击 trigger 展开的那次 click 冒泡到 document，立刻触发收起 → 面板一闪而过。
+**✅ 正确**：`setTimeout(() => document.addEventListener('click', onDocClick), 0)` 延一帧绑；同时 trigger 的 click 里 `e.stopPropagation()`。
+
+### 坑 6：把新圆环代码塞进已有圆环的文件
+
+**❌ 错误**：在 lcSidebar.js 里加 VP 逻辑。
+**后果**：耦合，回退/调试困难，一个 bug 影响两个功能。
+**✅ 正确**：一个圆环一个独立 content script 文件，manifest 各注册一条。
+
+### 坑 7：updateSettings 整体覆盖
+
+**❌ 错误**：开关 change 时 `chrome.storage.local.set({ settings: { myKey: val } })`（只传自己的 key）。
+**后果**：覆盖掉 settings 里其他所有 key。
+**✅ 正确**：发 `{ action: 'updateSettings', settings: { myKey: val } }`，background 是合并语义（`{ ...old, ...patch }`）。
+
+---
+
+## 可选优化：抽公共 setup 文件
+
+圆环多了之后，每个文件复制那 6 行幂等块也烦。可以建 `content/_sideReveal.js` 先注入：
+
+```js
+// content/_sideReveal.js —— 在 manifest 里排在所有圆环文件最前
+window.setupSideReveal = function () {
+  if (window.__tabboardSideReveal) return;
+  window.__tabboardSideReveal = true;
+  document.addEventListener('mousemove', (e) => {
+    document.body.classList.toggle('tabboard-side-near', e.clientX > window.innerWidth - 40);
+  });
+};
+```
+
+之后每个圆环文件只需 `window.setupSideReveal?.()` 一行。当前 LC/VP 用的是内联幂等版，效果等价，按需切换。
+
+---
+
+## 检查清单
+
+- [ ] 新建独立 `content/xxxSidebar.js`，没塞进别的圆环文件
+- [ ] `WRAPPER_ID` 唯一，所有 id/class 都带这个前缀
+- [ ] trigger 和 panel 用**不同的** `top`（按 52px 间距往下排），且两者 top 一致
+- [ ] trigger `position: fixed`，不在 flex wrapper 里
+- [ ] trigger 只放单一标识，无进度/计数装饰
+- [ ] 用 `body.tabboard-side-near` 共享浮现，**不建自己的 hover-zone**
+- [ ] mousemove 幂等注册（`window.__tabboardSideReveal` 标记）
+- [ ] transition 参数和现有圆环一致（动效统一）
+- [ ] 点击外部收起，`setTimeout(0)` 延一帧绑
+- [ ] 写 settings 用 `updateSettings` action（合并语义），不直接 set
+- [ ] manifest 注册了新文件
+- [ ] 刷新扩展 **且** 强刷测试页面

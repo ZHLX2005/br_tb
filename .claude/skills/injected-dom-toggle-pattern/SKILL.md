@@ -11,6 +11,20 @@ description: 当用户要求创建"注入DOM的流程"、创建"悬浮展开的d
 
 **典型场景：** 刷题侧边栏（lcSidebar）、视频进度条、课程进度条等需要"在任意页面浮现"的 UI。
 
+## References 导读（按需深入，不要一次全读）
+
+本 SKILL.md 讲**整体模式 + 从 0 搭建一个 toggle** 的流程。`references/` 下有三篇深入文档，**按当前任务匹配阅读**：
+
+| 你的任务 | 读这篇 | 这篇讲什么 |
+|---------|--------|-----------|
+| 做「hover 近场浮现」入口（静止不可见、靠近右边缘才滑入、点击展开） | `references/hover-reveal.md` | CSS `:has()` 联动、触发带、`setTimeout(0)` 绑监听等技术机制与坑 |
+| 决定入口的 UX（要不要塞进度、怎么收起、打扰程度、入口放什么内容） | `references/ux-design-style.md` | 克制浮现 / 入口单一职责 / 分层交互 / 低关闭成本 四准则 |
+| **已有圆环、要新增一个**悬浮入口（番茄钟、AI 助手、稍后读等） | `references/adding-a-new-ring.md` | 5 步流程 + 可直接抄的代码模板 + 7 个错误样本（❌ vs ✅）+ 检查清单 |
+
+**阅读顺序建议**：先读本 SKILL.md 理解整体架构 → 按任务匹配读对应 reference → 实现时对照该 reference 末尾的检查清单逐项核对。
+
+> 三篇关系：`hover-reveal.md` = **原理**（怎么实现），`ux-design-style.md` = **设计**（为什么这么做），`adding-a-new-ring.md` = **cookbook**（照抄扩展）。cookbook 依赖前两者的概念。
+
 ## 架构图
 
 ```

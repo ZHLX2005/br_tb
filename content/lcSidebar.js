@@ -241,15 +241,6 @@
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       --accent: #42a5f5;
     }
-    /* 隐形悬浮触发带：右侧 32px 宽 */
-    #${WRAPPER_ID}-hover-zone {
-      position: fixed;
-      top: 0;
-      right: 0;
-      width: 32px;
-      height: 100vh;
-      z-index: 999998;
-    }
     #${WRAPPER_ID}-trigger {
       width: 40px;
       height: 40px;
@@ -269,9 +260,8 @@
       transition: right 220ms ease, opacity 180ms ease, box-shadow 200ms;
       border: 1px solid rgba(0,0,0,0.06);
     }
-    /* 触发带或圆环被悬浮时，圆环滑出并可点击 */
-    body:has(#${WRAPPER_ID}-hover-zone:hover) #${WRAPPER_ID}-trigger,
-    body:has(#${WRAPPER_ID}-trigger:hover) #${WRAPPER_ID}-trigger,
+    /* 鼠标靠近右侧边缘（body 加 .tabboard-side-near）或悬浮圆环本身时滑出 */
+    body.tabboard-side-near #${WRAPPER_ID}-trigger,
     #${WRAPPER_ID}-trigger:hover {
       right: 8px;
       opacity: 1;
@@ -470,11 +460,6 @@
     style.textContent = STYLES;
     document.head.appendChild(style);
 
-    // Invisible hover zone on right edge
-    const hoverZone = document.createElement('div');
-    hoverZone.id = WRAPPER_ID + '-hover-zone';
-    document.body.appendChild(hoverZone);
-
     // 外层 wrapper 用于绑定 .expanded 状态
     const wrapper = document.createElement('div');
     wrapper.id = WRAPPER_ID;
@@ -495,6 +480,15 @@
       e.stopPropagation();
       wrapper.classList.toggle('expanded');
     });
+
+    // 鼠标靠近右边缘时统一浮现：body 加 .tabboard-side-near，所有注入圆环一起响应。
+    // 幂等注册（多个 content script 都会执行这段，靠 window 标记只注册一次 mousemove）
+    if (!window.__tabboardSideReveal) {
+      window.__tabboardSideReveal = true;
+      document.addEventListener('mousemove', (e) => {
+        document.body.classList.toggle('tabboard-side-near', e.clientX > window.innerWidth - 40);
+      });
+    }
 
     // 面板
     const panel = document.createElement('div');
@@ -669,8 +663,6 @@
   function removeSidebar() {
     const wrapper = document.getElementById(WRAPPER_ID);
     if (wrapper) wrapper.remove();
-    const hoverZone = document.getElementById(WRAPPER_ID + '-hover-zone');
-    if (hoverZone) hoverZone.remove();
   }
 
   // ===================== Init =====================
