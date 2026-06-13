@@ -674,7 +674,8 @@
       ]);
 
       const settings = settingsRes.success ? (settingsRes.settings || {}) : {};
-      isEnabled = !!settings.showLcSidebar;
+      const ringEnabled = settings.ringSidebarEnabled !== false;
+      isEnabled = ringEnabled && !!settings.showLcSidebar;
       progress = progressRes[PROGRESS_KEY] || {};
 
       if (!isEnabled) { removeSidebar(); return; }
@@ -696,10 +697,11 @@
 
     if (changes.settings) {
       const newSettings = changes.settings.newValue || {};
-      const newEnabled = !!newSettings.showLcSidebar;
+      const ringEnabled = newSettings.ringSidebarEnabled !== false;
+      const newEnabled = ringEnabled && !!newSettings.showLcSidebar;
       if (newEnabled !== isEnabled) {
         isEnabled = newEnabled;
-        if (isEnabled) init();
+        if (isEnabled) buildSidebar();
         else removeSidebar();
       }
     }

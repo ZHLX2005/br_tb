@@ -162,10 +162,16 @@
     });
   }
 
+  function removeVp() {
+    const w = document.getElementById(WRAPPER_ID);
+    if (w) w.remove();
+  }
+
   async function init() {
     try {
       const res = await chrome.runtime.sendMessage({ action: 'getSettings' });
       const settings = res.success ? (res.settings || {}) : {};
+      if (settings.ringSidebarEnabled === false) { removeVp(); return; }
       build();
       syncSwitches(settings);
     } catch (err) {
@@ -173,10 +179,16 @@
     }
   }
 
-  // settings 变化时同步开关状态（popup 或别处改了，这里跟着更新）
+  // settings 变化时：总开关关 → 移除；开 → 重建并同步开关
   chrome.storage.onChanged.addListener((changes, namespace) => {
     if (namespace !== 'local' || !changes.settings) return;
-    syncSwitches(changes.settings.newValue || {});
+    const s = changes.settings.newValue || {};
+    if (s.ringSidebarEnabled === false) {
+      removeVp();
+    } else {
+      if (!document.getElementById(WRAPPER_ID)) build();
+      syncSwitches(s);
+    }
   });
 
   if (document.readyState === 'loading') {

@@ -11,6 +11,7 @@ import { bindQuickActionsListeners } from './modules/quickActions.js';
 import { loadVideoProgress, bindVideoProgressEvents, refreshCurrentVideo } from './modules/videoProgress.js';
 import { loadLcSidebarSetting, bindLcSidebarEvents } from './modules/lcSettings.js';
 import { loadGotoRingSetting, bindGotoRingEvents } from './modules/gotoSettings.js';
+import { loadRingSidebarSetting, bindRingSidebarEvents } from './modules/ringSettings.js';
 import { renderColorPicker, resetColorPicker } from './modules/colorPicker.js';
 import { showToast } from './modules/utils.js';
 
@@ -248,6 +249,10 @@ async function init() {
   await loadVideoProgress();
   bindVideoProgressEvents();
   await refreshCurrentVideo();
+
+  // 绑定圆环总开关（先于子开关，控制 LC/VP 等 ring-sidebar）
+  await loadRingSidebarSetting();
+  bindRingSidebarEvents();
 
   // 绑定刷题侧边栏设置
   await loadLcSidebarSetting();
