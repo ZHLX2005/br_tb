@@ -220,6 +220,7 @@
 
   const DIFF_LABELS = { easy: '简', medium: '中', hard: '难' };
   const STATUS_ICONS = { 0: '○', 1: '◐', 2: '●' };
+  void DIFF_LABELS; void STATUS_ICONS; // 当前未使用，保留供后续面板扩展
 
   // id→slug 映射（progress 用 id 做 key）
   const ID_MAP = {};
@@ -228,7 +229,6 @@
 
   let progress = {};
   let isEnabled = false;
-  let wrapper = null;
 
   // ===================== Styles =====================
   const STYLES = `
@@ -238,58 +238,96 @@
       right: 0;
       transform: translateY(-50%);
       z-index: 999999;
-      display: flex;
-      align-items: center;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       --accent: #42a5f5;
     }
-    #${WRAPPER_ID}-dots {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      padding: 6px 4px;
-      cursor: pointer;
-      margin-right: 22px;
-      flex-shrink: 0;
+    /* 隐形悬浮触发带：右侧 16px 宽 */
+    #${WRAPPER_ID}-hover-zone {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: 16px;
+      height: 100vh;
+      z-index: 999998;
     }
-    #${WRAPPER_ID}-dots .lc-dot {
-      width: 6px;
-      height: 6px;
+    #${WRAPPER_ID}-trigger {
+      width: 40px;
+      height: 40px;
       border-radius: 50%;
-      background: rgba(93,67,88,0.2);
-      transition: all 300ms cubic-bezier(.34, 1.56, .64, 1);
+      background: white;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: fixed;
+      top: 50%;
+      right: -16px;
+      transform: translateY(-50%);
+      opacity: 0;
+      pointer-events: none;
+      transition: right 220ms ease, opacity 180ms ease, box-shadow 200ms;
+      border: 1px solid rgba(0,0,0,0.06);
     }
-    #${WRAPPER_ID}-dots .lc-dot.active {
-      background: var(--accent);
-      transform: scale(1.6);
-      box-shadow: 0 0 6px rgba(66,165,245,0.5);
+    /* 触发带或圆环被悬浮时，圆环滑出并可点击 */
+    body:has(#${WRAPPER_ID}-hover-zone:hover) #${WRAPPER_ID}-trigger,
+    body:has(#${WRAPPER_ID}-trigger:hover) #${WRAPPER_ID}-trigger,
+    #${WRAPPER_ID}-trigger:hover {
+      right: 8px;
+      opacity: 1;
+      pointer-events: auto;
     }
-    #${WRAPPER_ID}-dots .lc-dot.done {
-      background: #66bb6a;
-      transform: scale(1.2);
+    #${WRAPPER_ID}-trigger:hover {
+      box-shadow: 0 4px 16px rgba(0,0,0,0.22);
     }
+    #${WRAPPER_ID}-trigger svg {
+      transform: rotate(-90deg);
+    }
+    #${WRAPPER_ID}-trigger .lc-trigger-ring {
+      fill: none;
+      stroke: #e8eaf6;
+      stroke-width: 3;
+    }
+    #${WRAPPER_ID}-trigger .lc-trigger-progress {
+      fill: none;
+      stroke: var(--accent);
+      stroke-width: 3;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 400ms ease;
+    }
+    #${WRAPPER_ID}-trigger .lc-trigger-icon {
+      position: absolute;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: -0.3px;
+      user-select: none;
+    }
+    /* 面板：从圆环左侧滑出 */
     #${WRAPPER_ID}-panel {
+      position: fixed;
+      top: 50%;
+      right: 8px;
+      transform: translate(10px, -50%);
       width: 240px;
       max-height: 70vh;
       overflow-y: auto;
       background: white;
-      border-radius: 10px 0 0 10px;
+      border-radius: 10px;
       box-shadow: -2px 4px 20px rgba(0,0,0,0.18);
       opacity: 0;
       visibility: hidden;
       pointer-events: none;
-      transform: translateX(10px);
       transition: transform 240ms cubic-bezier(.16,1,.3,1), opacity 180ms linear, visibility 0s linear 240ms;
       scrollbar-width: none;
       -ms-overflow-style: none;
     }
     #${WRAPPER_ID}-panel::-webkit-scrollbar { display: none; }
-    #${WRAPPER_ID}:hover #${WRAPPER_ID}-panel,
     #${WRAPPER_ID}.expanded #${WRAPPER_ID}-panel {
       opacity: 1;
       visibility: visible;
       pointer-events: auto;
-      transform: translateX(0);
+      transform: translate(-56px, -50%);
       transition: transform 240ms cubic-bezier(.16,1,.3,1), opacity 180ms linear, visibility 0s;
     }
     #${WRAPPER_ID}-header {
@@ -415,52 +453,56 @@
     .lc-prob-item.status-doing { color: #ff9800; }
     .lc-prob-icon { font-size: 10px; flex-shrink: 0; width: 12px; text-align: center; }
     .lc-prob-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .lc-open-panel-btn {
-      background: var(--accent);
-      color: #fff;
-      border: none;
-      border-radius: 6px;
-      padding: 4px 10px;
-      font-size: 11px;
-      cursor: pointer;
-      margin: 4px 0;
-      transition: opacity 120ms;
-    }
-    .lc-open-panel-btn:hover { opacity: 0.85; }
   `;
 
   // ===================== Build DOM =====================
   function buildSidebar() {
-    if (wrapper) return;
+    if (document.getElementById(WRAPPER_ID)) return;
 
     const style = document.createElement('style');
     style.textContent = STYLES;
     document.head.appendChild(style);
 
-    wrapper = document.createElement('div');
+    // Invisible hover zone on right edge
+    const hoverZone = document.createElement('div');
+    hoverZone.id = WRAPPER_ID + '-hover-zone';
+    document.body.appendChild(hoverZone);
+
+    // 外层 wrapper 用于绑定 .expanded 状态
+    const wrapper = document.createElement('div');
     wrapper.id = WRAPPER_ID;
+    document.body.appendChild(wrapper);
 
-    // Dot indicator - 3 dots reflecting overall progress
-    const dots = document.createElement('div');
-    dots.id = WRAPPER_ID + '-dots';
-    updateDots(dots);
-    dots.addEventListener('click', () => wrapper.classList.toggle('expanded'));
+    // 圆环 trigger
+    const trigger = document.createElement('div');
+    trigger.id = WRAPPER_ID + '-trigger';
+    trigger.title = 'LeetCode 刷题看板';
+    trigger.innerHTML = `
+      <svg width="36" height="36" viewBox="0 0 36 36">
+        <circle class="lc-trigger-ring" cx="18" cy="18" r="14"></circle>
+        <circle class="lc-trigger-progress" cx="18" cy="18" r="14"></circle>
+      </svg>
+      <span class="lc-trigger-icon">LC</span>
+    `;
+    wrapper.appendChild(trigger);
+    updateTrigger(trigger);
+    trigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      wrapper.classList.toggle('expanded');
+    });
 
-    // Panel
+    // 面板
     const panel = document.createElement('div');
     panel.id = WRAPPER_ID + '-panel';
-
     const total = ALL_PROBLEMS.length;
     const done = ALL_PROBLEMS.filter(p => (progress[p.id] || 0) === 2).length;
     const doing = ALL_PROBLEMS.filter(p => (progress[p.id] || 0) === 1).length;
-
     panel.innerHTML = `
       <div id="${WRAPPER_ID}-header">
         <div id="${WRAPPER_ID}-header-row">
           <div id="${WRAPPER_ID}-title">LeetCode 150</div>
-          <button id="${WRAPPER_ID}-close" class="lc-close-btn" title="关闭刷题侧边栏">×</button>
+          <button id="${WRAPPER_ID}-close" class="lc-close-btn" title="关闭">×</button>
         </div>
-        <button id="${WRAPPER_ID}-open-panel" class="lc-open-panel-btn">打开面板</button>
         <div id="${WRAPPER_ID}-stats">${done} 已完成 · ${doing} 进行中 · ${total} 总计</div>
         <input type="text" id="${WRAPPER_ID}-search" placeholder="搜索题目...">
       </div>
@@ -469,41 +511,31 @@
         ${CATEGORIES.map(cat => buildCategoryHTML(cat)).join('')}
       </div>
     `;
-
-    wrapper.appendChild(dots);
     wrapper.appendChild(panel);
-    document.body.appendChild(wrapper);
 
-    // Search filter
-    const searchInput = document.getElementById(WRAPPER_ID + '-search');
+    // 搜索
+    const searchInput = panel.querySelector('#' + WRAPPER_ID + '-search');
     searchInput.addEventListener('input', (e) => {
       const q = e.target.value.trim().toLowerCase();
-      document.querySelectorAll('.lc-prob-item').forEach(item => {
+      panel.querySelectorAll('.lc-prob-item').forEach(item => {
         const match = !q || item.dataset.title.toLowerCase().includes(q) || item.dataset.slug.toLowerCase().includes(q);
         item.style.display = match ? '' : 'none';
       });
-      document.querySelectorAll('.lc-cat-group').forEach(cat => {
+      panel.querySelectorAll('.lc-cat-group').forEach(cat => {
         const visible = [...cat.querySelectorAll('.lc-prob-item')].some(i => i.style.display !== 'none');
         cat.style.display = visible ? '' : 'none';
       });
     });
 
-    // 打开面板按钮
-    document.getElementById(WRAPPER_ID + '-open-panel').addEventListener('click', () => {
-      chrome.runtime.sendMessage({ action: 'openTabboard', view: 'leetcode' });
-    });
-
-    // 关闭按钮：持久化 showLcSidebar=false，刷新后也不会再出现
-    document.getElementById(WRAPPER_ID + '-close').addEventListener('click', (e) => {
+    // 关闭按钮
+    panel.querySelector('#' + WRAPPER_ID + '-close').addEventListener('click', (e) => {
       e.stopPropagation();
-      chrome.runtime.sendMessage({
-        action: 'updateSettings',
-        settings: { showLcSidebar: false }
-      });
+      wrapper.classList.remove('expanded');
+      chrome.runtime.sendMessage({ action: 'updateSettings', settings: { showLcSidebar: false } });
     });
 
-    // Category collapse
-    document.querySelectorAll('.lc-cat-header').forEach(header => {
+    // 分类折叠
+    panel.querySelectorAll('.lc-cat-header').forEach(header => {
       header.addEventListener('click', () => {
         const group = header.closest('.lc-cat-group');
         group.classList.toggle('open');
@@ -512,31 +544,51 @@
       });
     });
 
-    // Problem click
+    // 点击题目
     panel.addEventListener('click', (e) => {
       const item = e.target.closest('.lc-prob-item, .lc-todo-item');
       if (!item) return;
-      const slug = item.dataset.slug;
-      window.open(LC_BASE + slug + '/', '_blank');
+      window.open(LC_BASE + item.dataset.slug + '/', '_blank');
     });
 
-    // Enter on search opens first result
+    // Enter 打开第一个搜索结果
     searchInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        const first = document.querySelector('.lc-prob-item[style=""], .lc-prob-item:not([style="display: none"])');
-        if (first) window.open(LC_BASE + first.dataset.slug + '/', '_blank');
-      }
+      if (e.key !== 'Enter') return;
+      const first = panel.querySelector('.lc-prob-item:not([style*="display: none"])');
+      if (first) window.open(LC_BASE + first.dataset.slug + '/', '_blank');
     });
+
+    // 点击看板外部时自动收起
+    const onDocClick = (e) => {
+      if (!wrapper.classList.contains('expanded')) return;
+      if (wrapper.contains(e.target)) return;
+      wrapper.classList.remove('expanded');
+    };
+    setTimeout(() => document.addEventListener('click', onDocClick), 0);
+  }
+
+  function updateTrigger(triggerEl) {
+    if (!triggerEl) triggerEl = document.getElementById(WRAPPER_ID + '-trigger');
+    if (!triggerEl) return;
+
+    const total = ALL_PROBLEMS.length;
+    const done = ALL_PROBLEMS.filter(p => (progress[p.id] || 0) === 2).length;
+    const percent = total > 0 ? done / total : 0;
+
+    const circle = triggerEl.querySelector('.lc-trigger-progress');
+    if (circle) {
+      const radius = 14;
+      const circumference = 2 * Math.PI * radius;
+      circle.style.strokeDasharray = `${circumference}`;
+      circle.style.strokeDashoffset = `${circumference * (1 - percent)}`;
+    }
   }
 
   function buildTodoSection() {
-    // Get first 5 status=0 (not started) problems
     const todoProblems = ALL_PROBLEMS
       .filter(p => (progress[p.id] || 0) === 0)
       .slice(0, 5);
-
     if (todoProblems.length === 0) return '';
-
     return `
       <div id="${WRAPPER_ID}-todo">
         <div class="${WRAPPER_ID}-todo-title">推荐刷题 ▼</div>
@@ -553,36 +605,14 @@
     `;
   }
 
-  function updateDots(dotsEl) {
-    if (!dotsEl) dotsEl = document.getElementById(WRAPPER_ID + '-dots');
-    if (!dotsEl) return;
-
-    const total = ALL_PROBLEMS.length;
-    const done = ALL_PROBLEMS.filter(p => (progress[p.id] || 0) === 2).length;
-    const percent = total > 0 ? done / total : 0;
-
-    // 3 dots: based on progress levels
-    const dots = dotsEl.querySelectorAll('.lc-dot');
-    const levels = [0.33, 0.66, 1.0];
-    dots.forEach((dot, i) => {
-      dot.classList.remove('active', 'done');
-      if (percent >= levels[i]) {
-        dot.classList.add('done');
-      } else if (i === 0) {
-        dot.classList.add('active');
-      }
-    });
-  }
-
   function buildCategoryHTML(cat) {
     const done = cat.problems.filter(p => (progress[p.id] || 0) === 2).length;
-    const total = cat.problems.length;
     return `
       <div class="lc-cat-group open" data-cat="${cat.id}">
         <div class="lc-cat-header">
           <span class="lc-cat-toggle">▼</span>
           <span class="lc-cat-name">${cat.name}</span>
-          <span class="lc-cat-count">${done}/${total}</span>
+          <span class="lc-cat-count">${done}/${cat.problems.length}</span>
         </div>
         <div class="lc-problem-list">
           ${cat.problems.map(p => buildProblemHTML(p)).join('')}
@@ -604,14 +634,13 @@
   }
 
   function refreshStats() {
-    if (!wrapper) return;
+    if (!document.getElementById(WRAPPER_ID + '-panel')) return;
     const total = ALL_PROBLEMS.length;
     const done = ALL_PROBLEMS.filter(p => (progress[p.id] || 0) === 2).length;
     const doing = ALL_PROBLEMS.filter(p => (progress[p.id] || 0) === 1).length;
     const statsEl = document.getElementById(WRAPPER_ID + '-stats');
     if (statsEl) statsEl.textContent = `${done} 已完成 · ${doing} 进行中 · ${total} 总计`;
 
-    // Refresh todo section
     const oldTodo = document.getElementById(WRAPPER_ID + '-todo');
     const newTodoHTML = buildTodoSection();
     if (oldTodo && newTodoHTML) {
@@ -626,29 +655,29 @@
       }
     }
 
-    // Refresh cat counts
     document.querySelectorAll('.lc-cat-group').forEach(catEl => {
-      const catId = catEl.dataset.cat;
-      const cat = CATEGORIES.find(c => c.id === catId);
+      const cat = CATEGORIES.find(c => c.id === catEl.dataset.cat);
       if (!cat) return;
       const doneCount = cat.problems.filter(p => (progress[p.id] || 0) === 2).length;
       const countEl = catEl.querySelector('.lc-cat-count');
       if (countEl) countEl.textContent = `${doneCount}/${cat.problems.length}`;
-      const items = catEl.querySelectorAll('.lc-prob-item');
-      items.forEach(item => {
-        const slug = item.dataset.slug;
-        const s = progress[slug] || 0;
+      catEl.querySelectorAll('.lc-prob-item').forEach(item => {
+        const id = Object.keys(ID_MAP).find(k => ID_MAP[k] === item.dataset.slug);
+        const s = progress[id] || 0;
         item.className = `lc-prob-item ${s === 2 ? 'status-done' : s === 1 ? 'status-doing' : ''}`;
-        item.querySelector('.lc-prob-icon').textContent = STATUS_ICONS[s];
+        const icon = item.querySelector('.lc-prob-icon');
+        if (icon) icon.textContent = STATUS_ICONS[s];
       });
     });
 
-    // Refresh dots
-    updateDots();
+    updateTrigger();
   }
 
   function removeSidebar() {
-    if (wrapper) { wrapper.remove(); wrapper = null; }
+    const wrapper = document.getElementById(WRAPPER_ID);
+    if (wrapper) wrapper.remove();
+    const hoverZone = document.getElementById(WRAPPER_ID + '-hover-zone');
+    if (hoverZone) hoverZone.remove();
   }
 
   // ===================== Init =====================
