@@ -235,6 +235,17 @@ case 'openTabboard': {
 }
 ```
 
+## 多圆环总开关（master switch）
+
+当注入式圆环 **≥2 个**时（如 LC 圆环 + VP 圆环），加一个 master 总开关统一控制，而不是让用户逐个关：
+
+- **settings 字段**：`ringSidebarEnabled`（默认 `true`；判断用 `!== false` 而非 `=== true`，让 undefined 视为开，**向后兼容**）
+- **popup**：独立 `ringSettings.js` 模块，master checkbox 放在子开关上方；master 关时把子开关 `disabled`（置灰反馈）
+- **每个 ring content script**：`init()` 里 `if (settings.ringSidebarEnabled === false) { remove(); return; }`；监听 `ringSidebarEnabled` 变化——关→**移除 DOM**，开→rebuild
+- **关键**：关闭要**移除 DOM**（不只是 `opacity:0`），否则 hover/mousemove 仍能触发已"隐藏"的圆环
+
+> 不受 master 控制的圆环（如 goto 快捷菜单，性质不同）不接入，保持独立开关。
+
 ## 关键 Anti-Pattern（踩坑记录）
 
 | 错误操作 | 实际后果 | 正确做法 |
@@ -245,6 +256,10 @@ case 'openTabboard': {
 | 没有 `showXxxSidebar` 初始化 | 旧用户首次加载 settings undefined | 在 init.js 显式初始化为 false |
 | content script DOM 没有唯一 id 前缀 | 多实例冲突 | 用 WRAPPER_ID 前缀包裹所有 id |
 | 省略 `if (wrapper) return` | 重复调用 buildSidebar 创建多实例 | 守卫语句防止重复创建 |
+| 多个 ring 各自独立开关，没有 master 总开关 | 无法一键关闭所有圆环，用户要逐个关 | 加 `ringSidebarEnabled` master 开关，每个 ring 的 init 和监听都响应 |
+| master 检查用 `=== true` | 老用户 settings 无此 key（undefined）被判 false，所有圆环消失 | 用 `!== false` 判断，undefined 视为开启（默认开，向后兼容） |
+| 新圆环没接入 master 检查 | master 关了它还在，行为不一致 | 新 ring 的 init 和监听都要响应 `ringSidebarEnabled` |
+| master 关闭只设 `opacity:0` 不移除 DOM | hover/mousemove 仍触发"隐藏"的圆环 | 关闭时 `wrapper.remove()`，开时 rebuild |
 
 ## 成功标准检查清单
 
@@ -255,3 +270,6 @@ case 'openTabboard': {
 - [ ] init.js 有 `showXxxSidebar: false` 默认值
 - [ ] 打开面板按钮能正确跳转到对应 module 页面
 - [ ] 多个 content script 间无 id 冲突（各自 WRAPPER_ID 前缀）
+- [ ] ring-sidebar 有 master 总开关（`ringSidebarEnabled`），每个 ring 的 init 和监听都响应
+- [ ] master 判断用 `!== false`（undefined 默认开，向后兼容）
+- [ ] master 关闭时**移除 DOM**（不是只 `opacity:0`）

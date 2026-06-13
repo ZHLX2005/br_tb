@@ -47,10 +47,23 @@
 
 公式：`top: calc(50% + 52 * N px)`，N = 0,1,2,3...。**trigger 和 panel 要用同一个 top。**
 
-### Step 4：决定显示条件
+### Step 4：接入 master 总开关（必做）+ 决定子开关
 
-- **总是显示**（像 VP）：`init()` 里直接 `build()`
-- **受开关控制**（像 LC）：`init()` 读 `settings.xxx`，true 才 `build()`，并在 `chrome.storage.onChanged` 里监听增删
+**所有 ring-sidebar 都必须先过 master 总开关** `ringSidebarEnabled`，否则用户在 popup 关了总开关，你这个圆环还在，行为不一致。
+
+最小接入（上面模板的 init + 监听已含）：init 里 `if (s.ringSidebarEnabled === false) return;`，监听里关→`remove()`、开→`build()`。
+
+如需本圆环**自己的子开关**（像 LC 有 `showLcSidebar`）：
+
+```js
+// init 里多加一行
+if (s.showMyRing === false) return;
+// 监听里 shouldShow = s.ringSidebarEnabled !== false && s.showMyRing !== false
+```
+
+并在 `popup/popup.html` 加子 checkbox、`background/init.js` 加 `showMyRing: false` 默认值、popup 新建独立 settings 模块。
+
+> master 用 `=== false` 判断（undefined 视为开，向后兼容老用户）。跟随 master 即可的圆环（像 VP）不需要子开关。
 
 ### Step 5：刷新扩展 + 强刷测试页面（Ctrl+Shift+R）
 
@@ -150,10 +163,21 @@ content script 不会自动重新注入已打开的页面，**必须刷新页面
 
   async function init() {
     try {
-      // 总是显示就直接 build；受开关控制就先读 settings
+      const res = await chrome.runtime.sendMessage({ action: 'getSettings' });
+      const s = res.success ? (res.settings || {}) : {};
+      if (s.ringSidebarEnabled === false) return;   // 必须先过 master 总开关
       build();
     } catch (err) { /* 扩展上下文可能失效 */ }
   }
+
+  // 监听 master 总开关：关→移除 DOM（不是只 opacity:0），开→重建
+  chrome.storage.onChanged.addListener((changes, ns) => {
+    if (ns !== 'local' || !changes.settings) return;
+    const s = changes.settings.newValue || {};
+    const el = document.getElementById(WRAPPER_ID);
+    if (s.ringSidebarEnabled === false) { if (el) el.remove(); }
+    else if (!el) build();
+  });
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
@@ -237,6 +261,18 @@ document.addEventListener('click', (e) => { if(!wrapper.contains(e.target)) wrap
 **后果**：覆盖掉 settings 里其他所有 key。
 **✅ 正确**：发 `{ action: 'updateSettings', settings: { myKey: val } }`，background 是合并语义（`{ ...old, ...patch }`）。
 
+### 坑 8：新圆环没接入 master 总开关
+
+**❌ 错误**：新 ring 的 init 直接 `build()`，不检查 `ringSidebarEnabled`。
+**后果**：用户在 popup 关了「圆环侧边栏（总开关）」，其他圆环都消失了，**唯独新圆环还在**，行为不一致。
+**✅ 正确**：init 里 `if (s.ringSidebarEnabled === false) return;`；监听里关→`el.remove()`、开→`build()`。详见 Step 4。
+
+### 坑 9：master 判断用 `=== true`，或关闭只设 opacity:0
+
+**❌ 错误**：`if (settings.ringSidebarEnabled === true) build()`；关闭时只 `wrapper.style.opacity = 0` 不 remove。
+**后果**：①老用户 settings 无此 key（undefined），`=== true` 判 false，所有圆环凭空消失；②`opacity:0` 的圆环仍被 hover/mousemove 触发，"隐藏"了还能弹出来。
+**✅ 正确**：用 `=== false` 判断（undefined 默认开，向后兼容）；关闭时 `wrapper.remove()` 移除 DOM。
+
 ---
 
 ## 可选优化：抽公共 setup 文件
@@ -270,5 +306,7 @@ window.setupSideReveal = function () {
 - [ ] transition 参数和现有圆环一致（动效统一）
 - [ ] 点击外部收起，`setTimeout(0)` 延一帧绑
 - [ ] 写 settings 用 `updateSettings` action（合并语义），不直接 set
+- [ ] **接入 master 总开关**：init 检查 `ringSidebarEnabled === false` 不显示；监听关→`remove()` DOM、开→`build()`
+- [ ] master 判断用 `=== false`（undefined 默认开，向后兼容老用户）
 - [ ] manifest 注册了新文件
 - [ ] 刷新扩展 **且** 强刷测试页面
