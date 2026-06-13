@@ -12,6 +12,7 @@ import { loadVideoProgress, bindVideoProgressEvents, refreshCurrentVideo } from 
 import { loadLcSidebarSetting, bindLcSidebarEvents } from './modules/lcSettings.js';
 import { loadGotoRingSetting, bindGotoRingEvents } from './modules/gotoSettings.js';
 import { loadRingSidebarSetting, bindRingSidebarEvents } from './modules/ringSettings.js';
+import { loadVpSidebarSetting, bindVpSidebarEvents } from './modules/vpSettings.js';
 import { renderColorPicker, resetColorPicker } from './modules/colorPicker.js';
 import { showToast } from './modules/utils.js';
 
@@ -257,6 +258,10 @@ async function init() {
   // 绑定刷题侧边栏设置
   await loadLcSidebarSetting();
   bindLcSidebarEvents();
+
+  // 绑定视频进度圆环设置
+  await loadVpSidebarSetting();
+  bindVpSidebarEvents();
 
   // 绑定 goto 圆环设置
   await loadGotoRingSetting();

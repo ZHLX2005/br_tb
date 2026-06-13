@@ -396,6 +396,25 @@ body {
   transform: rotate(45deg);
 }
 
+/* 悬浮圆环专区：master 强调，子开关缩进，禁用置灰 */
+.setting-row.ring-master {
+  font-weight: 600;
+  border-bottom: 1px solid var(--border-color, #e0e0e0);
+  padding-bottom: 9px;
+  margin-bottom: 2px;
+}
+.setting-row.ring-sub {
+  padding-left: 20px;
+}
+.setting-row input[type="checkbox"]:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.setting-row:has(input[type="checkbox"]:disabled) {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 /* ========== 通用按钮 ========== */
 
 .btn {

@@ -46,9 +46,11 @@ export function bindRingSidebarEvents() {
 }
 
 /**
- * 总开关关闭时，子开关（LC）置灰；开启时恢复
+ * 总开关关闭时，子开关（LC、VP）置灰；开启时恢复
  */
 function updateSubToggles(enabled) {
-  const lcSub = document.getElementById('popupShowLcSidebar');
-  if (lcSub) lcSub.disabled = !enabled;
+  ['popupShowLcSidebar', 'popupShowVpSidebar'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = !enabled;
+  });
 }

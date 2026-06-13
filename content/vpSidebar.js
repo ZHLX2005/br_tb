@@ -171,7 +171,7 @@
     try {
       const res = await chrome.runtime.sendMessage({ action: 'getSettings' });
       const settings = res.success ? (res.settings || {}) : {};
-      if (settings.ringSidebarEnabled === false) { removeVp(); return; }
+      if (shouldHide(settings)) { removeVp(); return; }
       build();
       syncSwitches(settings);
     } catch (err) {
@@ -179,16 +179,22 @@
     }
   }
 
-  // settings 变化时：总开关关 → 移除；开 → 重建并同步开关
+  // 显示条件：master 总开关开 + 本圆环子开关开（两者都默认开，undefined 视为开）
+  function shouldHide(s) {
+    return s.ringSidebarEnabled === false || s.showVpSidebar === false;
+  }
+
+  // settings 变化时：应当显示就 build、应当隐藏就移除；同时同步面板开关
   chrome.storage.onChanged.addListener((changes, namespace) => {
     if (namespace !== 'local' || !changes.settings) return;
     const s = changes.settings.newValue || {};
-    if (s.ringSidebarEnabled === false) {
-      removeVp();
-    } else {
-      if (!document.getElementById(WRAPPER_ID)) build();
-      syncSwitches(s);
+    const exists = !!document.getElementById(WRAPPER_ID);
+    if (shouldHide(s)) {
+      if (exists) removeVp();
+    } else if (!exists) {
+      build();
     }
+    syncSwitches(s);
   });
 
   if (document.readyState === 'loading') {

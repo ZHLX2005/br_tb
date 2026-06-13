@@ -46,6 +46,7 @@ export async function initializeDefaultData() {
         showCourseProgressBarOnUnrelatedTabs: false,
         showGotoRing: false,
         ringSidebarEnabled: true,
+        showVpSidebar: true,
         theme: 'neo-brutalism'
       }
     });
@@ -72,6 +73,10 @@ export async function initializeDefaultData() {
     }
     if (updatedSettings.ringSidebarEnabled === undefined) {
       updatedSettings.ringSidebarEnabled = true;
+      needUpdate = true;
+    }
+    if (updatedSettings.showVpSidebar === undefined) {
+      updatedSettings.showVpSidebar = true;
       needUpdate = true;
     }
     if (updatedSettings.lastView === undefined) {
