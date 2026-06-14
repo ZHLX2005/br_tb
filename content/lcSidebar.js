@@ -220,12 +220,10 @@
 
   const DIFF_LABELS = { easy: '简', medium: '中', hard: '难' };
   const STATUS_ICONS = { 0: '○', 1: '◐', 2: '●' };
-  void DIFF_LABELS; void STATUS_ICONS; // 当前未使用，保留供后续面板扩展
 
   // id→slug 映射（progress 用 id 做 key）
   const ID_MAP = {};
   CATEGORIES.forEach(cat => cat.problems.forEach(p => { ID_MAP[p.id] = p.slug; }));
-  const ALL_IDS = Object.keys(ID_MAP);
 
   let progress = {};
   let isEnabled = false;
