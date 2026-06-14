@@ -20,6 +20,32 @@ description: 当用户要求"B站智能推荐+自动评论分享到动态"、"ag
 2. 用户已登录 B 站
 3. browser-harness daemon 可连接
 4. 工作目录：`C:\Users\MINISFORUM\browser-harness\agent-workspace\`
+5. **首次启动必须先 `/browser-harness-auto-launch` 走 Step 0** — 见下方"使用方法 → Step 0"
+
+### Chrome 启动方式（Windows 11, 已验证 2026-06-14）
+
+```powershell
+# 绝对路径启动（chrome.exe 不一定在 PATH；Start-Process "chrome" 在某些机器会静默失败）
+Start-Process "C:\Program Files\Google\Chrome\Application\chrome.exe" `
+  -ArgumentList "--remote-debugging-port=9222","--user-data-dir=C:\Users\MINISF~1\AppData\Local\Temp\chrome_dev"
+sleep 5
+curl -s -m 3 http://localhost:9222/json/version   # 确认已 LISTENING
+```
+
+> 旧写法 `Start-Process "chrome" -ArgumentList ...` 依赖 PATH 解析，本机（`D:\code\a_js\proj\js\test_feature`）实测失败 → 进程能起但 chrome.exe 找不到。**改用绝对路径**。
+
+### DevToolsActivePort 探测失败的旁路
+
+daemon 默认在 `$env:TEMP\chrome_dev\DevToolsActivePort` 找端口文件。新建 user-data-dir 第一次启动时**该文件可能没及时回写**（尽管 9222 已 LISTENING），导致 `RuntimeError: DevToolsActivePort not found`。
+
+**旁路**：手动从 `/json/version` 拿 `webSocketDebuggerUrl`，再设环境变量：
+
+```bash
+WS=$(curl -s http://localhost:9222/json/version | python -c "import sys,json; print(json.load(sys.stdin)['webSocketDebuggerUrl'])")
+BU_CDP_WS="$WS" browser-harness -c "print(page_info())"
+```
+
+> 此旁路**不**需要 daemon 探测文件，直接用 WebSocket URL。后续所有 `browser-harness -c` 命令前都需带 `BU_CDP_WS=...`。
 
 ---
 
@@ -75,6 +101,22 @@ T5  清理孤儿 tab          ─── 06 末尾已自动清理 page tabs
 
 **为什么 agent 决策是核心**：B 站冷启动账号主页推荐无意义；关键词正则/相似度/embedding 都不如 LLM 看到标题时的人类直觉。**我就是 LLM**。
 
+**写 pick.txt 必做**：先 `Read`（确认存在 + 拿到旧内容做差异），再 `Write` 覆盖。`pick.txt` 已存在时直接 Write 会因 "File has not been read yet" 失败。
+
+### 读取 candidates.json（Windows + Python 3 必读）
+
+默认 `python` 指向 Python 2.7（Anaconda），中文 console 编码 GBK。直接 `python` 读 candidates.json 会双重翻车。
+
+**用 WindowsApps 里的 Python 3.13 + 强制 UTF-8**：
+
+```bash
+PYTHONIOENCODING=utf-8 PYTHONUTF8=1 \
+  "C:\Users\MINISFORUM\AppData\Local\Microsoft\WindowsApps\python.exe" \
+  -c "import json; d=json.load(open(r'C:\Users\MINISFORUM\browser-harness\agent-workspace\candidates.json',encoding='utf-8')); print(len(d['candidates']))"
+```
+
+或者**写 .py 文件**（用 `# -*- coding: utf-8 -*-` 头 + `io.open(encoding='utf-8')`），上面 11 月版已验证。**不推荐**内联 f-string + 中文到 `python -c`（GBK 抛 `UnicodeEncodeError: illegal multibyte sequence`）。
+
 ### T3 — 发布（06_publish_one.py）
 
 **职责**：读 pick.txt → 打开视频 → 读 3 条已有评论 → 风格分析 → 生成短句 → 真实键入 → 勾选同步动态 → 点击发布 → 验证 → 关闭所有 page tab
@@ -95,6 +137,43 @@ T5  清理孤儿 tab          ─── 06 末尾已自动清理 page tabs
 - BV 与 pick.txt 一致
 - `comment` 字段非空
 - `user_feedback` 留空（待用户后续填）
+
+**完整验证脚本**（写 `agent-workspace/verify_last.py` 后执行）：
+
+```python
+# -*- coding: utf-8 -*-
+import json, sys
+
+WS = r"C:\Users\MINISFORUM\browser-harness\agent-workspace"
+with open(f"{WS}/published_log.json", encoding="utf-8") as f:
+    d = json.load(f)
+with open(f"{WS}/pick.txt", encoding="utf-8") as f:
+    pick = f.read().strip()
+
+last = d["published"][-1]
+checks = {
+    "新条目存在": last.get("bv") is not None,
+    "BV 一致":    last.get("bv") == pick,
+    "评论非空":   bool(last.get("comment")),
+    "同步动态":   last.get("synced_to_dynamic") is True,
+    "feedback 留空": last.get("user_feedback") is None,
+}
+for k, v in checks.items():
+    print(f"  {'✅' if v else '❌'} {k}")
+print(f"\n总计发布: {len(d['published'])} 条")
+print(f"最新 BV: {last['bv']}")
+print(f"最新评论: {last['comment']}")
+print(f"发布时间: {last['published_at']}")
+sys.exit(0 if all(checks.values()) else 1)
+```
+
+执行：
+
+```bash
+PYTHONIOENCODING=utf-8 PYTHONUTF8=1 \
+  "C:\Users\MINISFORUM\AppData\Local\Microsoft\WindowsApps\python.exe" \
+  "C:\Users\MINISFORUM\browser-harness\agent-workspace\verify_last.py"
+```
 
 ### T5 — 清理
 
@@ -182,6 +261,27 @@ if len(nums) == 3 and (nums[0]*3600 + nums[1]*60 + nums[2]) > 14400:
 
 ## 使用方法
 
+### Step 0 — auto-launch（首次必做）
+
+**先调 `/browser-harness-auto-launch` skill**，让 ensure_daemon 自动处理 Chrome 启动 + daemon 连接。
+
+如果 `DevToolsActivePort not found` 报错（参见前置条件 → 旁路方案），手动走：
+
+```powershell
+# 1. 绝对路径启 Chrome
+Start-Process "C:\Program Files\Google\Chrome\Application\chrome.exe" `
+  -ArgumentList "--remote-debugging-port=9222","--user-data-dir=C:\Users\MINISF~1\AppData\Local\Temp\chrome_dev"
+# 2. 等就绪
+sleep 5
+# 3. 拿 WebSocket URL
+$ws = (Invoke-RestMethod http://localhost:9222/json/version).webSocketDebuggerUrl
+$env:BU_CDP_WS = $ws
+# 4. 验证
+browser-harness -c "print(page_info())"
+```
+
+> **后续所有 `browser-harness -c` 命令都需要带 `BU_CDP_WS=$ws` 前缀**（同一 PowerShell 会话内 `$env:` 会保留）。
+
 ### 完整工作流（agent 驱动）
 
 ```bash
@@ -250,10 +350,24 @@ phrases: [跟着练了, 动作好标准, 今天打卡]
 ✅ **自媒体向视频 + 智能选 + 评论**（`BV1xHn9z8EPX` Python 入门半小时）— 「确实，牛皮！」+ 同步动态 + 关 tab
 ✅ **8min 犀利观点视频 + 智能选**（`BV1ZkVg6hEeG` AI 会写代码之后世界变了）— 「嗯，受教了」+ 同步动态 + **清理全部 page tab**
 ✅ **12min 个人观点视频 + 智能选**（`BV1TMVp6VEoL` 未来五年思考模式）— 「确实，Mark 一下」+ 同步动态 + tab 清理
+✅ **5min Fireship 犀利观点 + cron 触发**（`BV1CM5m6VEjb` 程序员炫技）— 「嗯，代码角度看挺优雅的~」+ 同步动态 + 累计 44 条（2026-06-14 17:53）
 
 ---
 
 ## 错误案例（高频坑点）
+
+### 环境坑（agent 启动 / 跨平台）
+
+| 错误操作 | 实际后果 | 正确做法 |
+|---------|---------|---------|
+| `Start-Process "chrome" -ArgumentList ...` | 本机 chrome.exe 不在 PATH 时**静默失败**（0 进程起来）| 用绝对路径 `"C:\Program Files\Google\Chrome\Application\chrome.exe"` |
+| 启动后直接 `browser-harness -c` | daemon 在 `$env:TEMP\chrome_dev\DevToolsActivePort` 找不到文件，报 `RuntimeError: DevToolsActivePort not found` | 旁路：手动从 `/json/version` 拿 `webSocketDebuggerUrl`，设 `BU_CDP_WS=<url>` |
+| `devtoolsActivePort` 文件不存在但 9222 已 LISTENING | daemon 死板读文件 | 改用 `BU_CDP_WS` 环境变量绕过（`curl /json/version` 拿 WS URL） |
+| `python -c "print('中文')"` | Python 2.7 + GBK → SyntaxError 或乱码 | 用 `"C:\Users\MINISFORUM\AppData\Local\Microsoft\WindowsApps\python.exe"`（3.13）+ `PYTHONIOENCODING=utf-8 PYTHONUTF8=1` |
+| `python` 解析路径用了 `2.7` | `print(f"...")` 缺括号 + 后续 `print` 输出错位 | 同上，强制 Python 3 |
+| 写 `.py` 文件**没** `# -*- coding: utf-8 -*-` | 解释器按 GBK 解，docstring 中文 SyntaxError | 加编码声明或用 `io.open(encoding='utf-8')` |
+| Write 已有文件前没 Read | "File has not been read yet" 错误 | 先 `Read` 再 `Write`（pick.txt / verify 脚本等都这样） |
+| cron 触发后没收到 `Skill` 工具调用结果 | agent 会话被 /loop 重新调度 | 接受就好，下次 loop 自然重试 |
 
 ### B 站技术坑
 
@@ -304,13 +418,15 @@ phrases: [跟着练了, 动作好标准, 今天打卡]
 - 批量发布需控制频率（建议间隔 30s+）
 - AI 自动同步到动态可能被 B 站风控识别，账号风险自负
 - cron 每小时触发但实际 LLM 跑一个完整流程（含智能筛选），非 24 个全发
+- **cron 频率建议**：本机 /loop 1h 是上限，再密会被 B 站识别为机器行为。凌晨 2-6 点建议停掉（设为 recurring false 一次性到 2:00 触发一次后即停）
 - 不要在短时间内大量操作
+- `user_feedback` 字段机制：T4 留空待用户填；未来用 `published_log.json` 反向调整 interest.md 的 bad_eg 列表
 
 ---
 
 ## 相关 Skills
 
-- `browser-harness-auto-launch` — 浏览器自动启动
+- **`browser-harness-auto-launch`** — 必先调，浏览器自动启动 + daemon 接管（**Step 0**）
 - `injected-dom-toggle-pattern` — 注入式悬浮 UI 模式（不同场景）
 - `dot-nav-sidebar` — 悬浮侧边栏交互模式
 - `injected-progress-bar-design` — 视频进度条注入

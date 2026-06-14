@@ -37,15 +37,23 @@ B 站智能推荐 + 评论同步到动态。**agent 智能选视频版**。
 
 ## 快速使用
 
+> **Step 0（首次必做）**：先调 `/browser-harness-auto-launch`，让 ensure_daemon 自动处理 Chrome + daemon。  
+> 若 `DevToolsActivePort not found`，手动用绝对路径启 Chrome + 设 `BU_CDP_WS`（见 SKILL.md 旁路方案）。
+
 ```bash
 # 1) 扫描
 browser-harness -c "exec(open(r'C:\Users\MINISFORUM\browser-harness\agent-workspace\05_scan_candidates.py', encoding='utf-8').read())"
 
-# 2) agent 写 pick.txt
+# 2) agent 写 pick.txt（先 Read 再 Write）
 echo "BV1xxx" > C:\Users\MINISFORUM\browser-harness\agent-workspace\pick.txt
 
 # 3) 发布
 browser-harness -c "exec(open(r'C:\Users\MINISFORUM\browser-harness\agent-workspace\06_publish_one.py', encoding='utf-8').read())"
+
+# 4) 验证（用 WindowsApps 里的 Python 3.13，强制 UTF-8）
+PYTHONIOENCODING=utf-8 PYTHONUTF8=1 \
+  "C:\Users\MINISFORUM\AppData\Local\Microsoft\WindowsApps\python.exe" \
+  "C:\Users\MINISFORUM\browser-harness\agent-workspace\verify_last.py"
 ```
 
 ## 验证记录
@@ -54,6 +62,8 @@ browser-harness -c "exec(open(r'C:\Users\MINISFORUM\browser-harness\agent-worksp
 |---------|------|------|------|
 | **BV1xHn9z8EPX** | 06 | **确实，牛皮！** | ✅ + 同步动态 + 关 tab + 写日志 |
 | **BV1ZkVg6hEeG** | 06 | **嗯，受教了** | ✅ + 同步动态 + 清理全部 page tab |
+| **BV1TMVp6VEoL** | 06 | **确实，Mark 一下** | ✅ + 同步动态 + tab 清理 |
+| **BV1CM5m6VEjb** | 06（cron /loop 1h 触发） | **嗯，代码角度看挺优雅的~** | ✅ + 同步动态 + 累计 44 条（2026-06-14 17:53） |
 
 ## 切换内容域
 
