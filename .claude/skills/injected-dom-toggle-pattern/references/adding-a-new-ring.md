@@ -14,7 +14,7 @@
 - mousemove 监听靠 `window.__tabboardSideReveal` **幂等注册**——不管几个圆环文件，全局只注册一次
 - 所有圆环 CSS 统一用 `body.tabboard-side-near #我的trigger` 触发滑出
 
-## 扩展流程（5 步）
+## 扩展流程（6 步）
 
 ### Step 1：新建 `content/xxxSidebar.js`
 
@@ -53,7 +53,7 @@
 
 最小接入（上面模板的 init + 监听已含）：init 里 `if (s.ringSidebarEnabled === false) return;`，监听里关→`remove()`、开→`build()`。
 
-如需本圆环**自己的子开关**（像 LC 有 `showLcSidebar`）：
+如需本圆环**自己的子开关**（像 LC 有 `showLcSidebar`、VP 有 `showVpSidebar`）：
 
 ```js
 // init 里多加一行
@@ -61,11 +61,43 @@ if (s.showMyRing === false) return;
 // 监听里 shouldShow = s.ringSidebarEnabled !== false && s.showMyRing !== false
 ```
 
-并在 `popup/popup.html` 加子 checkbox、`background/init.js` 加 `showMyRing: false` 默认值、popup 新建独立 settings 模块。
+并在 `popup/popup.html` 的「悬浮圆环」专区加子 checkbox、`background/init.js` 加 `showMyRing: false` 默认值、popup 新建独立 settings 模块。
 
-> master 用 `=== false` 判断（undefined 视为开，向后兼容老用户）。跟随 master 即可的圆环（像 VP）不需要子开关。
+> master 用 `=== false` 判断（undefined 视为开，向后兼容老用户）。当前 LC、VP 都既有 master 守卫也有自己的子开关，因此模板默认展示双守卫。如果你的圆环确实不需要单独关闭，可以只跟 master。
 
-### Step 5：刷新扩展 + 强刷测试页面（Ctrl+Shift+R）
+### Step 5：popup 里的 UI 分组规范
+
+新增圆环开关必须遵循「悬浮圆环」专区布局：
+
+```html
+<div class="page-section">
+  <div class="section-title">悬浮圆环</div>
+  <div class="settings-list">
+    <!-- master：加粗 + 下分隔线 -->
+    <label class="setting-row ring-master">
+      <input type="checkbox" id="popupRingSidebarEnabled">
+      <span>圆环侧边栏（总开关）</span>
+    </label>
+    <!-- 接入 master 的子开关：缩进 -->
+    <label class="setting-row ring-sub">
+      <input type="checkbox" id="popupShowMyRing">
+      <span>我的圆环</span>
+    </label>
+    <!-- 不接入 master 的独立入口：不缩进 -->
+    <label class="setting-row">
+      <input type="checkbox" id="popupShowGotoRing">
+      <span>悬浮 goto 圆环（所有页面）</span>
+    </label>
+  </div>
+</div>
+```
+
+对应 CSS（已存在 `popup.css`）：
+- `.ring-master`：加粗、底部 1px 分隔线
+- `.ring-sub`：`padding-left: 20px`
+- `input:disabled` + `.setting-row:has(input:disabled)`：master 关时子开关整行置灰
+
+### Step 6：刷新扩展 + 强刷测试页面（Ctrl+Shift+R）
 
 content script 不会自动重新注入已打开的页面，**必须刷新页面**。
 
@@ -161,21 +193,26 @@ content script 不会自动重新注入已打开的页面，**必须刷新页面
     }
   }
 
+  // 显示条件：master 总开关开 + 本圆环子开关开（两者都用 === false 判断，undefined 视为开）
+  function shouldHide(s) {
+    return s.ringSidebarEnabled === false || s.showMyRing === false;
+  }
+
   async function init() {
     try {
       const res = await chrome.runtime.sendMessage({ action: 'getSettings' });
       const s = res.success ? (res.settings || {}) : {};
-      if (s.ringSidebarEnabled === false) return;   // 必须先过 master 总开关
+      if (shouldHide(s)) return;   // master 或子开关任一关闭都不显示
       build();
     } catch (err) { /* 扩展上下文可能失效 */ }
   }
 
-  // 监听 master 总开关：关→移除 DOM（不是只 opacity:0），开→重建
+  // 监听：应当显示就 build、应当隐藏就移除 DOM（不是只 opacity:0）
   chrome.storage.onChanged.addListener((changes, ns) => {
     if (ns !== 'local' || !changes.settings) return;
     const s = changes.settings.newValue || {};
     const el = document.getElementById(WRAPPER_ID);
-    if (s.ringSidebarEnabled === false) { if (el) el.remove(); }
+    if (shouldHide(s)) { if (el) el.remove(); }
     else if (!el) build();
   });
 
@@ -309,4 +346,5 @@ window.setupSideReveal = function () {
 - [ ] **接入 master 总开关**：init 检查 `ringSidebarEnabled === false` 不显示；监听关→`remove()` DOM、开→`build()`
 - [ ] master 判断用 `=== false`（undefined 默认开，向后兼容老用户）
 - [ ] manifest 注册了新文件
+- [ ] popup 里新增子 checkbox 放在「悬浮圆环」专区，class 为 `ring-sub`（master 关时不应能点）
 - [ ] 刷新扩展 **且** 强刷测试页面

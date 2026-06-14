@@ -19,7 +19,7 @@ description: 当用户要求创建"注入DOM的流程"、创建"悬浮展开的d
 |---------|--------|-----------|
 | 做「hover 近场浮现」入口（静止不可见、靠近右边缘才滑入、点击展开） | `references/hover-reveal.md` | CSS `:has()` 联动、触发带、`setTimeout(0)` 绑监听等技术机制与坑 |
 | 决定入口的 UX（要不要塞进度、怎么收起、打扰程度、入口放什么内容） | `references/ux-design-style.md` | 克制浮现 / 入口单一职责 / 分层交互 / 低关闭成本 四准则 |
-| **已有圆环、要新增一个**悬浮入口（番茄钟、AI 助手、稍后读等） | `references/adding-a-new-ring.md` | 5 步流程 + 可直接抄的代码模板 + 7 个错误样本（❌ vs ✅）+ 检查清单 |
+| **已有圆环、要新增一个**悬浮入口（番茄钟、AI 助手、稍后读等） | `references/adding-a-new-ring.md` | 6 步流程 + 可直接抄的代码模板（含 master + 子开关双守卫）+ 9 个错误样本（❌ vs ✅）+ 检查清单 |
 
 **阅读顺序建议**：先读本 SKILL.md 理解整体架构 → 按任务匹配读对应 reference → 实现时对照该 reference 末尾的检查清单逐项核对。
 
@@ -240,11 +240,24 @@ case 'openTabboard': {
 当注入式圆环 **≥2 个**时（如 LC 圆环 + VP 圆环），加一个 master 总开关统一控制，而不是让用户逐个关：
 
 - **settings 字段**：`ringSidebarEnabled`（默认 `true`；判断用 `!== false` 而非 `=== true`，让 undefined 视为开，**向后兼容**）
-- **popup**：独立 `ringSettings.js` 模块，master checkbox 放在子开关上方；master 关时把子开关 `disabled`（置灰反馈）
 - **每个 ring content script**：`init()` 里 `if (settings.ringSidebarEnabled === false) { remove(); return; }`；监听 `ringSidebarEnabled` 变化——关→**移除 DOM**，开→rebuild
 - **关键**：关闭要**移除 DOM**（不只是 `opacity:0`），否则 hover/mousemove 仍能触发已"隐藏"的圆环
 
-> 不受 master 控制的圆环（如 goto 快捷菜单，性质不同）不接入，保持独立开关。
+### popup 中的「悬浮圆环」专区
+
+所有圆环相关开关应集中在一个专区，层级清晰：
+
+```
+悬浮圆环
+  ☑ 圆环侧边栏（总开关）          ← master，加粗 + 下分隔线
+    ☑ 刷题侧边栏（LeetCode CN）    ← 子开关，缩进
+    ☑ 视频进度圆环                 ← 子开关，缩进
+  ☑ 悬浮 goto 圆环（所有页面）     ← 独立入口，不缩进
+```
+
+- **接入 master 的 ring**：用 `.ring-sub` 缩进 20px，master 关闭时 `disabled` 置灰
+- **不接入 master 的入口**（如 goto 快捷菜单，性质不同）：保持独立开关，不缩进
+- 具体 HTML/CSS 结构见 `references/adding-a-new-ring.md` Step 5
 
 ## 关键 Anti-Pattern（踩坑记录）
 
