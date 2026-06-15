@@ -135,6 +135,50 @@
     if (tooltip) tooltip.style.display = 'none';
   }
 
+  function showCourseTooltip(target, name, percent) {
+    let tooltip = document.getElementById(TOOLTIP_ID);
+    if (!tooltip) {
+      tooltip = document.createElement('div');
+      tooltip.id = TOOLTIP_ID;
+      document.body.appendChild(tooltip);
+    }
+
+    tooltip.innerHTML = `
+      <div style="font-weight:600;font-size:12px;margin-bottom:3px;color:#333;">${name}</div>
+      <div style="font-size:11px;color:#666;">总进度 · ${percent}%</div>
+    `;
+
+    const rect = target.getBoundingClientRect();
+    tooltip.style.cssText = `
+      position: fixed;
+      z-index: 2147483647;
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      padding: 6px 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      pointer-events: none;
+      white-space: nowrap;
+      top: ${rect.bottom + 6}px;
+      left: 0px;
+      transform: none;
+      display: block;
+    `;
+
+    const tooltipWidth = tooltip.offsetWidth;
+    const targetX = rect.left + rect.width * 0.25;
+    let left = targetX;
+
+    if (left < 8) left = 8;
+    if (left + tooltipWidth > window.innerWidth - 8) {
+      left = window.innerWidth - tooltipWidth - 8;
+      if (left < 8) left = 8;
+    }
+
+    tooltip.style.left = `${left}px`;
+  }
+
   function getGroupDisplayProgress(videos) {
     if (!videos || videos.length === 0) return 0;
     const completed = videos.filter(v => {
@@ -164,39 +208,36 @@
       : getGroupDisplayProgress(group.videos);
 
     bar.style.cssText = `
-      height: 20px;
+      height: 8px;
       display: flex;
       align-items: center;
-      background: rgba(255,255,255,0.95);
-      border-bottom: 1px solid #e8e8e8;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      background: rgba(255,255,255,0.9);
+      opacity: 0.9;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     `;
 
-    const titleEl = document.createElement('div');
-    titleEl.textContent = group.name;
-    titleEl.style.cssText = `
-      font-size: 10px;
-      color: #888;
-      font-weight: 500;
-      white-space: nowrap;
-      padding: 0 8px;
+    const pillEl = document.createElement('div');
+    pillEl.style.cssText = `
+      width: 20px;
+      height: 8px;
+      border-radius: 999px;
+      background: #66bb6a;
       flex-shrink: 0;
-      border-right: 1px solid #eee;
-      height: 100%;
-      display: flex;
-      align-items: center;
+      cursor: pointer;
     `;
-    bar.appendChild(titleEl);
+    pillEl.addEventListener('mouseenter', () => {
+      showCourseTooltip(track, group.name, overallPercent);
+    });
+    pillEl.addEventListener('mouseleave', hideTooltip);
+    bar.appendChild(pillEl);
 
     const trackWrap = document.createElement('div');
     trackWrap.style.cssText = `
       flex: 1;
       display: flex;
       align-items: center;
-      padding: 0 8px;
       height: 100%;
-      gap: 6px;
+      padding-left: 6px;
     `;
 
     const track = document.createElement('div');
@@ -204,13 +245,10 @@
       flex: 1;
       height: 8px;
       display: flex;
-      border-radius: 4px;
+      border-radius: 999px;
       overflow: hidden;
       background: linear-gradient(90deg, #42a5f5 0%, #4fc3f7 25%, #66bb6a 60%, #81c784 100%);
       cursor: pointer;
-      box-shadow:
-        inset 0 1px 2px rgba(0,0,0,0.06),
-        0 1px 0 rgba(255,255,255,0.5);
     `;
 
     group.videos.forEach((video, i) => {
@@ -260,8 +298,6 @@
 
       if (isCurrent) {
         segment.style.zIndex = '2';
-        segment.style.transform = 'scaleY(1.25)';
-        segment.style.filter = 'brightness(1.15) drop-shadow(0 0 4px rgba(255,255,255,0.6))';
       }
 
       segment.addEventListener('click', (e) => {
@@ -269,16 +305,12 @@
         window.open(video.url, '_blank');
       });
 
-      const defaultFilter = isCurrent
-        ? 'brightness(1.15) drop-shadow(0 0 4px rgba(255,255,255,0.6))'
-        : '';
-
       segment.addEventListener('mouseenter', () => {
         segment.style.filter = 'brightness(0.9)';
         showTooltip(segment, group.id, i, currentIdx);
       });
       segment.addEventListener('mouseleave', () => {
-        segment.style.filter = defaultFilter;
+        segment.style.filter = '';
         hideTooltip();
       });
 
@@ -287,24 +319,6 @@
 
     trackWrap.appendChild(track);
     bar.appendChild(trackWrap);
-
-    const percentEl = document.createElement('div');
-    percentEl.textContent = `${overallPercent}%`;
-    percentEl.style.cssText = `
-      font-size: 11px;
-      color: #666;
-      font-weight: 600;
-      white-space: nowrap;
-      padding: 0 8px;
-      flex-shrink: 0;
-      border-left: 1px solid #eee;
-      height: 100%;
-      display: flex;
-      align-items: center;
-      min-width: 36px;
-      justify-content: flex-end;
-    `;
-    bar.appendChild(percentEl);
 
     return bar;
   }
