@@ -1,6 +1,6 @@
 ---
-name: video-progress-tracker
-description: 在 Chrome Extension 中实现跨页面视频检测、时长获取、观看进度追踪和分组聚合。涉及 content script 视频探测、SPA 路由感知、background 数据管理、module 页面聚合展示、批量导入。
+name: video-progress-tracker-reference
+description: Reference — 视频课程进度追踪完整实现（原始版本）
 ---
 
 # Video Progress Tracker — 跨页面视频进度追踪深度实现
@@ -22,34 +22,34 @@ description: 在 Chrome Extension 中实现跨页面视频检测、时长获取�
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │  Layer 1: Content Script (content/videoTracker.js)          │
-│  - IIFE 独立模块，暴露 window.__tabboardVideoTracker          │
-│  - MutationObserver 动态探测新增 video 元素                   │
+│  - IIFE 独立模块，暴露 window.__tabboardVideoTracker        │
+│  - MutationObserver 动态探测新增 video 元素                  │
 │  - URL Change Listener 劫持 history.pushState/popstate       │
-│  - Video Source Change Detection (duration diff > 5s)        │
-│  - 每 5s 上报 {url, title, duration, watched} 到 background  │
+│  - Video Source Change Detection (duration diff > 5s)       │
+│  - 每 5s 上报 {url, title, duration, watched} 到 background │
 └─────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────┐
-│  Layer 2: Content Script Proxy (content/content.js)         │
-│  - 接收 popup/module 的 detectVideos 消息                    │
-│  - 调用 tracker.forceDetect() 异步等待 loadedmetadata        │
-│  - 返回标准化后的视频列表给调用方                             │
+│  Layer 2: Content Script Proxy (content/content.js)       │
+│  - 接收 popup/module 的 detectVideos 消息                   │
+│  - 调用 tracker.forceDetect() 异步等待 loadedmetadata       │
+│  - 返回标准化后的视频列表给调用方                            │
 └─────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────┐
-│  Layer 3: Background (background/videoProgress.js)           │
-│  - 接收 detectVideos / updateVideoProgress / CRUD 消息        │
-│  - normalizeUrl: Bilibili 去掉 ?spm=... 追踪参数             │
-│  - 存储 schema: videoGroups[] → videos[]                     │
-│  - 进度更新策略: Math.max(oldWatched, newWatched) 只增不减    │
+│  Layer 3: Background (background/videoProgress.js)          │
+│  - 接收 detectVideos / updateVideoProgress / CRUD 消息     │
+│  - normalizeUrl: Bilibili 去掉 ?spm=... 追踪参数           │
+│  - 存储 schema: videoGroups[] → videos[]                    │
+│  - 进度更新策略: Math.max(oldWatched, newWatched) 只增不减 │
 └─────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────┐
-│  Layer 4: Frontend Module (modules/video-progress/view.js)   │
-│  - 聚合展示课程组、视频列表、三级进度条（整体/分组/单项）       │
-│  - 添加视频: 输入URL → 前台打开 → 轮询探测 → 切回 → 关闭     │
-│  - 批量导入: 顺序任务队列，txt/textarea 输入                  │
-│  - Popup 快捷捕获: 向当前标签页 sendMessage 检测              │
+│  Layer 4: Frontend Module (modules/video-progress/view.js)  │
+│  - 聚合展示课程组、视频列表、三级进度条（整体/分组/单项）    │
+│  - 添加视频: 输入URL → 前台打开 → 轮询探测 → 切回 → 关闭   │
+│  - 批量导入: 顺序任务队列，txt/textarea 输入                 │
+│  - Popup 快捷捕获: 向当前标签页 sendMessage 检测             │
 └─────────────────────────────────────────────────────────────┘
 ```
 

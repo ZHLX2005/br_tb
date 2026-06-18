@@ -1,6 +1,6 @@
 ---
-name: spa-video-detection
-description: Chrome Extension content script 在单页应用（SPA/Bilibili/YouTube）中检测视频、处理前端路由切换、防止进度溢出和数据错乱。
+name: spa-video-detection-reference
+description: Reference — SPA 视频检测三层防护架构（原始版本）
 ---
 
 # SPA 视频检测 — Content Script 路由感知与视频源识别
@@ -168,4 +168,4 @@ reportProgress() {
 1. **劫持顺序**：必须在页面 JS 执行前完成劫持，content script `run_at: "document_start"` 或 `document_end` 都要尽早注入
 2. **duration 阈值**：`diff > 5s && ratio > 0.1` 是经验值，YouTube 广告插片可能导致误触发，可根据场景调整
 3. **清理时机**：切换页面（非 SPA）时 content script 会销毁，但 SPA 内切换不会，所以 URL 监听是必须的
-4. **iframe 视频**：`document.querySelectorAll('video')` 不穿透 iframe，需要额外处理 
+4. **iframe 视频**：`document.querySelectorAll('video')` 不穿透 iframe，需要额外处理
