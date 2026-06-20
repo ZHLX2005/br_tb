@@ -320,11 +320,15 @@ function setupGroupsListeners() {
 
           addGroups.push(addedGroup);
 
-          // 确保新分组默认可见 - 始终保持 visibleGroups 包含所有分组
-          addSettings.visibleGroups = addGroups.map(g => g.id);
+          // 获取当前可见分组列表，确保新分组可见，同时保留其他分组的可见性设置
+          const currentVisible = addSettings.visibleGroups || [];
+          const visibleGroups = currentVisible.includes(addedGroup.id)
+            ? currentVisible
+            : [...currentVisible, addedGroup.id];
+          addSettings.visibleGroups = visibleGroups;
 
           await chrome.storage.local.set({ groups: addGroups, settings: addSettings });
-          sendResponse({ success: true });
+          sendResponse({ success: true, groupId: addedGroup.id });
           break;
         }
 

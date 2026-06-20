@@ -474,16 +474,6 @@ class GroupView {
         targetGroup.goto = result.isGoto;
         // 重新渲染以更新所有 board 按钮的激活态
         this.render();
-
-        if (result.isGoto) {
-          const tabCount = Math.min(6, (this.tabs[groupId] || []).length);
-          const msg = tabCount > 0
-            ? `已将 "${targetGroup.name}" 加入 goto 圆环展示\n(圆环将显示该分组前 ${tabCount} 个标签)`
-            : `已将 "${targetGroup.name}" 加入 goto 圆环展示\n(分组为空,圆环暂不显示菜单项)`;
-          alert(msg);
-        } else {
-          alert(`已从 goto 圆环移除 "${targetGroup.name}"`);
-        }
       } else {
         alert(`操作失败: ${result?.error || '未知错误'}`);
       }
@@ -947,18 +937,18 @@ class GroupView {
     dialog.innerHTML = `
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
         <h3 style="margin: 0; font-size: 18px;">选择要显示的分组</h3>
-        <button class="close-dialog-btn" style="background: none; border: none; font-size: 20px; cursor: pointer;">×</button>
+        <button class="close-dialog-btn" style="background: none; border: none; font-size: 20px; cursor: pointer; padding: 4px;">×</button>
       </div>
       <div style="margin-bottom: 15px;">
-        <button class="select-all-groups-btn" style="margin-right: 10px; padding: 6px 12px; cursor: pointer;">全选</button>
-        <button class="deselect-all-groups-btn" style="padding: 6px 12px; cursor: pointer;">全不选</button>
+        <button class="select-all-groups-btn" style="margin-right: 10px; padding: 8px 16px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px; font-size: 14px;">全选</button>
+        <button class="deselect-all-groups-btn" style="padding: 8px 16px; cursor: pointer; background: #6c757d; color: white; border: none; border-radius: 4px; font-size: 14px;">全不选</button>
       </div>
       <div class="group-filter-list">
         ${groupListHtml}
       </div>
       <div style="margin-top: 15px; text-align: right; padding-top: 15px; border-top: 1px solid #ddd;">
-        <button class="cancel-filter-btn" style="margin-right: 10px; padding: 8px 16px; cursor: pointer;">取消</button>
-        <button class="apply-filter-btn" style="padding: 8px 16px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px;">应用</button>
+        <button class="cancel-filter-btn" style="margin-right: 10px; padding: 8px 16px; cursor: pointer; background: #6c757d; color: white; border: none; border-radius: 4px; font-size: 14px;">取消</button>
+        <button class="apply-filter-btn" style="padding: 8px 16px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px; font-size: 14px;">应用</button>
       </div>
     `;
 
