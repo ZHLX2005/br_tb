@@ -180,41 +180,39 @@ function setupGroupsListeners() {
         }
 
         case 'updateTab': {
-          // 编辑 tab 字段(title/url/favicon),用于在 group 看板右键编辑
           const { tabId, groupId, updates } = request;
           if (!tabId || !groupId || !updates) {
             sendResponse({ success: false, error: '缺少参数' });
             break;
           }
-          const updResult = await chrome.storage.local.get(['tabs']);
-          const updTabs = updResult.tabs || {};
-          const groupTabs = updTabs[groupId];
+          const { tabs } = await chrome.storage.local.get(['tabs']);
+          const groupTabs = tabs[groupId];
           if (!Array.isArray(groupTabs)) {
             sendResponse({ success: false, error: '分组不存在' });
             break;
           }
-          const updTab = groupTabs.find(t => t.id === tabId);
-          if (!updTab) {
+          const tab = groupTabs.find(t => t.id === tabId);
+          if (!tab) {
             sendResponse({ success: false, error: '标签不存在' });
             break;
           }
           // 仅允许更新 title/url/favicon 字段
           if (typeof updates.title === 'string' && updates.title.trim()) {
-            updTab.title = updates.title.trim();
+            tab.title = updates.title.trim();
           }
           if (typeof updates.url === 'string' && updates.url.trim()) {
             try {
               new URL(updates.url.trim());
-              updTab.url = updates.url.trim();
+              tab.url = updates.url.trim();
             } catch (e) {
               sendResponse({ success: false, error: 'URL 格式无效' });
               break;
             }
           }
           if (typeof updates.favicon === 'string') {
-            updTab.favicon = updates.favicon;
+            tab.favicon = updates.favicon;
           }
-          await chrome.storage.local.set({ tabs: updTabs });
+          await chrome.storage.local.set({ tabs });
           sendResponse({ success: true });
           break;
         }
@@ -267,8 +265,7 @@ function setupGroupsListeners() {
         }
 
         case 'updateBoardOrder': {
-          const boardResult = await chrome.storage.local.get(['groups']);
-          const allGroups = boardResult.groups || [];
+          const { groups: allGroups } = await chrome.storage.local.get(['groups']);
           const { boardOrder } = request;
 
           // 根据 boardOrder 重新排列 groups 数组
@@ -296,8 +293,7 @@ function setupGroupsListeners() {
         }
 
         case 'deleteTab': {
-          const deleteResult = await chrome.storage.local.get(['tabs']);
-          const deleteTabs = deleteResult.tabs || {};
+          const { tabs: deleteTabs } = await chrome.storage.local.get(['tabs']);
           if (deleteTabs[request.groupId]) {
             deleteTabs[request.groupId] = deleteTabs[request.groupId].filter(t => t.id !== request.tabId);
             await chrome.storage.local.set({ tabs: deleteTabs });
@@ -333,41 +329,44 @@ function setupGroupsListeners() {
         }
 
         case 'deleteGroup': {
-          const delGroupResult = await chrome.storage.local.get(['groups', 'tabs']);
+          const delGroupResult = await chrome.storage.local.get(['groups', 'tabs', 'settings']);
           const delGroups = delGroupResult.groups || [];
           const delTabs = delGroupResult.tabs || {};
+          const delSettings = delGroupResult.settings || {};
 
           // 删除分组和对应的标签
           const newGroups = delGroups.filter(g => g.id !== request.groupId);
           delete delTabs[request.groupId];
 
-          await chrome.storage.local.set({ groups: newGroups, tabs: delTabs });
+          // 同时清理 visibleGroups 中对该分组的引用
+          if (delSettings.visibleGroups) {
+            delSettings.visibleGroups = delSettings.visibleGroups.filter(id => id !== request.groupId);
+          }
+
+          await chrome.storage.local.set({ groups: newGroups, tabs: delTabs, settings: delSettings });
           sendResponse({ success: true });
           break;
         }
 
         case 'setDefaultGroup': {
-          const setDefaultResult = await chrome.storage.local.get(['groups']);
-          const setDefaultGroups = setDefaultResult.groups || [];
-          setDefaultGroups.forEach(g => g.isDefault = (g.id === request.groupId));
-          await chrome.storage.local.set({ groups: setDefaultGroups });
+          const { groups } = await chrome.storage.local.get(['groups']);
+          if (groups) {
+            groups.forEach(g => g.isDefault = (g.id === request.groupId));
+            await chrome.storage.local.set({ groups });
+          }
           sendResponse({ success: true });
           break;
         }
 
         case 'setGroupAsGoto': {
-          // 切换 group 的 goto 标志:支持多个 group.goto === true(圆环多层)
-          const gotoResult = await chrome.storage.local.get(['groups']);
-          const gotoGroups = gotoResult.groups || [];
-          const target = gotoGroups.find(g => g.id === request.groupId);
+          const { groups } = await chrome.storage.local.get(['groups']);
+          const target = groups?.find(g => g.id === request.groupId);
           if (!target) {
             sendResponse({ success: false, error: 'Group not found' });
             break;
           }
-          const wasGoto = target.goto === true;
-          target.goto = !wasGoto;
-          await chrome.storage.local.set({ groups: gotoGroups });
-          // 通知所有 content script 刷新 goto 圆环
+          target.goto = !target.goto;
+          await chrome.storage.local.set({ groups });
           broadcastGotoRefresh();
           sendResponse({ success: true, isGoto: target.goto });
           break;
@@ -380,9 +379,7 @@ function setupGroupsListeners() {
         }
 
         case 'openGroup': {
-          const openGroupResult = await chrome.storage.local.get(['tabs', 'settings']);
-          const openTabs = openGroupResult.tabs || {};
-          const settings = openGroupResult.settings || {};
+          const { tabs: openTabs, settings } = await chrome.storage.local.get(['tabs', 'settings']);
           const groupTabs = openTabs[request.groupId] || [];
 
           for (const tab of groupTabs) {
@@ -400,14 +397,12 @@ function setupGroupsListeners() {
         }
 
         case 'updateGroupName': {
-          // 更新分组名称
-          const nameUpdateResult = await chrome.storage.local.get(['groups']);
-          const groupsForUpdate = nameUpdateResult.groups || [];
-          const targetGroup = groupsForUpdate.find(g => g.id === request.groupId);
+          const { groups } = await chrome.storage.local.get(['groups']);
+          const targetGroup = groups?.find(g => g.id === request.groupId);
 
           if (targetGroup) {
             targetGroup.name = request.newName;
-            await chrome.storage.local.set({ groups: groupsForUpdate });
+            await chrome.storage.local.set({ groups });
             sendResponse({ success: true });
           } else {
             sendResponse({ success: false, error: 'Group not found' });
@@ -496,9 +491,7 @@ function setupGroupsListeners() {
         }
 
         case 'clearGroup': {
-          // 清空指定分组 - 侧边栏使用
-          const clearGroupResult = await chrome.storage.local.get(['tabs']);
-          const clearGroupTabs = clearGroupResult.tabs || {};
+          const { tabs: clearGroupTabs } = await chrome.storage.local.get(['tabs']);
           if (clearGroupTabs[request.groupId]) {
             clearGroupTabs[request.groupId] = [];
             await chrome.storage.local.set({ tabs: clearGroupTabs });
