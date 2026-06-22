@@ -23,8 +23,8 @@
       transition: right 220ms ease, opacity 180ms ease, box-shadow 200ms;
       border: 1px solid rgba(0,0,0,0.06);
     }
-    /* 鼠标靠近右侧边缘（body 加 .tabboard-side-near）或悬浮圆环本身时滑出 */
-    body.tabboard-side-near #${WRAPPER_ID}-trigger,
+    /* 鼠标靠近右侧边缘（host 加 .near）或悬浮圆环本身时滑出 */
+    :host(.near) #${WRAPPER_ID}-trigger,
     #${WRAPPER_ID}-trigger:hover {
       right: 8px; opacity: 1; pointer-events: auto;
     }
@@ -38,7 +38,7 @@
       transition: transform 240ms cubic-bezier(.16,1,.3,1), opacity 180ms linear, visibility 0s linear 240ms;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
-    #${WRAPPER_ID}.expanded #${WRAPPER_ID}-panel {
+    :host(.expanded) #${WRAPPER_ID}-panel {
       opacity: 1; visibility: visible; pointer-events: auto;
       transform: translate(-56px, -50%);
       transition: transform 240ms cubic-bezier(.16,1,.3,1), opacity 180ms linear, visibility 0s;
@@ -77,13 +77,14 @@
   function build() {
     if (document.getElementById(WRAPPER_ID)) return;
 
-    const style = document.createElement('style');
-    style.textContent = STYLES;
-    document.head.appendChild(style);
-
+    // 宿主 reset / 全局选择器无法穿透 Shadow Root，圆环在 Notion/Figma 等站点也能稳定渲染
     const wrapper = document.createElement('div');
     wrapper.id = WRAPPER_ID;
-    document.body.appendChild(wrapper);
+    const shadow = wrapper.attachShadow({ mode: 'open' });
+
+    const style = document.createElement('style');
+    style.textContent = STYLES;
+    shadow.appendChild(style);
 
     // 圆环 trigger
     const trigger = document.createElement('div');
@@ -95,17 +96,22 @@
         <rect x="2" y="8" width="10" height="4" rx="2" fill="${ACCENT}"/>
       </svg>
     `;
-    wrapper.appendChild(trigger);
+    shadow.appendChild(trigger);
     trigger.addEventListener('click', (e) => {
       e.stopPropagation();
       wrapper.classList.toggle('expanded');
     });
 
-    // 鼠标靠近右边缘时统一浮现（共享 body.tabboard-side-near）；幂等注册，多圆环互不遮挡
+    // 鼠标靠近右边缘时统一浮现：JS toggle body.tabboard-side-near，同时给所有 shadow host 加 .near
+    // 幂等注册（多个 content script 都会执行这段，靠 window 标记只注册一次 mousemove）
     if (!window.__tabboardSideReveal) {
       window.__tabboardSideReveal = true;
       document.addEventListener('mousemove', (e) => {
-        document.body.classList.toggle('tabboard-side-near', e.clientX > window.innerWidth - 40);
+        const near = e.clientX > window.innerWidth - 40;
+        document.body.classList.toggle('tabboard-side-near', near);
+        document.querySelectorAll('[id$="-sidebar"]:not([id$="-panel"]):not([id$="-trigger"])').forEach(host => {
+          host.classList.toggle('near', near);
+        });
       });
     }
 
@@ -128,7 +134,7 @@
         </label>
       </div>
     `;
-    wrapper.appendChild(panel);
+    shadow.appendChild(panel);
 
     // 开关：写回 settings（合并语义，只传改动的 key）
     panel.querySelectorAll('.vp-switch').forEach(sw => {
@@ -147,17 +153,21 @@
       wrapper.classList.remove('expanded');
     });
 
-    // 点击面板外部自动收起（延一帧绑，避免当次点击冒泡立刻触发）
+    // 点击面板外部自动收起（事件已 retarget 到 host，wrapper.contains 即可）
     const onDocClick = (e) => {
       if (!wrapper.classList.contains('expanded')) return;
       if (wrapper.contains(e.target)) return;
       wrapper.classList.remove('expanded');
     };
     setTimeout(() => document.addEventListener('click', onDocClick), 0);
+
+    document.body.appendChild(wrapper);
   }
 
   function syncSwitches(settings) {
-    document.querySelectorAll('#' + WRAPPER_ID + '-panel .vp-switch').forEach(sw => {
+    const wrapper = document.getElementById(WRAPPER_ID);
+    if (!wrapper || !wrapper.shadowRoot) return;
+    wrapper.shadowRoot.querySelectorAll('#' + WRAPPER_ID + '-panel .vp-switch').forEach(sw => {
       sw.checked = !!(settings && settings[sw.dataset.key]);
     });
   }

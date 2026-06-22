@@ -230,7 +230,7 @@
 
   // ===================== Styles =====================
   const STYLES = `
-    #${WRAPPER_ID} {
+    :host {
       position: fixed;
       top: 50%;
       right: 0;
@@ -258,8 +258,8 @@
       transition: right 220ms ease, opacity 180ms ease, box-shadow 200ms;
       border: 1px solid rgba(0,0,0,0.06);
     }
-    /* 鼠标靠近右侧边缘（body 加 .tabboard-side-near）或悬浮圆环本身时滑出 */
-    body.tabboard-side-near #${WRAPPER_ID}-trigger,
+    /* 鼠标靠近右侧边缘（host 加 .near，JS 在 mousemove 中同步 body 状态）或悬浮圆环本身时滑出 */
+    :host(.near) #${WRAPPER_ID}-trigger,
     #${WRAPPER_ID}-trigger:hover {
       right: 8px;
       opacity: 1;
@@ -304,7 +304,7 @@
       -ms-overflow-style: none;
     }
     #${WRAPPER_ID}-panel::-webkit-scrollbar { display: none; }
-    #${WRAPPER_ID}.expanded #${WRAPPER_ID}-panel {
+    :host(.expanded) #${WRAPPER_ID}-panel {
       opacity: 1;
       visibility: visible;
       pointer-events: auto;
@@ -454,14 +454,15 @@
   function buildSidebar() {
     if (document.getElementById(WRAPPER_ID)) return;
 
-    const style = document.createElement('style');
-    style.textContent = STYLES;
-    document.head.appendChild(style);
-
-    // 外层 wrapper 用于绑定 .expanded 状态
+    // 外层 wrapper 挂在 body；trigger + panel + style 全部装进 Shadow DOM
+    // （宿主页的 CSS reset / 全局选择器无法穿透 Shadow Root，圆环在 Notion/Figma 等站点也能稳定渲染）
     const wrapper = document.createElement('div');
     wrapper.id = WRAPPER_ID;
-    document.body.appendChild(wrapper);
+    const shadow = wrapper.attachShadow({ mode: 'open' });
+
+    const style = document.createElement('style');
+    style.textContent = STYLES;
+    shadow.appendChild(style);
 
     // 圆环 trigger
     const trigger = document.createElement('div');
@@ -473,18 +474,23 @@
       </svg>
       <span class="lc-trigger-icon">LC</span>
     `;
-    wrapper.appendChild(trigger);
+    shadow.appendChild(trigger);
     trigger.addEventListener('click', (e) => {
       e.stopPropagation();
       wrapper.classList.toggle('expanded');
     });
 
-    // 鼠标靠近右边缘时统一浮现：body 加 .tabboard-side-near，所有注入圆环一起响应。
+    // 鼠标靠近右边缘时统一浮现：JS toggle body.tabboard-side-near，同时给 shadow host 加 .near
     // 幂等注册（多个 content script 都会执行这段，靠 window 标记只注册一次 mousemove）
     if (!window.__tabboardSideReveal) {
       window.__tabboardSideReveal = true;
       document.addEventListener('mousemove', (e) => {
-        document.body.classList.toggle('tabboard-side-near', e.clientX > window.innerWidth - 40);
+        const near = e.clientX > window.innerWidth - 40;
+        document.body.classList.toggle('tabboard-side-near', near);
+        // 同步通知所有 shadow host（每个圆环的 wrapper）
+        document.querySelectorAll('[id$="-sidebar"]:not([id$="-panel"]):not([id$="-trigger"])').forEach(host => {
+          host.classList.toggle('near', near);
+        });
       });
     }
 
@@ -509,41 +515,45 @@
         ${CATEGORIES.map(cat => buildCategoryHTML(cat)).join('')}
       </div>
     `;
-    wrapper.appendChild(panel);
+    shadow.appendChild(panel);
+
+    // shadow 内所有 DOM 查询走 shadowRoot（主文档 querySelector 查不到 shadow 子树）
+    const $ = (sel, root = shadow) => root.querySelector(sel);
+    const $$ = (sel, root = shadow) => root.querySelectorAll(sel);
 
     // 搜索
-    const searchInput = panel.querySelector('#' + WRAPPER_ID + '-search');
+    const searchInput = $('#' + WRAPPER_ID + '-search', panel);
     searchInput.addEventListener('input', (e) => {
       const q = e.target.value.trim().toLowerCase();
-      panel.querySelectorAll('.lc-prob-item').forEach(item => {
+      $$('.lc-prob-item', panel).forEach(item => {
         const match = !q || item.dataset.title.toLowerCase().includes(q) || item.dataset.slug.toLowerCase().includes(q);
         item.style.display = match ? '' : 'none';
       });
-      panel.querySelectorAll('.lc-cat-group').forEach(cat => {
-        const visible = [...cat.querySelectorAll('.lc-prob-item')].some(i => i.style.display !== 'none');
+      $$('.lc-cat-group', panel).forEach(cat => {
+        const visible = [...$$('.lc-prob-item', cat)].some(i => i.style.display !== 'none');
         cat.style.display = visible ? '' : 'none';
       });
     });
 
     // 关闭按钮
-    panel.querySelector('#' + WRAPPER_ID + '-close').addEventListener('click', (e) => {
+    $('#' + WRAPPER_ID + '-close', panel).addEventListener('click', (e) => {
       e.stopPropagation();
       wrapper.classList.remove('expanded');
       chrome.runtime.sendMessage({ action: 'updateSettings', settings: { showLcSidebar: false } });
     });
 
     // 打开全屏看板
-    panel.querySelector('#' + WRAPPER_ID + '-open-panel').addEventListener('click', (e) => {
+    $('#' + WRAPPER_ID + '-open-panel', panel).addEventListener('click', (e) => {
       e.stopPropagation();
       chrome.runtime.sendMessage({ action: 'openTabboard', view: 'leetcode' });
     });
 
     // 分类折叠
-    panel.querySelectorAll('.lc-cat-header').forEach(header => {
+    $$('.lc-cat-header', panel).forEach(header => {
       header.addEventListener('click', () => {
         const group = header.closest('.lc-cat-group');
         group.classList.toggle('open');
-        const toggle = header.querySelector('.lc-cat-toggle');
+        const toggle = header.querySelector('.lc-toggle');
         if (toggle) toggle.textContent = group.classList.contains('open') ? '▼' : '▶';
       });
     });
@@ -558,17 +568,21 @@
     // Enter 打开第一个搜索结果
     searchInput.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter') return;
-      const first = panel.querySelector('.lc-prob-item:not([style*="display: none"])');
+      const first = $('.lc-prob-item:not([style*="display: none"])', panel);
       if (first) window.open(LC_BASE + first.dataset.slug + '/', '_blank');
     });
 
-    // 点击看板外部时自动收起
+    // 点击看板外部时自动收起（wrapper 本身在主文档，点击检查 target 不在 shadow 内即可）
     const onDocClick = (e) => {
       if (!wrapper.classList.contains('expanded')) return;
+      // 宿主点击事件不会带 shadowRoot 内的元素作为 target（事件已 retarget 到 host），
+      // 所以 wrapper.contains(e.target) === true 即"点在内部（含 shadow 内任意元素）"
       if (wrapper.contains(e.target)) return;
       wrapper.classList.remove('expanded');
     };
     setTimeout(() => document.addEventListener('click', onDocClick), 0);
+
+    document.body.appendChild(wrapper);
   }
 
   function buildTodoSection() {
@@ -621,20 +635,26 @@
   }
 
   function refreshStats() {
-    if (!document.getElementById(WRAPPER_ID + '-panel')) return;
+    // wrapper + shadow 是模块级缓存（每次刷新读一次）
+    const wrapperEl = document.getElementById(WRAPPER_ID);
+    if (!wrapperEl || !wrapperEl.shadowRoot) return;
+    const shadow = wrapperEl.shadowRoot;
+    const panel = shadow.getElementById(WRAPPER_ID + '-panel');
+    if (!panel) return;
+
     const total = ALL_PROBLEMS.length;
     const done = ALL_PROBLEMS.filter(p => (progress[p.id] || 0) === 2).length;
     const doing = ALL_PROBLEMS.filter(p => (progress[p.id] || 0) === 1).length;
-    const statsEl = document.getElementById(WRAPPER_ID + '-stats');
+    const statsEl = shadow.getElementById(WRAPPER_ID + '-stats');
     if (statsEl) statsEl.textContent = `${done} 已完成 · ${doing} 进行中 · ${total} 总计`;
 
-    const oldTodo = document.getElementById(WRAPPER_ID + '-todo');
+    const oldTodo = shadow.getElementById(WRAPPER_ID + '-todo');
     const newTodoHTML = buildTodoSection();
     if (oldTodo && newTodoHTML) {
       oldTodo.outerHTML = newTodoHTML;
     } else if (!oldTodo && newTodoHTML) {
-      const header = document.getElementById(WRAPPER_ID + '-header');
-      const cats = document.getElementById(WRAPPER_ID + '-cats');
+      const header = shadow.getElementById(WRAPPER_ID + '-header');
+      const cats = shadow.getElementById(WRAPPER_ID + '-cats');
       if (header && cats) {
         const temp = document.createElement('div');
         temp.innerHTML = newTodoHTML;
@@ -642,7 +662,7 @@
       }
     }
 
-    document.querySelectorAll('.lc-cat-group').forEach(catEl => {
+    shadow.querySelectorAll('.lc-cat-group').forEach(catEl => {
       const cat = CATEGORIES.find(c => c.id === catEl.dataset.cat);
       if (!cat) return;
       const doneCount = cat.problems.filter(p => (progress[p.id] || 0) === 2).length;
