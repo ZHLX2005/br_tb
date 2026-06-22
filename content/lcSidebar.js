@@ -227,6 +227,9 @@
 
   let progress = {};
   let isEnabled = false;
+  // 自己触发的 progress 变更（右键切换）会触发 onChanged，跳过 refreshStats
+  // 保持 todo 区域的 lazy 状态——切完不重算前 5 个未开始
+  let suppressNextProgressRefresh = false;
 
   // ===================== Styles =====================
   const STYLES = `
@@ -385,6 +388,8 @@
       font-weight: 500;
       margin-bottom: 4px;
     }
+    .lc-todo-refresh { cursor: pointer; user-select: none; transition: color 120ms; }
+    .lc-todo-refresh:hover { color: var(--accent); }
     #${WRAPPER_ID}-todo-list {
       display: flex;
       flex-direction: column;
@@ -446,6 +451,8 @@
     .lc-prob-item:hover { background: #e3f2fd; color: var(--accent); }
     .lc-prob-item.status-done { color: #81c784; }
     .lc-prob-item.status-doing { color: #ff9800; }
+    .lc-todo-item.status-done { color: #81c784; }
+    .lc-todo-item.status-doing { color: #ff9800; }
     .lc-prob-icon { font-size: 10px; flex-shrink: 0; width: 12px; text-align: center; }
     .lc-prob-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   `;
@@ -558,11 +565,43 @@
       });
     });
 
-    // 点击题目
+    // 左键题目：打开 LeetCode
     panel.addEventListener('click', (e) => {
       const item = e.target.closest('.lc-prob-item, .lc-todo-item');
       if (!item) return;
       window.open(LC_BASE + item.dataset.slug + '/', '_blank');
+    });
+
+    // 右键题目：切换状态（0 → 1 → 2 → 0），并阻止浏览器原生菜单
+    // lc-todo-item 只就地更新（不刷新列表），lc-prob-item 需要全量刷新（分类计数/统计变了）
+    panel.addEventListener('contextmenu', async (e) => {
+      const item = e.target.closest('.lc-prob-item, .lc-todo-item');
+      if (!item) return;
+      e.preventDefault();
+      const id = item.dataset.id;
+      if (!id) return;
+      const current = progress[id] || 0;
+      const next = (current + 1) % 3;
+      progress[id] = next;
+      // 标记：下面的 storage.set 会触发 onChanged，跳过 refreshStats 以保持 todo lazy
+      suppressNextProgressRefresh = true;
+      await chrome.storage.local.set({ [PROGRESS_KEY]: progress });
+
+      if (item.classList.contains('lc-todo-item')) {
+        // lazy：就地更新 todo 项本身
+        updateItemUI(item, next);
+        // 同步更新分类区里同名 lc-prob-item 的视觉（同一 id 在两处都有展示）
+        const wrapperEl = document.getElementById(WRAPPER_ID);
+        if (wrapperEl && wrapperEl.shadowRoot) {
+          const twin = wrapperEl.shadowRoot.querySelector(`.lc-prob-item[data-id="${id}"]`);
+          if (twin) updateItemUI(twin, next);
+        }
+      } else {
+        // lc-prob-item 状态变化会影响分类计数和总统计，必须 refresh
+        refreshStats();
+        // 上面主动调了 refreshStats 就不需要再依赖 onChanged
+        suppressNextProgressRefresh = true;
+      }
     });
 
     // Enter 打开第一个搜索结果
@@ -582,6 +621,9 @@
     };
     setTimeout(() => document.addEventListener('click', onDocClick), 0);
 
+    // todo 区域的"点击标题刷新"绑定
+    bindTodoRefreshClick();
+
     document.body.appendChild(wrapper);
   }
 
@@ -592,11 +634,11 @@
     if (todoProblems.length === 0) return '';
     return `
       <div id="${WRAPPER_ID}-todo">
-        <div class="${WRAPPER_ID}-todo-title">推荐刷题 ▼</div>
+        <div class="${WRAPPER_ID}-todo-title lc-todo-refresh" title="点击重新计算推荐">推荐刷题 ↻</div>
         <div id="${WRAPPER_ID}-todo-list">
           ${todoProblems.map(p => `
-            <div class="lc-todo-item" data-slug="${p.slug}" data-title="${p.title}">
-              <span class="lc-prob-icon">○</span>
+            <div class="lc-todo-item" data-slug="${p.slug}" data-id="${p.id}" data-title="${p.title}">
+              <span class="lc-prob-icon">${STATUS_ICONS[0]}</span>
               <span class="lc-prob-title">${p.title}</span>
               <span class="lc-prob-diff ${p.diff}">${DIFF_LABELS[p.diff]}</span>
             </div>
@@ -626,12 +668,25 @@
     const status = progress[p.id] || 0;
     const cls = status === 2 ? 'status-done' : status === 1 ? 'status-doing' : '';
     return `
-      <div class="lc-prob-item ${cls}" data-slug="${p.slug}" data-title="${p.title}">
+      <div class="lc-prob-item ${cls}" data-slug="${p.slug}" data-id="${p.id}" data-title="${p.title}">
         <span class="lc-prob-icon">${STATUS_ICONS[status]}</span>
         <span class="lc-prob-title">${p.title}</span>
         <span class="lc-prob-diff ${p.diff}">${DIFF_LABELS[p.diff]}</span>
       </div>
     `;
+  }
+
+  // 就地更新某个 item 的状态显示（不重渲染列表）
+  function updateItemUI(item, status) {
+    if (item.classList.contains('lc-prob-item')) {
+      item.className = `lc-prob-item ${status === 2 ? 'status-done' : status === 1 ? 'status-doing' : ''}`;
+    } else if (item.classList.contains('lc-todo-item')) {
+      // todo 项初始无状态 class，切换后加上与 lc-prob-item 一致的状态色
+      const statusCls = status === 2 ? 'status-done' : status === 1 ? 'status-doing' : '';
+      item.className = `lc-todo-item ${statusCls}`.trim();
+    }
+    const icon = item.querySelector('.lc-prob-icon');
+    if (icon) icon.textContent = STATUS_ICONS[status];
   }
 
   function refreshStats() {
@@ -648,20 +703,6 @@
     const statsEl = shadow.getElementById(WRAPPER_ID + '-stats');
     if (statsEl) statsEl.textContent = `${done} 已完成 · ${doing} 进行中 · ${total} 总计`;
 
-    const oldTodo = shadow.getElementById(WRAPPER_ID + '-todo');
-    const newTodoHTML = buildTodoSection();
-    if (oldTodo && newTodoHTML) {
-      oldTodo.outerHTML = newTodoHTML;
-    } else if (!oldTodo && newTodoHTML) {
-      const header = shadow.getElementById(WRAPPER_ID + '-header');
-      const cats = shadow.getElementById(WRAPPER_ID + '-cats');
-      if (header && cats) {
-        const temp = document.createElement('div');
-        temp.innerHTML = newTodoHTML;
-        header.after(temp.firstElementChild);
-      }
-    }
-
     shadow.querySelectorAll('.lc-cat-group').forEach(catEl => {
       const cat = CATEGORIES.find(c => c.id === catEl.dataset.cat);
       if (!cat) return;
@@ -675,6 +716,44 @@
         const icon = item.querySelector('.lc-prob-icon');
         if (icon) icon.textContent = STATUS_ICONS[s];
       });
+    });
+  }
+
+  // === todo 区域独立刷新（手动触发，不与数据驱动绑定） ===
+  function refreshTodoSection() {
+    const wrapperEl = document.getElementById(WRAPPER_ID);
+    if (!wrapperEl || !wrapperEl.shadowRoot) return;
+    const shadow = wrapperEl.shadowRoot;
+    const panel = shadow.getElementById(WRAPPER_ID + '-panel');
+    if (!panel) return;
+
+    const oldTodo = shadow.getElementById(WRAPPER_ID + '-todo');
+    const newTodoHTML = buildTodoSection();
+    if (oldTodo && newTodoHTML) {
+      oldTodo.outerHTML = newTodoHTML;
+    } else if (!oldTodo && newTodoHTML) {
+      const header = shadow.getElementById(WRAPPER_ID + '-header');
+      const cats = shadow.getElementById(WRAPPER_ID + '-cats');
+      if (header && cats) {
+        const temp = document.createElement('div');
+        temp.innerHTML = newTodoHTML;
+        header.after(temp.firstElementChild);
+      }
+    }
+    // 重新绑定刷新点击（outerHTML 替换后老节点被销毁）
+    bindTodoRefreshClick();
+  }
+
+  // 绑定"点击 todo 标题重新计算"事件
+  function bindTodoRefreshClick() {
+    const wrapperEl = document.getElementById(WRAPPER_ID);
+    if (!wrapperEl || !wrapperEl.shadowRoot) return;
+    const shadow = wrapperEl.shadowRoot;
+    const title = shadow.querySelector('.lc-todo-refresh');
+    if (!title) return;
+    title.addEventListener('click', (e) => {
+      e.stopPropagation();
+      refreshTodoSection();
     });
   }
 
@@ -709,6 +788,14 @@
     if (namespace !== 'local') return;
 
     if (changes[PROGRESS_KEY]) {
+      // 自己触发的 storage.set 会再次触发 onChanged，但 progress 已经在
+      // contextmenu handler 内就地更新过（或通过 refreshStats 刷新过），
+      // 此处用 suppressNextProgressRefresh 避免重复刷新 todo 区域（lazy 语义）。
+      if (suppressNextProgressRefresh) {
+        suppressNextProgressRefresh = false;
+        progress = changes[PROGRESS_KEY].newValue || {};
+        return;
+      }
       progress = changes[PROGRESS_KEY].newValue || {};
       refreshStats();
     }
