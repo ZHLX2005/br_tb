@@ -60,7 +60,10 @@
     return container;
   }
 
+  let showTooltipSeq = 0;
+
   async function showTooltip(segment, groupId, videoIndex, currentIdx) {
+    const mySeq = ++showTooltipSeq;
     let tooltip = document.getElementById(TOOLTIP_ID);
     if (!tooltip) {
       tooltip = document.createElement('div');
@@ -71,6 +74,8 @@
     let video = { title: '未命名视频', duration: 0, watched: 0 };
     try {
       const response = await chrome.runtime.sendMessage({ action: 'getVideoGroups' });
+      // await 后检查：若已有更新的悬停请求，丢弃本次过期结果
+      if (mySeq !== showTooltipSeq) return;
       if (response.success && response.videoGroups) {
         const group = response.videoGroups.find(g => g.id === groupId);
         if (group && group.videos[videoIndex]) {
@@ -80,6 +85,9 @@
     } catch {
       // Extension 可能未启用
     }
+
+    // 写 DOM 前再次检查，防止鼠标在 await 期间已移出整个进度条
+    if (mySeq !== showTooltipSeq) return;
 
     const duration = video.duration || 0;
     const watched = video.watched || 0;
@@ -131,6 +139,7 @@
   }
 
   function hideTooltip() {
+    showTooltipSeq++; // 使进行中的 showTooltip 完成时认为已过期，不再把 tooltip 写回 block
     const tooltip = document.getElementById(TOOLTIP_ID);
     if (tooltip) tooltip.style.display = 'none';
   }
@@ -316,7 +325,6 @@
 
       track.appendChild(segment);
     });
-
     trackWrap.appendChild(track);
     bar.appendChild(trackWrap);
 
@@ -451,6 +459,14 @@
       updateBar();
     }
   });
+
+  // === tooltip 防卡住兜底 ===
+  // 原因：segment 的 mouseleave 只在鼠标跨越其边界时触发。当鼠标从浏览器窗口外
+  // 进入（或窗口失焦后回来）时，segment 的 mouseleave 不触发，tooltip 一直显示。
+  // 这里监听视口级事件作为兜底：鼠标离开视口或窗口失焦时强制隐藏 tooltip。
+  document.documentElement.addEventListener('mouseleave', hideTooltip);
+  window.addEventListener('blur', hideTooltip);
+  document.addEventListener('dragend', hideTooltip);
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
