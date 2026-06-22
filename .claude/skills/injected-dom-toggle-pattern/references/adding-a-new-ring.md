@@ -103,20 +103,30 @@ content script 不会自动重新注入已打开的页面，**必须刷新页面
 
 ---
 
-## 最小代码模板（直接抄）
+## 最小代码模板（Shadow DOM 版，直接抄）
+
+> **必须用 Shadow DOM**：宿主页(Notion/Linear/Figma)的 CSS reset 会穿透普通注入 UI 导致样式失效。详见 `shadow-dom-isolation.md`。
 
 ```javascript
 /**
  * XXX Sidebar — 一句话描述这个圆环干什么
- * 悬浮右侧，hover 近场浮现，点击展开面板
+ * 悬浮右侧，hover 近场浮现，点击展开面板；Shadow DOM 隔离宿主 CSS
  */
 (function () {
   'use strict';
 
-  const WRAPPER_ID = 'tabboard-xxx-sidebar';   // ← 改这里：唯一前缀
+  const WRAPPER_ID = 'tabboard-xxx-sidebar';   // ← 改这里：唯一前缀（host id，主文档可见）
   const ACCENT = '#42a5f5';
 
   const STYLES = `
+    /* host 自身样式 + CSS 变量必须用 :host（shadow 内 #id 选不到 host） */
+    :host {
+      position: fixed; top: 50%; right: 0;
+      transform: translateY(-50%);
+      z-index: 999999;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;  /* 防宿主字体穿透 */
+      --accent: ${ACCENT};
+    }
     #${WRAPPER_ID}-trigger {
       width: 40px; height: 40px; border-radius: 50%; background: white;
       box-shadow: 0 2px 12px rgba(0,0,0,0.15); cursor: pointer;
@@ -126,8 +136,8 @@ content script 不会自动重新注入已打开的页面，**必须刷新页面
       transition: right 220ms ease, opacity 180ms ease, box-shadow 200ms;
       border: 1px solid rgba(0,0,0,0.06);
     }
-    /* 共享 body.tabboard-side-near：所有圆环一起浮现，动效一致 */
-    body.tabboard-side-near #${WRAPPER_ID}-trigger,
+    /* 近场浮现：:host(.near) 由 JS 同步（body.tabboard-side-near 跨 shadow boundary 不可达） */
+    :host(.near) #${WRAPPER_ID}-trigger,
     #${WRAPPER_ID}-trigger:hover {
       right: 8px; opacity: 1; pointer-events: auto;
     }
@@ -140,43 +150,44 @@ content script 不会自动重新注入已打开的页面，**必须刷新页面
       box-shadow: -2px 4px 20px rgba(0,0,0,0.18);
       opacity: 0; visibility: hidden; pointer-events: none;
       transition: transform 240ms cubic-bezier(.16,1,.3,1), opacity 180ms linear, visibility 0s linear 240ms;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
-    #${WRAPPER_ID}.expanded #${WRAPPER_ID}-panel {
+    /* 展开状态同样用 :host(.expanded) */
+    :host(.expanded) #${WRAPPER_ID}-panel {
       opacity: 1; visibility: visible; pointer-events: auto;
       transform: translate(-56px, -50%);
       transition: transform 240ms cubic-bezier(.16,1,.3,1), opacity 180ms linear, visibility 0s;
     }
-    /* ↓ 面板内部样式按需加，全部用 WRAPPER_ID 前缀或独立 class，避免和别的圆环冲突 */
+    /* ↓ 面板内部样式按需加；shadow 内类名天然隔离，可不再加 WRAPPER_ID 前缀 */
   `;
 
   function build() {
     if (document.getElementById(WRAPPER_ID)) return;
 
-    const style = document.createElement('style');
-    style.textContent = STYLES;
-    document.head.appendChild(style);
-
+    // host 挂在 body；trigger + panel + style 全部装进 Shadow Root（隔离宿主 CSS）
     const wrapper = document.createElement('div');
     wrapper.id = WRAPPER_ID;
-    document.body.appendChild(wrapper);
+    const shadow = wrapper.attachShadow({ mode: 'open' });
+
+    const style = document.createElement('style');
+    style.textContent = STYLES;
+    shadow.appendChild(style);
 
     const trigger = document.createElement('div');
     trigger.id = WRAPPER_ID + '-trigger';
     trigger.title = 'XXX';
     trigger.innerHTML = `<span style="font-size:11px;font-weight:700;color:${ACCENT}">XX</span>`;  // ← 改图标
-    wrapper.appendChild(trigger);
+    shadow.appendChild(trigger);
     trigger.addEventListener('click', (e) => {
       e.stopPropagation();
-      wrapper.classList.toggle('expanded');
+      wrapper.classList.toggle('expanded');   // class 加在 host 上，CSS 用 :host(.expanded) 响应
     });
 
     const panel = document.createElement('div');
     panel.id = WRAPPER_ID + '-panel';
     panel.innerHTML = `<div style="padding:12px;font-size:12px;color:#333">面板内容</div>`;  // ← 改面板
-    wrapper.appendChild(panel);
+    shadow.appendChild(panel);
 
-    // 点击外部收起（延一帧绑，避免当次点击冒泡立刻触发）
+    // 点击外部收起（事件 retarget 到 host，wrapper.contains(e.target) 仍成立）
     const onDocClick = (e) => {
       if (!wrapper.classList.contains('expanded')) return;
       if (wrapper.contains(e.target)) return;
@@ -184,13 +195,25 @@ content script 不会自动重新注入已打开的页面，**必须刷新页面
     };
     setTimeout(() => document.addEventListener('click', onDocClick), 0);
 
-    // 【关键】共享近场浮现：幂等注册，多圆环只注册一次 mousemove
+    // 【视觉同步关键】共享近场浮现：幂等注册，多圆环只注册一次 mousemove
+    // 同时 toggle body.tabboard-side-near（给外部逻辑）和每个圆环 host 的 .near（shadow 内 :host(.near) 响应）
     if (!window.__tabboardSideReveal) {
       window.__tabboardSideReveal = true;
       document.addEventListener('mousemove', (e) => {
-        document.body.classList.toggle('tabboard-side-near', e.clientX > window.innerWidth - 40);
+        const near = e.clientX > window.innerWidth - 40;
+        document.body.classList.toggle('tabboard-side-near', near);
+        document.querySelectorAll('[id$="-sidebar"]:not([id$="-panel"]):not([id$="-trigger"])')
+          .forEach(host => host.classList.toggle('near', near));
       });
     }
+
+    document.body.appendChild(wrapper);   // host 最后挂到 body
+  }
+
+  // 主文档查询 shadow 子树：走 wrapper.shadowRoot（document.getElementById 只能查到 host）
+  function getShadow() {
+    const w = document.getElementById(WRAPPER_ID);
+    return w && w.shadowRoot;
   }
 
   // 显示条件：master 总开关开 + 本圆环子开关开（两者都用 === false 判断，undefined 视为开）
@@ -202,7 +225,7 @@ content script 不会自动重新注入已打开的页面，**必须刷新页面
     try {
       const res = await chrome.runtime.sendMessage({ action: 'getSettings' });
       const s = res.success ? (res.settings || {}) : {};
-      if (shouldHide(s)) return;   // master 或子开关任一关闭都不显示
+      if (shouldHide(s)) return;
       build();
     } catch (err) { /* 扩展上下文可能失效 */ }
   }
@@ -310,6 +333,37 @@ document.addEventListener('click', (e) => { if(!wrapper.contains(e.target)) wrap
 **后果**：①老用户 settings 无此 key（undefined），`=== true` 判 false，所有圆环凭空消失；②`opacity:0` 的圆环仍被 hover/mousemove 触发，"隐藏"了还能弹出来。
 **✅ 正确**：用 `=== false` 判断（undefined 默认开，向后兼容）；关闭时 `wrapper.remove()` 移除 DOM。
 
+### 坑 10：Shadow DOM 内用 `#host-id` 选 host 自身（最高频）
+
+**❌ 错误**：`#tabboard-xxx-sidebar.expanded #panel`、`#tabboard-xxx-sidebar { --accent: ... }`
+**后果**：shadow 内 `#host-id` 选不到 host（host 是 shadow root，不是自己的后代）→ 状态不响应（点了没反应）/ CSS 变量丢失（蓝色全没）。**这是 Shadow DOM 改造后最容易连踩的坑。**
+**✅ 正确**：host 自身的样式、状态、变量定义一律 `:host` / `:host(.expanded)` / `:host(.near)`。详见 `shadow-dom-isolation.md`。
+
+### 坑 11：Shadow DOM 内查询子树用 `document.getElementById`
+
+**❌ 错误**：`document.getElementById(WRAPPER_ID + '-panel')` → 返回 null
+**后果**：refreshStats / 同步开关等更新逻辑静默失效。
+**✅ 正确**：`const shadow = document.getElementById(WRAPPER_ID).shadowRoot; shadow.getElementById(...)`。host 本身在主文档可查，只有子树在 shadow 内。
+
+### 坑 12：跨 shadow boundary 用 `body.class` 联动
+
+**❌ 错误**：`body.tabboard-side-near #trigger { ... }`
+**后果**：body 在 shadow 外，shadow 内 CSS 选不到 → hover 近场浮现失效。
+**✅ 正确**：`:host(.near) #trigger`，JS 在主文档 mousemove 里同时 toggle `body` 和每个 host 的 `.near` class（模板里的 mousemove 块已含）。
+
+---
+
+## 视觉同步关键（多文件，效果一致）
+
+多个圆环是**独立的 content script 文件**，但用户感知是"一组协调的圆环"。视觉同步靠这几条：
+
+1. **共享浮现触发**：`window.__tabboardSideReveal` 幂等注册一次 mousemove，鼠标靠近右边缘时**同时**给 `body` 和**所有** host 加 `.near`（`:host(.near)` 响应）。一个圆环文件注册，全局生效。
+2. **统一 transition 参数**：所有圆环 trigger 用 `right 220ms ease, opacity 180ms ease`，panel 用 `transform 240ms cubic-bezier(.16,1,.3,1)`。参数一致 = 动效完全同步。
+3. **统一位置公式**：`top: calc(50% + 52 * N px)`，N=0,1,2... 按 manifest 注册顺序。trigger 和 panel **必须同 top**。
+4. **统一收起逻辑**：每个圆环 `setTimeout(0)` 绑 document click，点外部收起；事件 retarget 到 host，`wrapper.contains(e.target)` 判断成立。
+
+> 这四条缺任何一条，多圆环就会出现"一个先出一个后出""间距不对""hover 这个那个没反应"。
+
 ---
 
 ## 可选优化：抽公共 setup 文件
@@ -322,7 +376,10 @@ window.setupSideReveal = function () {
   if (window.__tabboardSideReveal) return;
   window.__tabboardSideReveal = true;
   document.addEventListener('mousemove', (e) => {
-    document.body.classList.toggle('tabboard-side-near', e.clientX > window.innerWidth - 40);
+    const near = e.clientX > window.innerWidth - 40;
+    document.body.classList.toggle('tabboard-side-near', near);
+    document.querySelectorAll('[id$="-sidebar"]:not([id$="-panel"]):not([id$="-trigger"])')
+      .forEach(host => host.classList.toggle('near', near));
   });
 };
 ```
@@ -334,14 +391,17 @@ window.setupSideReveal = function () {
 ## 检查清单
 
 - [ ] 新建独立 `content/xxxSidebar.js`，没塞进别的圆环文件
-- [ ] `WRAPPER_ID` 唯一，所有 id/class 都带这个前缀
+- [ ] `WRAPPER_ID` 唯一（host id，主文档可见）
 - [ ] trigger 和 panel 用**不同的** `top`（按 52px 间距往下排），且两者 top 一致
-- [ ] trigger `position: fixed`，不在 flex wrapper 里
+- [ ] **Shadow DOM 装配**：`attachShadow`，style + trigger + panel 都进 shadow
+- [ ] host 自身样式/变量/状态用 `:host` / `:host(.expanded)` / `:host(.near)`，**不用 `#host-id`**
+- [ ] `--accent` 等 CSS 变量定义在 `:host` 上
 - [ ] trigger 只放单一标识，无进度/计数装饰
-- [ ] 用 `body.tabboard-side-near` 共享浮现，**不建自己的 hover-zone**
-- [ ] mousemove 幂等注册（`window.__tabboardSideReveal` 标记）
-- [ ] transition 参数和现有圆环一致（动效统一）
-- [ ] 点击外部收起，`setTimeout(0)` 延一帧绑
+- [ ] 近场浮现用 `:host(.near)`，mousemove 幂等注册（`window.__tabboardSideReveal`）且**同时 toggle body 和所有 host 的 .near**
+- [ ] transition 参数和现有圆环一致（`right 220ms / opacity 180ms`，动效统一）
+- [ ] 点击外部收起，`setTimeout(0)` 延一帧绑；`wrapper.contains(e.target)` 判断（retarget 后仍成立）
+- [ ] 主文档查询 shadow 子树走 `wrapper.shadowRoot`，不用 `document.getElementById(panel)`
+- [ ] `:host` 显式设 `font-family`（防宿主字体穿透）
 - [ ] 写 settings 用 `updateSettings` action（合并语义），不直接 set
 - [ ] **接入 master 总开关**：init 检查 `ringSidebarEnabled === false` 不显示；监听关→`remove()` DOM、开→`build()`
 - [ ] master 判断用 `=== false`（undefined 默认开，向后兼容老用户）

@@ -17,9 +17,10 @@ description: 当用户要求创建"注入DOM的流程"、创建"悬浮展开的d
 
 | 你的任务 | 读这篇 | 这篇讲什么 |
 |---------|--------|-----------|
-| 做「hover 近场浮现」入口（静止不可见、靠近右边缘才滑入、点击展开） | `references/hover-reveal.md` | CSS `:has()` 联动、触发带、`setTimeout(0)` 绑监听等技术机制与坑 |
+| 做「hover 近场浮现」入口（静止不可见、靠近右边缘才滑入、点击展开） | `references/hover-reveal.md` | CSS `:has()`/触发带/`setTimeout(0)` 绑监听等机制与坑（未隔离版） |
+| **注入 UI 要防宿主页 CSS reset / 类名撞车**（Notion/Linear/Figma 失效） | `references/shadow-dom-isolation.md` | Shadow DOM 装配 + 6 个必踩坑（`:host` 选 host、变量定义、shadowRoot 查询、事件 retarget、字体穿透、状态联动） |
 | 决定入口的 UX（要不要塞进度、怎么收起、打扰程度、入口放什么内容） | `references/ux-design-style.md` | 克制浮现 / 入口单一职责 / 分层交互 / 低关闭成本 四准则 |
-| **已有圆环、要新增一个**悬浮入口（番茄钟、AI 助手、稍后读等） | `references/adding-a-new-ring.md` | 6 步流程 + 可直接抄的代码模板（含 master + 子开关双守卫）+ 9 个错误样本（❌ vs ✅）+ 检查清单 |
+| **已有圆环、要新增一个**悬浮入口（番茄钟、AI 助手、稍后读等） | `references/adding-a-new-ring.md` | 6 步流程 + Shadow DOM 版可抄模板 + 12 个错误样本（❌ vs ✅）+ 视觉同步关键 + 检查清单 |
 
 **阅读顺序建议**：先读本 SKILL.md 理解整体架构 → 按任务匹配读对应 reference → 实现时对照该 reference 末尾的检查清单逐项核对。
 
