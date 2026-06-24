@@ -621,10 +621,10 @@
     };
     setTimeout(() => document.addEventListener('click', onDocClick), 0);
 
-    // todo 区域的"点击标题刷新"绑定
-    bindTodoRefreshClick();
-
+    // todo 区域的"点击标题刷新"绑定（必须在 wrapper appendChild 到 body 之后，
+    // 否则 document.getElementById 查不到 host，bindTodoRefreshClick 早 return，listener 永远没绑）
     document.body.appendChild(wrapper);
+    bindTodoRefreshClick();
   }
 
   function buildTodoSection() {
