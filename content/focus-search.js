@@ -112,6 +112,16 @@ function safeUrl(url) {
   return '';
 }
 
+// 扩展上下文是否仍然有效（service worker 重启/扩展被卸载后变为 false）
+function isExtensionContextAlive() {
+  try {
+    // chrome.runtime.id 在 context invalidated 时访问会抛错
+    return !!(chrome && chrome.runtime && chrome.runtime.id);
+  } catch (e) {
+    return false;
+  }
+}
+
 // ========== 浮层状态 ==========
 
 var allTabs = [];
@@ -145,7 +155,7 @@ function createOverlay() {
 
   var footer = document.createElement('div');
   footer.className = 'focus-search-footer';
-  footer.innerHTML = '<span><kbd>\u2191</kbd><kbd>\u2193</kbd> \u5bfc\u822a</span><span><kbd>Enter</kbd> \u8df3\u8f6c</span><span><kbd>Esc</kbd> \u5173\u95ed</span>';
+  footer.innerHTML = '<span><kbd>\u2191</kbd><kbd>\u2193</kbd> \u5bfc\u822a</span><span><kbd>Enter</kbd> \u8df3\u8f6c</span><span><kbd>Esc</kbd> \u5173\u95ed</span><span><kbd>&gt;</kbd> \u7cfb\u7edf\u9875</span>';
 
   modal.appendChild(header);
   modal.appendChild(results);
@@ -163,7 +173,12 @@ function bindOverlayEvents() {
 
   input.addEventListener('input', function() {
     var query = input.value.trim();
-    filteredResults = filterAndSortTabs(allTabs, query);
+    if (isSystemQuery(query)) {
+      var sysQuery = query.slice(1).trim();
+      filteredResults = filterAndSortSystemPages(sysQuery);
+    } else {
+      filteredResults = filterAndSortTabs(allTabs, query);
+    }
     selectedIndex = filteredResults.length > 0 ? 0 : -1;
     renderResults(query);
   });
@@ -211,6 +226,26 @@ async function jumpToSelected() {
   if (!item || !item.tab) return;
   var tab = item.tab;
 
+  if (item.kind === 'system') {
+    var url = tab.url;
+    closeOverlay();
+    if (!isExtensionContextAlive()) {
+      console.warn('[FocusSearch] Extension context invalidated - please reload the page (Alt+Shift+S).');
+      return;
+    }
+    // 复用 focusSearchSwitchTab：若标签页已存在则切换，否则创建
+    try {
+      chrome.runtime.sendMessage({ action: 'focusSearchSwitchTab', url: url }, function(response) {
+        if (chrome.runtime.lastError) {
+          console.warn('[FocusSearch] focusSearchSwitchTab lastError:', chrome.runtime.lastError.message);
+        }
+      });
+    } catch (e) {
+      console.error('[FocusSearch] Failed to switch system page:', e);
+    }
+    return;
+  }
+
   closeOverlay();
 
   try {
@@ -257,9 +292,13 @@ function renderResults(query) {
   if (!container) return;
 
   if (filteredResults.length === 0) {
-    container.innerHTML = '<div class="focus-search-empty">' +
-      (query ? '\u6ca1\u6709\u5339\u914d\u7684\u6807\u7b7e\u9875' : '\u6ca1\u6709\u6253\u5f00\u7684\u6807\u7b7e\u9875') +
-      '</div>';
+    var emptyMsg;
+    if (isSystemQuery(query)) {
+      emptyMsg = query.length > 1 ? '\u6ca1\u6709\u5339\u914d\u7684\u7cfb\u7edf\u9875' : '\u6ca1\u6709\u53ef\u7528\u7684\u7cfb\u7edf\u9875';
+    } else {
+      emptyMsg = query ? '\u6ca1\u6709\u5339\u914d\u7684\u6807\u7b7e\u9875' : '\u6ca1\u6709\u6253\u5f00\u7684\u6807\u7b7e\u9875';
+    }
+    container.innerHTML = '<div class="focus-search-empty">' + emptyMsg + '</div>';
     return;
   }
 
@@ -269,10 +308,20 @@ function renderResults(query) {
     if (!r || !r.tab || r.tab.id == null) continue;
     var tab = r.tab;
     var isSelected = i === selectedIndex ? ' selected' : '';
+    var isSystem = r.kind === 'system' ? ' system-source' : '';
     var isGroup = tab.source === 'group' ? ' group-source' : '';
     var audibleIcon = tab.audible ? '<span class="focus-search-audible" title="\u6b63\u5728\u64ad\u653e\u97f3\u9891">\ud83d\udd0a</span>' : '';
-    var favicon = safeUrl(tab.favIconUrl);
-    var faviconHtml = favicon ? '<img class="focus-search-favicon" src="' + favicon + '" onerror="this.style.opacity=\'0\'">' : '';
+
+    var faviconHtml = '';
+    if (r.kind === 'system' && r.icon) {
+      faviconHtml = '<span class="focus-search-system-icon">' + escapeHtml(r.icon) + '</span>';
+    } else {
+      var favicon = safeUrl(tab.favIconUrl);
+      if (favicon) {
+        faviconHtml = '<img class="focus-search-favicon" src="' + favicon + '" onerror="this.style.opacity=\'0\'">';
+      }
+    }
+
     var title = r.matchType === 'fuzzy'
       ? highlightFuzzy(tab.title || '\u65e0\u6807\u9898', query)
       : highlightMatch(tab.title || '\u65e0\u6807\u9898', query);
@@ -282,7 +331,7 @@ function renderResults(query) {
     var shortUrl = rawUrl.length > TRUNCATE ? rawUrl.substring(0, TRUNCATE) + '...' : rawUrl;
     var urlClass = 'focus-search-url';
     var urlHtml;
-    if (!query) {
+    if (!query || isSystemQuery(query)) {
       urlHtml = escapeHtml(shortUrl);
     } else {
       var ql = query.toLowerCase();
@@ -297,7 +346,7 @@ function renderResults(query) {
     }
 
     htmlParts.push(
-      '<div class="focus-search-item' + isSelected + isGroup + '" data-index="' + i + '">' +
+      '<div class="focus-search-item' + isSelected + isGroup + isSystem + '" data-index="' + i + '">' +
       faviconHtml +
       audibleIcon +
       '<div class="focus-search-content">' +
@@ -327,6 +376,92 @@ function closeOverlay() {
   filteredResults = [];
   selectedIndex = -1;
   allTabs = [];
+}
+
+// ========== 开发者系统页面 ==========
+
+// Edge / Chrome 浏览器系统页面
+var DEV_PAGES = [
+  { name: '扩展管理', path: '/extensions', icon: '🧩' },
+  { name: '快捷键设置', path: '/extensions/shortcuts', icon: '⌨️' },
+  { name: '实验功能', path: '/flags', icon: '🧪' },
+  { name: '设置', path: '/settings', icon: '⚙️' },
+  { name: '清除浏览数据', path: '/settings/clearBrowserData', icon: '🧹' },
+  { name: '下载', path: '/downloads', icon: '📥' },
+  { name: '书签', path: '/bookmarks', icon: '🔖' },
+  { name: '历史记录', path: '/history', icon: '🕘' },
+  { name: '已安装应用', path: '/apps', icon: '📦' },
+  { name: '开发者工具 - 设备', path: '/inspect/#devices', icon: '🔧' },
+  { name: '系统信息', path: '/version', icon: 'ℹ️' }
+];
+
+var BROWSER_PROTOCOL_KEYS = ['Edge', 'Edg', 'EdgA', 'EdgiOS', 'EdgA_iOS'];
+
+function detectBrowserProtocol() {
+  var ua = (navigator.userAgent || '');
+  for (var i = 0; i < BROWSER_PROTOCOL_KEYS.length; i++) {
+    if (ua.indexOf(BROWSER_PROTOCOL_KEYS[i]) !== -1) return 'edge';
+  }
+  return 'chrome';
+}
+
+function isSystemQuery(query) {
+  return typeof query === 'string' && query.charAt(0) === '>';
+}
+
+// 把一个 DEV_PAGE 转换成与标签页结果同构的对象
+function devPageToResult(page) {
+  var protocol = detectBrowserProtocol();
+  var fullUrl = protocol + ':' + page.path;
+  return {
+    kind: 'system',
+    tab: {
+      id: 'system_' + page.path,
+      title: page.name,
+      url: fullUrl,
+      favIconUrl: ''
+    },
+    icon: page.icon,
+    score: 2,
+    matchType: ''
+  };
+}
+
+function matchSystemPage(page, q) {
+  var audibleBonus = 0;
+  if (!q) return { score: 2 + audibleBonus, matchType: '' };
+  var ql = q.toLowerCase();
+  var name = (page.name || '').toLowerCase();
+  var path = (page.path || '').toLowerCase();
+  if (name === ql) return { score: 100 + audibleBonus, matchType: 'exact' };
+  if (name.startsWith(ql)) return { score: 80 + audibleBonus, matchType: 'prefix' };
+  if (name.includes(ql)) return { score: 60 + audibleBonus, matchType: 'contains' };
+  if (path.includes(ql)) return { score: 40 + audibleBonus, matchType: 'url' };
+  if (fuzzyMatchOrdered(name, ql)) return { score: 20 + audibleBonus, matchType: 'fuzzy' };
+  return { score: 0, matchType: '' };
+}
+
+function filterAndSortSystemPages(query) {
+  if (!query.trim()) {
+    return DEV_PAGES.map(function(p) {
+      var r = devPageToResult(p);
+      r.score = 2;
+      return r;
+    });
+  }
+  return DEV_PAGES
+    .map(function(p) {
+      var m = matchSystemPage(p, query);
+      return {
+        kind: 'system',
+        tab: { id: 'system_' + p.path, title: p.name, url: detectBrowserProtocol() + ':' + p.path, favIconUrl: '' },
+        icon: p.icon,
+        score: m.score,
+        matchType: m.matchType
+      };
+    })
+    .filter(function(r) { return r.score > 0; })
+    .sort(function(a, b) { return b.score - a.score; });
 }
 
 // ========== 初始化 ==========

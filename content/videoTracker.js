@@ -164,17 +164,39 @@
 
     reportProgress() {
       const currentUrl = window.location.href;
+      // 如果扩展上下文已失效（service worker 重启/扩展被卸载），静默停止上报避免刷屏
+      let contextAlive = false;
+      try {
+        contextAlive = !!(chrome && chrome.runtime && chrome.runtime.id);
+      } catch (e) {
+        contextAlive = false;
+      }
+      if (!contextAlive) {
+        if (this.reportInterval) {
+          clearInterval(this.reportInterval);
+          this.reportInterval = null;
+        }
+        return;
+      }
       this.trackedVideos.forEach((info) => {
         if (info.duration > 0) {
-          chrome.runtime.sendMessage({
-            action: 'updateVideoProgress',
-            url: currentUrl,
-            duration: info.duration,
-            watched: info.watched
-            // title 由用户导入时设定，进度上报不覆盖
-          }).catch(() => {
-            // Extension may not be ready or page unloaded
-          });
+          try {
+            chrome.runtime.sendMessage({
+              action: 'updateVideoProgress',
+              url: currentUrl,
+              duration: info.duration,
+              watched: info.watched
+              // title 由用户导入时设定，进度上报不覆盖
+            }).catch(() => {
+              // Extension may not be ready or page unloaded
+            });
+          } catch (e) {
+            // context invalidated during send - stop the interval
+            if (this.reportInterval) {
+              clearInterval(this.reportInterval);
+              this.reportInterval = null;
+            }
+          }
         }
       });
     },
