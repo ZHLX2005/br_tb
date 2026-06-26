@@ -233,15 +233,16 @@ async function jumpToSelected() {
       console.warn('[FocusSearch] Extension context invalidated - please reload the page (Alt+Shift+S).');
       return;
     }
-    // 复用 focusSearchSwitchTab：若标签页已存在则切换，否则创建
+    // 走 openTab（与 modules/timeline 一致，Edge 已验证可打开 edge:// URL）
+    // 由 background 直接 chrome.tabs.create，简单可靠
     try {
-      chrome.runtime.sendMessage({ action: 'focusSearchSwitchTab', url: url }, function(response) {
+      chrome.runtime.sendMessage({ action: 'openTab', url: url }, function(response) {
         if (chrome.runtime.lastError) {
-          console.warn('[FocusSearch] focusSearchSwitchTab lastError:', chrome.runtime.lastError.message);
+          console.warn('[FocusSearch] openTab lastError:', chrome.runtime.lastError.message);
         }
       });
     } catch (e) {
-      console.error('[FocusSearch] Failed to switch system page:', e);
+      console.error('[FocusSearch] Failed to open system page:', e);
     }
     return;
   }
@@ -310,11 +311,13 @@ function renderResults(query) {
     var isSelected = i === selectedIndex ? ' selected' : '';
     var isSystem = r.kind === 'system' ? ' system-source' : '';
     var isGroup = tab.source === 'group' ? ' group-source' : '';
-    var audibleIcon = tab.audible ? '<span class="focus-search-audible" title="\u6b63\u5728\u64ad\u653e\u97f3\u9891">\ud83d\udd0a</span>' : '';
+    var audibleIcon = tab.audible ? '<span class="focus-search-audible" title="\u6b63\u5728\u64ad\u653e\u97f3\u9891">\u25cf</span>' : '';
 
     var faviconHtml = '';
-    if (r.kind === 'system' && r.icon) {
-      faviconHtml = '<span class="focus-search-system-icon">' + escapeHtml(r.icon) + '</span>';
+    if (r.kind === 'system') {
+      // \u7cfb\u7edf\u9875\u7528\u540d\u79f0\u9996\u5b57\u7b26\u4f5c\u5360\u4f4d\uff08\u4e0d\u4f7f\u7528 emoji\uff09
+      var firstChar = (tab.title || '?').charAt(0);
+      faviconHtml = '<span class="focus-search-system-icon">' + escapeHtml(firstChar) + '</span>';
     } else {
       var favicon = safeUrl(tab.favIconUrl);
       if (favicon) {
@@ -382,17 +385,17 @@ function closeOverlay() {
 
 // Edge / Chrome 浏览器系统页面
 var DEV_PAGES = [
-  { name: '扩展管理', path: '/extensions', icon: '🧩' },
-  { name: '快捷键设置', path: '/extensions/shortcuts', icon: '⌨️' },
-  { name: '实验功能', path: '/flags', icon: '🧪' },
-  { name: '设置', path: '/settings', icon: '⚙️' },
-  { name: '清除浏览数据', path: '/settings/clearBrowserData', icon: '🧹' },
-  { name: '下载', path: '/downloads', icon: '📥' },
-  { name: '书签', path: '/bookmarks', icon: '🔖' },
-  { name: '历史记录', path: '/history', icon: '🕘' },
-  { name: '已安装应用', path: '/apps', icon: '📦' },
-  { name: '开发者工具 - 设备', path: '/inspect/#devices', icon: '🔧' },
-  { name: '系统信息', path: '/version', icon: 'ℹ️' }
+  { name: '扩展管理', path: '/extensions' },
+  { name: '快捷键设置', path: '/extensions/shortcuts' },
+  { name: '实验功能', path: '/flags' },
+  { name: '设置', path: '/settings' },
+  { name: '清除浏览数据', path: '/settings/clearBrowserData' },
+  { name: '下载', path: '/downloads' },
+  { name: '书签', path: '/bookmarks' },
+  { name: '历史记录', path: '/history' },
+  { name: '已安装应用', path: '/apps' },
+  { name: '开发者工具 - 设备', path: '/inspect/#devices' },
+  { name: '系统信息', path: '/version' }
 ];
 
 var BROWSER_PROTOCOL_KEYS = ['Edge', 'Edg', 'EdgA', 'EdgiOS', 'EdgA_iOS'];

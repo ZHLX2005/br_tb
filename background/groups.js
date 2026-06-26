@@ -373,7 +373,28 @@ function setupGroupsListeners() {
         }
 
         case 'openTab': {
-          await chrome.tabs.create({ url: request.url });
+          // 去重：若已有同 URL 标签页，则激活它，避免重复创建
+          // 优先匹配当前聚焦窗口的标签页
+          const url = request.url;
+          if (url) {
+            const existing = await chrome.tabs.query({ url: url });
+            if (existing && existing.length > 0) {
+              // 当前聚焦窗口优先
+              const win = await chrome.windows.getCurrent();
+              const inCurrent = existing.find(t => t.windowId === win.id);
+              const target = inCurrent || existing[0];
+              try {
+                await chrome.tabs.update(target.id, { active: true });
+                await chrome.windows.update(target.windowId, { focused: true });
+                sendResponse({ success: true, reused: true });
+                break;
+              } catch (e) {
+                // 切到现有 tab 失败（极少见）则 fallthrough 到 create
+                console.warn('[TabBoard] openTab switch failed, falling back to create:', e);
+              }
+            }
+          }
+          await chrome.tabs.create({ url: url });
           sendResponse({ success: true });
           break;
         }
