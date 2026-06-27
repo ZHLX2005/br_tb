@@ -42,6 +42,11 @@
       "matches": ["<all_urls>"],
       "js": ["content/inject/goto/goto.js"],
       "run_at": "document_end"
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content/timerSidebar.js"],
+      "run_at": "document_end"
     }
   ],
   "action": {

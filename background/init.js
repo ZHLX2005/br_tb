@@ -79,6 +79,10 @@ export async function initializeDefaultData() {
       updatedSettings.showVpSidebar = true;
       needUpdate = true;
     }
+    if (updatedSettings.showTimerSidebar === undefined) {
+      updatedSettings.showTimerSidebar = true;
+      needUpdate = true;
+    }
     if (updatedSettings.lastView === undefined) {
       updatedSettings.lastView = 'timeline';
       needUpdate = true;
@@ -118,6 +122,17 @@ export async function initializeDefaultData() {
   const lcResult = await chrome.storage.local.get(['leetcodeProgress']);
   if (!lcResult.leetcodeProgress) {
     await chrome.storage.local.set({ leetcodeProgress: {} });
+  }
+
+  // 初始化计时器存储
+  const timerResult = await chrome.storage.local.get(['timerSessions', 'timerState']);
+  if (!timerResult.timerSessions) {
+    await chrome.storage.local.set({ timerSessions: [] });
+  }
+  if (!timerResult.timerState) {
+    await chrome.storage.local.set({
+      timerState: { isRunning: false, startTime: null, elapsed: 0 }
+    });
   }
 
   // 初始化 goto 圆环：检查是否存在 goto=true 的 group，若无则创建"📄 面包"分组

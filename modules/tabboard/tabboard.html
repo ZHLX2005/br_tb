@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="../group/style.css">
   <link rel="stylesheet" href="../timeline/style.css">
   <link rel="stylesheet" href="../leetcode/style.css">
-  <link rel="stylesheet" href="../../shared/ModalDialog.css">
+  <link rel="stylesheet" href="../timer/style.css">
 </head>
 <body>
   <div class="app">
@@ -27,6 +27,7 @@
           <button id="recordingViewBtn" class="nav-btn" title="标签录制">Rec</button>
           <button id="videoProgressViewBtn" class="nav-btn" title="视频进度">Video</button>
           <button id="leetcodeViewBtn" class="nav-btn" title="LeetCode 150">LC</button>
+          <button id="timerViewBtn" class="nav-btn" title="时间日志">Timer</button>
         </nav>
         <div class="header-actions">
           <button id="refreshBtn" class="btn btn-secondary" title="刷新">Refresh</button>
@@ -52,6 +53,11 @@
     <!-- LeetCode 视图 -->
     <div id="leetcodeView" class="view-container" style="display: none;">
       <div id="leetcodePanel"></div>
+    </div>
+
+    <!-- Timer 视图 -->
+    <div id="timerView" class="view-container" style="display: none;">
+      <div id="timerPanel"></div>
     </div>
 
     <!-- 空状态 -->
