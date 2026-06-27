@@ -372,6 +372,40 @@
   color: #1976d2;
 }
 
+/* 删除按钮（日视图 & 最近记录共用） */
+.tm-session-del {
+  background: transparent;
+  border: none;
+  color: #ccc;
+  font-size: 14px;
+  line-height: 1;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 120ms, background 120ms;
+  margin-left: auto;
+  opacity: 0;
+  pointer-events: none;
+  font-family: inherit;
+}
+
+.tm-session-row:hover .tm-session-del,
+.tm-recent-row:hover .tm-session-del {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.tm-session-del:hover {
+  background: #ffebee;
+  color: #e53935;
+}
+
 /* ========== 近期记录 ========== */
 
 .tm-recent-header {
@@ -424,9 +458,10 @@
 }
 
 .tm-recent-dur {
-  margin-left: auto;
   font-weight: 600;
   color: #1976d2;
+  min-width: 48px;
+  text-align: right;
 }
 
 /* ========== 空状态 ========== */

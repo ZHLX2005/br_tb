@@ -109,6 +109,38 @@ const panel = wrapper.shadowRoot.getElementById(WRAPPER_ID + '-panel');
 
 **✅** 在 `:host` 或根元素显式设 `font-family` / `color` / `font-size`，别依赖默认。
 
+### 坑 7（必踩）：host 的 `top` 必须用 `50%`，不能带 offset
+
+**❌** 新圆环常犯的错误：
+```css
+:host {
+  position: fixed;
+  top: calc(50% + 104px);  /* host 带了偏移 */
+  transform: translateY(-50%);
+}
+```
+**后果**：host 的 `transform: translateY(-50%)` 使 host 自身变成 `position: fixed` 子元素的包含块。trigger/panel 的 `position: fixed; top: calc(50% + 104px)` 不再以视口为参照，而是相对于 host 的变换后边界框，偏移叠加 → **圆环偏下 N 个槽位**。
+
+常见错误是 VC 等其他内容脚本中用同样的公式，看起来"差不多对了但偏下"。
+
+**✅** host 始终保持 `top: 50%`，offset 只加在 trigger 和 panel 上：
+```css
+:host { position: fixed; top: 50%; right: 0; transform: translateY(-50%); }
+
+#trigger {
+  position: fixed;
+  top: calc(50% + 104px);   /* √ offset 只在此处 */
+  transform: translateY(-50%);
+}
+
+#panel {
+  position: fixed;
+  top: calc(50% + 104px);   /* √ offset 与此一致 */
+}
+```
+
+> **规律**：`:host` 的 `top` 永远是 `50%`，像 LC 一样居中。`calc(50% + 52 * N px)` 只出现在 trigger 和 panel 上。所有圆环（LC、VP、Timer）都是这个模式。
+
 ## 错误样本汇总
 
 | ❌ 错误 | 后果 | ✅ 正确 |
@@ -120,11 +152,13 @@ const panel = wrapper.shadowRoot.getElementById(WRAPPER_ID + '-panel');
 | `body.near #trigger` | body 在 shadow 外 | `:host(.near) #trigger` + JS 同步 host class |
 | `document.querySelector('#panel ...')` | 返回 null | `wrapper.shadowRoot.querySelector(...)` |
 | 不设 `:host { font-family }` | 宿主字体穿透进来 | 显式设 |
+| `:host { top: calc(50% + offset) }` | trigger/panel 偏移叠加，圆环偏下 | host 用 `top: 50%`，offset 只加 trigger/panel |
 
 ## 检查清单
 
 - [ ] `attachShadow({ mode: 'open' })` 装配，style + trigger + panel 都进 shadow
 - [ ] host 自身样式/变量用 `:host`，不用 `#id`
+- [ ] **host 的 `top` 用 `50%`（不带 offset），offset 只加在 trigger 和 panel 上**
 - [ ] 状态联动用 `:host(.state)` + JS 在主文档 mousemove 里同步 host class
 - [ ] 主文档 DOM 查询走 `wrapper.shadowRoot`
 - [ ] `:host` 显式设 `font-family`/`color`/`font-size`（防穿透）

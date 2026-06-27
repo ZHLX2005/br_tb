@@ -335,9 +335,10 @@ class TimerView {
         var endStr = (end.getHours() < 10 ? '0' : '') + end.getHours() + ':' + (end.getMinutes() < 10 ? '0' : '') + end.getMinutes();
         var durStr = self._formatDurationShort(s.duration);
         listHtml +=
-          '<div class="tm-session-row">' +
+          '<div class="tm-session-row" data-session-id="' + self._escapeHtml(s.id) + '">' +
           '<span class="tm-session-time">' + startStr + ' - ' + endStr + '</span>' +
           '<span class="tm-session-dur">' + durStr + '</span>' +
+          '<button class="tm-session-del" data-session-id="' + self._escapeHtml(s.id) + '" title="删除此条">×</button>' +
           '</div>';
       }
     }
@@ -372,10 +373,11 @@ class TimerView {
       var timeStr = (d.getHours() < 10 ? '0' : '') + d.getHours() + ':' + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes();
       var durStr = self._formatDurationShort(s.duration);
       items +=
-        '<div class="tm-recent-row">' +
+        '<div class="tm-recent-row" data-session-id="' + self._escapeHtml(s.id) + '">' +
         '<span class="tm-recent-date">' + dateStr + '</span>' +
         '<span class="tm-recent-time">' + timeStr + '</span>' +
         '<span class="tm-recent-dur">' + durStr + '</span>' +
+        '<button class="tm-session-del" data-session-id="' + self._escapeHtml(s.id) + '" title="删除此条">×</button>' +
         '</div>';
     }
 
@@ -418,6 +420,18 @@ class TimerView {
           self.render();
         });
       })(navBtns[j]);
+    }
+
+    // 删除按钮
+    var delBtns = this.container.querySelectorAll('.tm-session-del');
+    for (var k = 0; k < delBtns.length; k++) {
+      (function (btn) {
+        btn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          var id = btn.dataset.sessionId;
+          if (id) self._deleteSession(id);
+        });
+      })(delBtns[k]);
     }
   }
 
@@ -574,6 +588,17 @@ class TimerView {
     if (minutes <= 30) return 2;
     if (minutes <= 60) return 3;
     return 4;
+  }
+
+  _deleteSession(sessionId) {
+    if (!sessionId || !this.sessions.length) return;
+    var self = this;
+    // 从缓存中移除
+    this.sessions = this.sessions.filter(function (s) { return s.id !== sessionId; });
+    // 持久化
+    chrome.storage.local.set({ timerSessions: this.sessions }, function () {
+      self.render();
+    });
   }
 
   _formatDurationShort(seconds) {
