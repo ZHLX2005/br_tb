@@ -14,6 +14,11 @@
   const ACCENT = '#42a5f5';
 
   const STYLES = `
+    :host {
+      position: fixed; top: 50%; right: 0;
+      z-index: 999999;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
     #${WRAPPER_ID}-trigger {
       width: 40px; height: 40px; border-radius: 50%; background: white;
       box-shadow: 0 2px 12px rgba(0,0,0,0.15); cursor: pointer;
@@ -107,6 +112,8 @@
     if (!window.__tabboardSideReveal) {
       window.__tabboardSideReveal = true;
       document.addEventListener('mousemove', (e) => {
+        // 拖动期间屏蔽 hover-reveal，避免圆环被重新贴回右边
+        if (window.__tabboardRingDragging) return;
         const near = e.clientX > window.innerWidth - 40;
         document.body.classList.toggle('tabboard-side-near', near);
         document.querySelectorAll('[id$="-sidebar"]:not([id$="-panel"]):not([id$="-trigger"])').forEach(host => {
@@ -162,6 +169,13 @@
     setTimeout(() => document.addEventListener('click', onDocClick), 0);
 
     document.body.appendChild(wrapper);
+
+    // 启用拖动 + 位置记忆（必须 appendChild 之后，pointer 事件才能在 host 上传递）
+    window.__tabboardRingDrag?.attach(
+      shadow.getElementById(WRAPPER_ID + '-trigger'),
+      shadow.getElementById(WRAPPER_ID + '-panel'),
+      { ringIndex: 1 }
+    );
   }
 
   function syncSwitches(settings) {

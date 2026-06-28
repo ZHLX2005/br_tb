@@ -237,7 +237,6 @@
       position: fixed;
       top: 50%;
       right: 0;
-      transform: translateY(-50%);
       z-index: 999999;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       --accent: #42a5f5;
@@ -492,6 +491,8 @@
     if (!window.__tabboardSideReveal) {
       window.__tabboardSideReveal = true;
       document.addEventListener('mousemove', (e) => {
+        // 拖动期间屏蔽 hover-reveal，避免圆环被重新贴回右边
+        if (window.__tabboardRingDragging) return;
         const near = e.clientX > window.innerWidth - 40;
         document.body.classList.toggle('tabboard-side-near', near);
         // 同步通知所有 shadow host（每个圆环的 wrapper）
@@ -625,6 +626,13 @@
     // 否则 document.getElementById 查不到 host，bindTodoRefreshClick 早 return，listener 永远没绑）
     document.body.appendChild(wrapper);
     bindTodoRefreshClick();
+
+    // 启用拖动 + 位置记忆（必须 appendChild 之后，pointer 事件才能在 host 上传递）
+    window.__tabboardRingDrag?.attach(
+      shadow.getElementById(WRAPPER_ID + '-trigger'),
+      shadow.getElementById(WRAPPER_ID + '-panel'),
+      { ringIndex: 0 }
+    );
   }
 
   function buildTodoSection() {

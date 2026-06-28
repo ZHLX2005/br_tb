@@ -295,6 +295,7 @@ function updateSubToggles(enabled) {
 | content script 用 import 加载数据 | content 脚本不能使用 ES module import | 数据内联或通过 message 从 background 获取 |
 | 不用 Shadow DOM | 宿主页（Notion/Figma）CSS reset 穿透，圆环样式失效 | `attachShadow({ mode: 'open' })`，style + trigger + panel 都进 shadow |
 | host 的 `top` 带偏移（`calc(50% + 104px)`） | host 的 `transform` 影响 shadow 内 `position: fixed` 子元素的包含块，偏移叠加，圆环偏下 | host 用 `top: 50%`，offset 只加在 trigger 和 panel 上 |
+| **多 ring host CSS 不一致**（一个有 `transform`，其他没有） | 拖动后 inline `top` 看着对，但 `getBoundingClientRect()` 差 530px（两个 ring 在不同坐标系） | 所有 ring 用同一份 `:host` 模板，字节级一致，**严禁在 host 加 `transform`**。多 ring 拖动场景必读 `draggable-ring.md` |
 | `style` 注入 `document.head` | CSS 不被隔离，宿主可覆盖 | 注入 `shadow.appendChild(style)` |
 | popup 设置逻辑混入 videoProgress.js | 职责混乱，video 模块被污染 | 创建独立的 `xxxSettings.js` |
 | 写 settings 用 `storage.set({ settings: { key: val } })` 整体覆盖 | 清掉其他 setting key | 用 `updateSettings` action（合并语义） |

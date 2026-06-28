@@ -119,10 +119,10 @@ content script 不会自动重新注入已打开的页面，**必须刷新页面
   const ACCENT = '#42a5f5';
 
   const STYLES = `
-    /* host 自身样式 + CSS 变量必须用 :host（shadow 内 #id 选不到 host） */
+    /* host 自身样式 + CSS 变量必须用 :host（shadow 内 #id 选不到 host）
+       严禁加 transform: 会创建 containing block，多 ring 拖动时坐标系混乱 */
     :host {
       position: fixed; top: 50%; right: 0;
-      transform: translateY(-50%);
       z-index: 999999;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;  /* 防宿主字体穿透 */
       --accent: ${ACCENT};
@@ -395,6 +395,7 @@ window.setupSideReveal = function () {
 - [ ] trigger 和 panel 用**不同的** `top`（按 52px 间距往下排），且两者 top 一致
 - [ ] **Shadow DOM 装配**：`attachShadow`，style + trigger + panel 都进 shadow
 - [ ] host 自身样式/变量/状态用 `:host` / `:host(.expanded)` / `:host(.near)`，**不用 `#host-id`**
+- [ ] **`:host` 不要加 `transform`**(会创建 containing block，多 ring 拖动场景下其他 ring 坐标系错乱)
 - [ ] `--accent` 等 CSS 变量定义在 `:host` 上
 - [ ] trigger 只放单一标识，无进度/计数装饰
 - [ ] 近场浮现用 `:host(.near)`，mousemove 幂等注册（`window.__tabboardSideReveal`）且**同时 toggle body 和所有 host 的 .near**

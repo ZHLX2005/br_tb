@@ -23,7 +23,6 @@
       position: fixed;
       top: 50%;
       right: 0;
-      transform: translateY(-50%);
       z-index: 999999;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       --accent: ${ACCENT};
@@ -94,9 +93,32 @@
     #timer-btn.idle { background: #43a047; }
     #timer-btn.idle::after { content: '\\25B6'; }
     #timer-btn.stopped::after { content: '\\25B6'; }
+    #timer-btn.paused::after { content: '\\25B6'; }
+    /* 暂停态按钮 = 绿色 */
+    #timer-btn.paused { background: #43a047; }
+
+    /* 暂停时出现的"结束"按钮 */
+    #timer-stop-btn {
+      display: none;
+      background: transparent;
+      border: none;
+      color: #e53935;
+      font-size: 10px;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: inherit;
+      line-height: 1;
+      margin-left: 4px;
+    }
+    #timer-stop-btn:hover {
+      background: #ffebee;
+    }
+    #timer-stop-btn.visible { display: inline-block; }
 
     #timer-state-label {
       font-size: 10px; color: #999; text-align: center; margin-top: 2px;
+      display: flex; align-items: center; justify-content: center; gap: 2px;
     }
     #timer-last-session {
       font-size: 9px; color: #bbb; text-align: center; margin-top: -2px;
@@ -139,6 +161,8 @@
     if (!window.__tabboardSideReveal) {
       window.__tabboardSideReveal = true;
       document.addEventListener('mousemove', function (e) {
+        // 拖动期间屏蔽 hover-reveal，避免圆环被重新贴回右边
+        if (window.__tabboardRingDragging) return;
         var near = e.clientX > window.innerWidth - 40;
         document.body.classList.toggle('tabboard-side-near', near);
         document.querySelectorAll('[id$="-sidebar"]:not([id$="-panel"]):not([id$="-trigger"])').forEach(function (host) {
@@ -158,7 +182,7 @@
       '<div id="timer-body">' +
       '<div id="timer-display" class="idle">00:00</div>' +
       '<button id="timer-btn" class="idle"></button>' +
-      '<div id="timer-state-label">点击开始计时</div>' +
+      '<div id="timer-state-label"><span id="timer-label-text">点击开始计时</span><button id="timer-stop-btn">结束</button></div>' +
       '<div id="timer-last-session"></div>' +
       '</div>';
     shadow.appendChild(panel);
@@ -189,8 +213,24 @@
       });
     }
 
+    // 结束按钮（暂停后保存并重置）
+    var stopBtn = shadow.getElementById('timer-stop-btn');
+    if (stopBtn) {
+      stopBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        endSession();
+      });
+    }
+
     document.body.appendChild(wrapper);
     loadTimerState();
+
+    // 启用拖动 + 位置记忆（必须 appendChild 之后，pointer 事件才能在 host 上传递）
+    window.__tabboardRingDrag && window.__tabboardRingDrag.attach(
+      shadow.getElementById(WRAPPER_ID + '-trigger'),
+      shadow.getElementById(WRAPPER_ID + '-panel'),
+      { ringIndex: 2 }
+    );
   }
 
   // ========== 计时逻辑 ==========
@@ -222,7 +262,9 @@
 
   function toggleTimer() {
     if (timerState.isRunning) {
-      stopTimer();
+      pauseTimer();
+    } else if (timerState.elapsed > 0) {
+      resumeTimer();
     } else {
       startTimer();
     }
@@ -236,15 +278,33 @@
     refreshDisplay();
   }
 
-  function stopTimer() {
-    timerState.isRunning = false;
-    var finalElapsed = timerState.elapsed;
-    timerState.elapsed = 0;
-    timerState.startTime = null;
+  function pauseTimer() {
     stopTick();
+    timerState.isRunning = false;
+    // elapsed 保留不变，不保存 session
     saveTimerState();
     refreshDisplay();
-    saveSession(finalElapsed);
+  }
+
+  function resumeTimer() {
+    timerState.isRunning = true;
+    timerState.startTime = Date.now() - timerState.elapsed;
+    saveTimerState();
+    startTick();
+    refreshDisplay();
+  }
+
+  function endSession() {
+    if (timerState.elapsed <= 0) return;
+    var finalElapsed = timerState.elapsed;
+    var finalStartTime = timerState.startTime; // 在重置前保存
+    timerState.elapsed = 0;
+    timerState.startTime = null;
+    timerState.isRunning = false;
+    stopTick();
+    saveTimerState();
+    saveSession(finalElapsed, finalStartTime);
+    refreshDisplay();
   }
 
   function startTick() {
@@ -280,13 +340,13 @@
     return h + 'h ' + m + 'm';
   }
 
-  function saveSession(elapsed) {
+  function saveSession(elapsed, startTime) {
     if (elapsed < 30000) return; // <30s 不记录
 
     var now = new Date();
     var session = {
       id: 'ts_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-      startTime: new Date(timerState.startTime).toISOString(),
+      startTime: startTime ? new Date(startTime).toISOString() : now.toISOString(),
       endTime: now.toISOString(),
       duration: Math.round(elapsed / 1000) // seconds
     };
@@ -327,27 +387,44 @@
     var lastLabel = panel.getElementById('timer-last-session');
 
     if (!display || !btn || !label) return;
+    var labelText = panel.getElementById('timer-label-text');
+    var stopBtn = panel.getElementById('timer-stop-btn');
+    if (!labelText) labelText = label;
 
     if (timerState.isRunning) {
       var ms = timerState.startTime ? (Date.now() - timerState.startTime) : 0;
       display.textContent = formatTime(ms);
       display.className = 'running';
       btn.className = 'running';
-      label.textContent = '点击停止';
+      labelText.textContent = '点击暂停';
+      if (stopBtn) stopBtn.className = '';
     } else if (timerState.elapsed > 0) {
       display.textContent = formatTime(timerState.elapsed);
       display.className = 'stopped';
-      btn.className = 'stopped';
-      label.textContent = '点击继续';
+      btn.className = 'paused';
+      labelText.textContent = '点击继续';
+      if (stopBtn) stopBtn.className = 'visible';
     } else {
       display.textContent = '00:00';
       display.className = 'idle';
       btn.className = 'idle';
-      label.textContent = '点击开始记时';
+      labelText.textContent = '点击开始计时';
+      if (stopBtn) stopBtn.className = '';
     }
 
-    // 显示最近一条记录
-    if (!timerState.isRunning && lastLabel) {
+    // 更新计时按钮 title 属性
+    if (timerState.isRunning) {
+      btn.title = '暂停';
+    } else if (timerState.elapsed > 0) {
+      btn.title = '继续';
+    } else {
+      btn.title = '开始';
+    }
+
+    // 显示最近一条记录（仅 idle 态，暂停态不显示）
+    if (timerState.elapsed > 0 && lastLabel) {
+      lastLabel.textContent = '';
+    } else if (timerState.elapsed === 0 && lastLabel) {
       try {
         chrome.storage.local.get(['timerSessions'], function (result) {
           var sessions = result.timerSessions || [];

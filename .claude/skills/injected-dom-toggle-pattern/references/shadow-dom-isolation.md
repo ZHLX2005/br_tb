@@ -141,6 +141,30 @@ const panel = wrapper.shadowRoot.getElementById(WRAPPER_ID + '-panel');
 
 > **规律**：`:host` 的 `top` 永远是 `50%`，像 LC 一样居中。`calc(50% + 52 * N px)` 只出现在 trigger 和 panel 上。所有圆环（LC、VP、Timer）都是这个模式。
 
+### 坑 7.1（多 ring 拖动必踩）：所有 ring 的 host CSS 必须完全一致
+
+**多 ring 联动拖动场景下**(每个 ring 是独立 content script,各自有自己的 `:host` 规则),**任何不一致**都会导致坐标系混乱:
+
+- 一个 ring host 有 `transform: translateY(-50%)` → 其内 trigger `position: fixed` 变相对 host(不相对视口)
+- 另一个 ring host 没有 transform → trigger fixed 相对视口
+- 两个 ring 拖动后 inline `top` 像素值相同, 但 `getBoundingClientRect().top` 差 200-500px → 看起来"间距乱"
+
+**症状**:拖动后三个 ring 视觉上不再保持 52px 间距;DevTools 看 `style.top` 对的(`39/91/143`),但 `getBoundingClientRect().top` 差 530px。
+
+**修复**:**所有 ring 的 `:host` 规则字节级一致**,**严禁在 host 加 `transform`**(更彻底)。用同一份 CSS 模板,不要各自分别写。
+
+```css
+:host {
+  position: fixed; top: 50%; right: 0;
+  z-index: 999999;
+  /* 注意: 绝对不要加 transform: translateY(-50%) */
+}
+```
+
+**trigger 的 `transform: translateY(-50%)` 是 OK 的**(它作用在 trigger 自己上,不影响 trigger 的 fixed containing block)。**但 host 的 transform 会**。
+
+详见 `draggable-ring.md` 的"Shadow DOM 协调"小节。
+
 ## 错误样本汇总
 
 | ❌ 错误 | 后果 | ✅ 正确 |
