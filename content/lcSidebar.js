@@ -543,11 +543,10 @@
       });
     });
 
-    // 关闭按钮
+    // 关闭按钮：仅收起当前面板（不写 settings，圆环和下次展开都保留）
     $('#' + WRAPPER_ID + '-close', panel).addEventListener('click', (e) => {
       e.stopPropagation();
       wrapper.classList.remove('expanded');
-      chrome.runtime.sendMessage({ action: 'updateSettings', settings: { showLcSidebar: false } });
     });
 
     // 打开全屏看板
