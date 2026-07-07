@@ -55,11 +55,12 @@ class BilibiliHistoryView {
     chrome.storage.session.get('biliHistoryCookies', (data) => {
       const stored = data && data.biliHistoryCookies;
       if (!stored || !stored.payload) return;
-      this.payload = stored.payload;
+      const payload = { days: 3, business: 'all', max_pages: 10, ...stored.payload };
+      this.payload = payload;
       this.masked = stored.masked || null;
       this.state = { kind: 'loading', masked: this.masked };
       this.render();
-      this._fetch(stored.payload, this.masked);
+      this._fetch(payload, this.masked);
     });
   }
 
@@ -86,7 +87,7 @@ class BilibiliHistoryView {
 
     return {
       ok: true,
-      payload: { sessdata, extra_cookies: extras },
+      payload: { days: 3, business: 'all', max_pages: 10, sessdata, extra_cookies: extras },
       masked: { sessdata: mask(sessdata) },
     };
   }
@@ -278,6 +279,8 @@ class BilibiliHistoryView {
     const items = this.items;
     const totalDuration = items.reduce((acc, it) => acc + (it.duration || 0), 0);
     const charts = this._buildChartsHTML();
+    const dataLast = items[0]?.view_at_iso?.slice(0, 10) ?? '?';
+    const dataFirst = items[items.length - 1]?.view_at_iso?.slice(0, 10) ?? '?';
 
     const header = `
       <div class="bili-summary">
@@ -286,7 +289,7 @@ class BilibiliHistoryView {
           <span class="dot"></span>
           <span>累计时长 <b>${this._fmtDuration(totalDuration)}</b></span>
           <span class="dot"></span>
-          <span>窗口 <b>${this.state.meta?.since_iso?.slice(0,10) ?? '?'}</b> → <b>${this.state.meta?.until_iso?.slice(0,10) ?? '?'}</b></span>
+          <span>数据 <b>${dataFirst}</b> → <b>${dataLast}</b></span>
           <span class="dot"></span>
           <span>分页 <b>${this.state.meta?.page_count ?? '?'}</b></span>
           <span class="dot"></span>
