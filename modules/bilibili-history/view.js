@@ -55,7 +55,7 @@ class BilibiliHistoryView {
     chrome.storage.session.get('biliHistoryCookies', (data) => {
       const stored = data && data.biliHistoryCookies;
       if (!stored || !stored.payload) return;
-      const payload = { days: 7, business: 'all', max_pages: 30, ...stored.payload };
+      const payload = { days: 7, business: 'all', max_pages: 10, ...stored.payload };
       this.payload = payload;
       this.masked = stored.masked || null;
       this.state = { kind: 'loading', masked: this.masked };
@@ -87,7 +87,7 @@ class BilibiliHistoryView {
 
     return {
       ok: true,
-      payload: { days: 7, business: 'all', max_pages: 30, sessdata, extra_cookies: extras },
+      payload: { days: 7, business: 'all', max_pages: 10, sessdata, extra_cookies: extras },
       masked: { sessdata: mask(sessdata) },
     };
   }
