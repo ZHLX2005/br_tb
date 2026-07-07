@@ -311,7 +311,7 @@ class BilibiliHistoryView {
     return `
     <div class="bili-error-bar">
       <span class="bili-error-icon">⚠</span>
-      <span class="bili-error-text">${msg}</span>
+      <span class="bili-error-text">${this._escape(msg)}</span>
       <button class="btn bili-retry" id="biliRetryBtn">重试</button>
     </div>
     ${this._buildForm()}`;

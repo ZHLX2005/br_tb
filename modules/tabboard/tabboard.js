@@ -18,6 +18,9 @@ class AppShell {
     this.currentModule = null;
     this.currentView = 'timeline';
     this.storageChangeTimer = null;
+    // 模块实例缓存：保留有状态模块（bilibili-history 等）的实例，
+    // 避免 view 切换时丢失 state / payload / items 等内存数据
+    this.modules = {};
   }
 
   async init() {
@@ -72,6 +75,23 @@ class AppShell {
       return;
     }
 
+    // 缓存命中：复用已构造的模块实例，避免破坏有状态模块（bilibili-history）的内存数据。
+    // 各模块的 destroy() 通常只做 container = null / 清理副作用，并不销毁内存中的 state/items/payload，
+    // 因此把 cached 实例重新挂回原 <div> 容器并 render() 即可恢复视图。
+    if (this.modules[viewName]) {
+      this.currentModule = this.modules[viewName];
+      this.currentView = viewName;
+      this._updateViewUI(viewName);
+      this._reattachModule(this.currentModule, viewName);
+      const data = initialData || await this.dataManager.loadData();
+      this.currentModule.render(data);
+      this.currentModule.bindEvents();
+      await this.dataManager.sendMessage('updateSettings', {
+        settings: { lastView: viewName }
+      });
+      return;
+    }
+
     if (this.currentModule) {
       this.currentModule.destroy();
       this.currentModule = null;
@@ -110,6 +130,7 @@ class AppShell {
     }
 
     this.currentModule = new ModuleClass(container, this.dataManager, this.eventBus);
+    this.modules[viewName] = this.currentModule; // 进入缓存
     this.currentModule.init();
     this.currentModule.render(data);
     this.currentModule.bindEvents();
@@ -117,6 +138,35 @@ class AppShell {
     await this.dataManager.sendMessage('updateSettings', {
       settings: { lastView: viewName }
     });
+  }
+
+  /**
+   * 把缓存中的模块实例重新挂回到对应的 <div> 容器。
+   * 不同模块的 setContainer 形态：
+   *   - BilibiliHistoryModule.init() 调用 view.setContainer
+   *   - LeetCodeModule.init()   调用 view.setContainer
+   *   - TimerModule.init()      调用 view.setContainer
+   *   - TimelineModule.init()   仅初始化搜索输入（不依赖 container）
+   *   - GroupModule.init()      no-op
+   * 因此这里统一通过模块自身暴露的 _reattach(container) 钩子挂回；若不存在则直接调用 view.setContainer。
+   */
+  _reattachModule(module, viewName) {
+    const containerMap = {
+      'timeline': 'timelineView',
+      'group': 'groupView',
+      'leetcode': 'leetcodePanel',
+      'timer': 'timerPanel',
+      'bilibili-history': 'bilibiliHistoryPanel',
+    };
+    const el = document.getElementById(containerMap[viewName]);
+    if (!el) return;
+    module.container = el;
+    if (typeof module.view?.setContainer === 'function') {
+      module.view.setContainer(el);
+    }
+    if (typeof module._reattach === 'function') {
+      module._reattach(el);
+    }
   }
 
   _updateViewUI(viewName) {

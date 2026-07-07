@@ -31,7 +31,7 @@ async function handleFetch(payload) {
   } catch {
     body = { detail: `后端非 JSON 响应（HTTP ${response.status}）` };
   }
-  console.log(`[bili-history] HTTP ${response.status} in ${elapsed}ms sessdata=${mask(payload?.sessdata)}`);
+  console.debug(`[bili-history] HTTP ${response.status} in ${elapsed}ms sessdata=${mask(payload?.sessdata)}`);
   return { ok: response.ok, status: response.status, body };
 }
 
