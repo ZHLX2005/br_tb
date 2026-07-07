@@ -83,15 +83,15 @@ class BilibiliHistoryView {
     return `
       <div class="bili-form">
         <div class="bili-form-header">
-          <h3>📊 B 站近 3 天观看历史</h3>
-          <a href="https://www.bilibili.com" target="_blank" class="bili-link">打开 B 站 ↗</a>
+          <h3>B 站近 3 天观看历史</h3>
+          <a href="https://www.bilibili.com" target="_blank" class="bili-link">打开 B 站</a>
         </div>
         ${errorMsg ? `<div class="bili-error">${errorMsg}</div>` : ''}
         <p class="bili-hint">从浏览器 <kbd>F12 → Application → Cookies → https://www.bilibili.com</kbd>，<br>
           全选所有 cookie 复制，粘贴到下方（JSON 数组格式）：</p>
         <textarea id="biliCookieInput" class="bili-textarea" placeholder='${sample}'></textarea>
         <div class="bili-form-actions">
-          <button id="biliFetchBtn" class="btn btn-primary">✓ 解析并拉取</button>
+          <button id="biliFetchBtn" class="btn btn-primary">解析并拉取</button>
         </div>
       </div>`;
   }
@@ -265,7 +265,7 @@ class BilibiliHistoryView {
           <span class="bili-masked">${this.state.masked?.sessdata || ''}</span>
         </div>
         <div class="bili-summary-actions">
-          <button id="biliRefreshBtn" class="btn btn-secondary">🔄 重新拉取</button>
+          <button id="biliRefreshBtn" class="btn btn-secondary">重新拉取</button>
           <button id="biliReinputBtn" class="btn">更换 cookies</button>
         </div>
       </div>`;
@@ -310,7 +310,7 @@ class BilibiliHistoryView {
   _renderError(msg) {
     return `
     <div class="bili-error-bar">
-      <span class="bili-error-icon">⚠</span>
+      <span class="bili-error-icon">!</span>
       <span class="bili-error-text">${this._escape(msg)}</span>
       <button class="btn bili-retry" id="biliRetryBtn">重试</button>
     </div>
