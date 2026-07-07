@@ -46,13 +46,13 @@ class BilibiliHistoryView {
     this.container = null;
   }
 
-  // ---- session storage (chrome.storage.session) ----
+  // ---- persistent storage (chrome.storage.local) ----
   _saveSession(payload, masked) {
-    chrome.storage.session.set({ biliHistoryCookies: { payload, masked } });
+    chrome.storage.local.set({ biliHistoryCookies: { payload, masked } });
   }
 
   _loadSession() {
-    chrome.storage.session.get('biliHistoryCookies', (data) => {
+    chrome.storage.local.get('biliHistoryCookies', (data) => {
       const stored = data && data.biliHistoryCookies;
       if (!stored || !stored.payload) return;
       const payload = { days: 7, business: 'all', max_pages: 10, ...stored.payload };
@@ -151,7 +151,7 @@ class BilibiliHistoryView {
     const reinput = this.container?.querySelector('#biliReinputBtn');
     if (reinput) {
       reinput.addEventListener('click', () => {
-        chrome.storage.session.remove('biliHistoryCookies');
+        chrome.storage.local.remove('biliHistoryCookies');
         this.payload = null;
         this.masked = null;
         this.items = [];
