@@ -11,7 +11,8 @@
     "bookmarks"
   ],
   "host_permissions": [
-    "<all_urls>"
+    "<all_urls>",
+    "http://47.110.80.47/*"
   ],
   "background": {
     "service_worker": "background/index.js",

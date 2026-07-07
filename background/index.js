@@ -13,6 +13,7 @@ import { setupFocusListeners } from './focus.js';
 import { initActionClickHandler } from './sidepanel.js';
 import { setupVideoProgressListeners } from './videoProgress.js';
 import { setupGotoListeners } from './goto.js';
+import { setupBiliHistoryListeners } from './bilibili-history.js';
 
 // 初始化各模块
 initializeDefaultData();
@@ -30,5 +31,6 @@ setupRecordingListeners();
 setupFocusListeners();
 setupVideoProgressListeners();
 setupGotoListeners();
+setupBiliHistoryListeners();
 
 console.log('[TabBoard] Background Service Worker 已启动');
