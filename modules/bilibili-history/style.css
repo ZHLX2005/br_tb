@@ -2,6 +2,7 @@
 .bili-scroll {
   flex: 1;
   min-height: 0;
+  max-height: calc(100vh - 50px);
   overflow-y: auto;
   overflow-x: hidden;
   padding: 16px;
