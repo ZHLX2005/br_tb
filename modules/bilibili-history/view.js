@@ -115,6 +115,23 @@ class BilibiliHistoryView {
       this.render();
       this._fetch(this.payload, this.state.masked);
     });
+    const refresh = this.container?.querySelector('#biliRefreshBtn');
+    if (refresh && this.payload) {
+      refresh.addEventListener('click', () => {
+        this.state = { kind: 'loading', masked: this.state.masked };
+        this.render();
+        this._fetch(this.payload, this.state.masked);
+      });
+    }
+    const reinput = this.container?.querySelector('#biliReinputBtn');
+    if (reinput) {
+      reinput.addEventListener('click', () => {
+        this.payload = null;
+        this.items = [];
+        this.state = { kind: 'empty' };
+        this.render();
+      });
+    }
   }
 
   _fetch(payload, masked) {
@@ -140,9 +157,96 @@ class BilibiliHistoryView {
     );
   }
 
+  _fmtTime(iso) {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso || '—';
+    const mm = (d.getMonth() + 1).toString().padStart(2, '0');
+    const dd = d.getDate().toString().padStart(2, '0');
+    const HH = d.getHours().toString().padStart(2, '0');
+    const M  = d.getMinutes().toString().padStart(2, '0');
+    return `${mm}-${dd} ${HH}:${M}`;
+  }
+
+  _fmtDuration(s) {
+    if (!s || s <= 0) return '—';
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    if (m >= 60) return `${Math.floor(m/60)}h${m%60}m`;
+    return sec > 0 ? `${m}m${sec}s` : `${m}m`;
+  }
+
+  _fmtProgress(progress, duration) {
+    if (!duration) return '—';
+    const pct = Math.min(100, Math.round((progress / duration) * 100));
+    return `${this._fmtDuration(progress)} / ${this._fmtDuration(duration)} · ${pct}%`;
+  }
+
+  _dayBucket(iso) {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '未知';
+    const m = (d.getMonth() + 1).toString().padStart(2, '0');
+    const day = d.getDate().toString().padStart(2, '0');
+    return `${m}-${day}`;
+  }
+
   _buildDataHTML() {
-    // Task 4 接管，先 stub
-    return `<div class="bili-stub">✓ 数据 ${this.items.length} 条（表格待 Task 4）</div>`;
+    const items = this.items;
+    const totalDuration = items.reduce((acc, it) => acc + (it.duration || 0), 0);
+
+    const header = `
+      <div class="bili-summary">
+        <div class="bili-summary-stats">
+          <span><b>${items.length}</b> 个视频</span>
+          <span class="dot"></span>
+          <span>累计时长 <b>${this._fmtDuration(totalDuration)}</b></span>
+          <span class="dot"></span>
+          <span>窗口 <b>${this.state.meta?.since_iso?.slice(0,10) ?? '?'}</b> → <b>${this.state.meta?.until_iso?.slice(0,10) ?? '?'}</b></span>
+          <span class="dot"></span>
+          <span>分页 <b>${this.state.meta?.page_count ?? '?'}</b></span>
+          <span class="dot"></span>
+          <span class="bili-masked">${this.state.masked?.sessdata || ''}</span>
+        </div>
+        <div class="bili-summary-actions">
+          <button id="biliRefreshBtn" class="btn btn-secondary">🔄 重新拉取</button>
+          <button id="biliReinputBtn" class="btn">更换 cookies</button>
+        </div>
+      </div>`;
+
+    const rows = items.map((it) => `
+      <tr data-bvid="${it.bvid || ''}" data-aid="${it.aid || ''}">
+        <td class="bili-td-time">${this._fmtTime(it.view_at_iso)}</td>
+        <td class="bili-td-title">
+          <a href="https://www.bilibili.com/video/${it.bvid || ''}" target="_blank" rel="noopener">
+            ${this._escape(it.title || '(无标题)')}
+          </a>
+          ${it.show_title ? `<div class="bili-sub">${this._escape(it.show_title)}</div>` : ''}
+        </td>
+        <td class="bili-td-author">${this._escape(it.author_name || 'unknown')}</td>
+        <td class="bili-td-duration">${this._fmtProgress(it.progress, it.duration)}</td>
+        <td class="bili-td-tag">${this._escape(it.tag_name || it.business || '—')}</td>
+      </tr>`).join('');
+
+    const table = `
+      <table class="bili-table">
+        <thead>
+          <tr>
+            <th>时间</th>
+            <th>标题</th>
+            <th>UP 主</th>
+            <th>进度</th>
+            <th>分区</th>
+          </tr>
+        </thead>
+        <tbody>${rows || `<tr><td colspan="5" class="bili-empty">近 3 天内无观看记录</td></tr>`}</tbody>
+      </table>`;
+
+    return `${header}${table}`;
+  }
+
+  _escape(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
   }
 
   _renderError(msg) {
