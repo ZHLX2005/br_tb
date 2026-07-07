@@ -373,29 +373,40 @@ function setupGroupsListeners() {
         }
 
         case 'openTab': {
-          // 去重：若已有同 URL 标签页，则激活它，避免重复创建
-          // 优先匹配当前聚焦窗口的标签页
+          // 去重：若已有同 URL 标签页，则激活它，避免重复创建。
+          // ⚠️ chrome.tabs.query 对受限 URL（chrome://、edge://、chrome-extension://、
+          //    about:、devtools://、file://）会抛 "Cannot access a chrome:// URL"，
+          //    因此整个 case 必须 try/catch 包裹，query 失败时 fallback 到 create。
           const url = request.url;
-          if (url) {
-            const existing = await chrome.tabs.query({ url: url });
-            if (existing && existing.length > 0) {
-              // 当前聚焦窗口优先
-              const win = await chrome.windows.getCurrent();
-              const inCurrent = existing.find(t => t.windowId === win.id);
-              const target = inCurrent || existing[0];
-              try {
-                await chrome.tabs.update(target.id, { active: true });
-                await chrome.windows.update(target.windowId, { focused: true });
-                sendResponse({ success: true, reused: true });
-                break;
-              } catch (e) {
-                // 切到现有 tab 失败（极少见）则 fallthrough 到 create
-                console.warn('[TabBoard] openTab switch failed, falling back to create:', e);
+          try {
+            if (url) {
+              const existing = await chrome.tabs.query({ url: url });
+              if (existing && existing.length > 0) {
+                const win = await chrome.windows.getCurrent();
+                const inCurrent = existing.find(t => t.windowId === win.id);
+                const target = inCurrent || existing[0];
+                try {
+                  await chrome.tabs.update(target.id, { active: true });
+                  await chrome.windows.update(target.windowId, { focused: true });
+                  sendResponse({ success: true, reused: true });
+                  break;
+                } catch (e) {
+                  console.warn('[TabBoard] openTab switch failed, falling back to create:', e);
+                }
               }
             }
+          } catch (queryErr) {
+            // 受限 URL 在 query 阶段就会抛错（例如 chrome://settings、edge://flags）。
+            // 记录后继续走 create 兜底 —— chrome.tabs.create 对多数受限 URL 仍可建。
+            console.warn('[TabBoard] openTab query failed for', url, '- falling back to create:', queryErr.message);
           }
-          await chrome.tabs.create({ url: url });
-          sendResponse({ success: true });
+          try {
+            await chrome.tabs.create({ url: url });
+            sendResponse({ success: true });
+          } catch (createErr) {
+            console.error('[TabBoard] openTab create FAILED for', url, '-', createErr.message);
+            sendResponse({ success: false, error: createErr.message });
+          }
           break;
         }
 
@@ -403,8 +414,20 @@ function setupGroupsListeners() {
           const { tabs: openTabs, settings } = await chrome.storage.local.get(['tabs', 'settings']);
           const groupTabs = openTabs[request.groupId] || [];
 
+          // 单个 tab 创建失败不能让整个 group 后续 tab 都打不开。
+          // 受限 URL（chrome://、edge://、file:// 等）在 MV3 下 create 会被拒，
+          // 单独 try/catch 后跳过并记录，继续打开其它 tab。
+          let opened = 0;
+          const failed = [];
           for (const tab of groupTabs) {
-            await chrome.tabs.create({ url: tab.url });
+            if (!tab || !tab.url) continue;
+            try {
+              await chrome.tabs.create({ url: tab.url });
+              opened++;
+            } catch (e) {
+              console.warn('[TabBoard] openGroup skipped', tab.url, '-', e.message);
+              failed.push({ url: tab.url, error: e.message });
+            }
           }
 
           // 如果设置为打开后删除
@@ -413,7 +436,7 @@ function setupGroupsListeners() {
             await chrome.storage.local.set({ tabs: openTabs });
           }
 
-          sendResponse({ success: true });
+          sendResponse({ success: true, opened, failed: failed.length, failures: failed });
           break;
         }
 

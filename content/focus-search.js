@@ -78,6 +78,41 @@ function escapeRegex(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+// 轻量 toast：用于 jumpToSelected 等失败时给用户 UI 反馈。
+// 此函数注入到任意页面，不依赖 background 的 showToast 通道。
+var errorToastTimer = null;
+function showErrorToast(message) {
+  var existing = document.getElementById('focus-search-error-toast');
+  if (existing) existing.remove();
+  if (errorToastTimer) clearTimeout(errorToastTimer);
+
+  var el = document.createElement('div');
+  el.id = 'focus-search-error-toast';
+  el.textContent = message;
+  el.style.cssText = [
+    'position: fixed',
+    'left: 50%',
+    'bottom: 32px',
+    'transform: translateX(-50%)',
+    'padding: 10px 18px',
+    'background: rgba(220, 38, 38, 0.92)',
+    'color: #fff',
+    'border-radius: 8px',
+    'font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    'box-shadow: 0 4px 16px rgba(0,0,0,0.18)',
+    'z-index: 2147483647',
+    'pointer-events: none',
+    'max-width: 80vw',
+    'text-align: center'
+  ].join(';');
+  (document.body || document.documentElement).appendChild(el);
+
+  errorToastTimer = setTimeout(function() {
+    if (el && el.parentNode) el.parentNode.removeChild(el);
+    errorToastTimer = null;
+  }, 3000);
+}
+
 function highlightMatch(text, query) {
   if (!query) return escapeHtml(text);
   var escaped = escapeHtml(text);
@@ -239,10 +274,17 @@ async function jumpToSelected() {
       chrome.runtime.sendMessage({ action: 'openTab', url: url }, function(response) {
         if (chrome.runtime.lastError) {
           console.warn('[FocusSearch] openTab lastError:', chrome.runtime.lastError.message);
+          showErrorToast('无法打开系统页: ' + chrome.runtime.lastError.message);
+          return;
+        }
+        if (response && response.success === false) {
+          console.warn('[FocusSearch] openTab failed:', url, '-', response.error);
+          showErrorToast('无法打开 ' + url + ': ' + (response.error || '未知错误'));
         }
       });
     } catch (e) {
       console.error('[FocusSearch] Failed to open system page:', e);
+      showErrorToast('无法打开系统页: ' + (e && e.message ? e.message : String(e)));
     }
     return;
   }
@@ -415,7 +457,9 @@ function isSystemQuery(query) {
 // 把一个 DEV_PAGE 转换成与标签页结果同构的对象
 function devPageToResult(page) {
   var protocol = detectBrowserProtocol();
-  var fullUrl = protocol + ':' + page.path;
+  // 注意：必须是双斜杠 "://" 而不是 ":"+"/"，否则 Edge 某些版本会拒绝
+  // "chrome://settings" 是标准写法。path 已含前导 "/"，不再重复。
+  var fullUrl = protocol + '://' + page.path.replace(/^\/+/, '');
   return {
     kind: 'system',
     tab: {
@@ -457,7 +501,8 @@ function filterAndSortSystemPages(query) {
       var m = matchSystemPage(p, query);
       return {
         kind: 'system',
-        tab: { id: 'system_' + p.path, title: p.name, url: detectBrowserProtocol() + ':' + p.path, favIconUrl: '' },
+        // 必须双斜杠：协议 + "://" + path(去前导 /)，见 devPageToResult 注释
+        tab: { id: 'system_' + p.path, title: p.name, url: detectBrowserProtocol() + '://' + p.path.replace(/^\/+/, ''), favIconUrl: '' },
         icon: p.icon,
         score: m.score,
         matchType: m.matchType
