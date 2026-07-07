@@ -1,3 +1,12 @@
+/* 滚动容器 - 吸收 .view-container 剩余空间 */
+.bili-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px;
+}
+
 /* B 站历史模块样式 - 浅色主题（B 站品牌浅调） */
 :root {
   --bili-bg: #FFFFFF;

@@ -38,7 +38,7 @@ class BilibiliHistoryView {
         ? `Bili · 近 3 天 ${this.items.length} 条`
         : 'Bili · 等待 cookies';
     }
-    this.container.innerHTML = this._buildHTML(this.state);
+    this.container.innerHTML = `<div class="bili-scroll">${this._buildHTML(this.state)}</div>`;
     this.bindEvents();
   }
 
