@@ -16,8 +16,10 @@ class BilibiliHistoryView {
     this.dataManager = dataManager;
     this.state = { kind: 'empty' }; // 'empty' | 'loading' | 'error' | 'data'
     this.payload = null;            // { sessdata, extra_cookies }
+    this.masked = null;             // { sessdata }
     this.items = [];
     this.container = null;
+    this._sessionLoaded = false;
   }
 
   setContainer(container) { this.container = container; }
@@ -26,6 +28,10 @@ class BilibiliHistoryView {
 
   render() {
     if (!this.container) return;
+    if (this.state.kind === 'empty' && !this._sessionLoaded) {
+      this._sessionLoaded = true;
+      this._loadSession();
+    }
     const stats = document.getElementById('stats');
     if (stats) {
       stats.textContent = this.state.kind === 'data'
@@ -38,6 +44,23 @@ class BilibiliHistoryView {
 
   destroy() {
     this.container = null;
+  }
+
+  // ---- session storage (chrome.storage.session) ----
+  _saveSession(payload, masked) {
+    chrome.storage.session.set({ biliHistoryCookies: { payload, masked } });
+  }
+
+  _loadSession() {
+    chrome.storage.session.get('biliHistoryCookies', (data) => {
+      const stored = data && data.biliHistoryCookies;
+      if (!stored || !stored.payload) return;
+      this.payload = stored.payload;
+      this.masked = stored.masked || null;
+      this.state = { kind: 'loading', masked: this.masked };
+      this.render();
+      this._fetch(stored.payload, this.masked);
+    });
   }
 
   // ---- 解析 ----
@@ -104,6 +127,7 @@ class BilibiliHistoryView {
         const result = this.parseCookies(ta.value.trim());
         if (!result.ok) { this.state = { kind: 'error', error: result.error }; this.render(); return; }
         this.payload = result.payload;
+        this.masked = result.masked;
         this.state = { kind: 'loading', masked: result.masked };
         this.render();
         this._fetch(result.payload, result.masked);
@@ -126,8 +150,11 @@ class BilibiliHistoryView {
     const reinput = this.container?.querySelector('#biliReinputBtn');
     if (reinput) {
       reinput.addEventListener('click', () => {
+        chrome.storage.session.remove('biliHistoryCookies');
         this.payload = null;
+        this.masked = null;
         this.items = [];
+        this._sessionLoaded = true; // 已清空，避免下次 render() 再读
         this.state = { kind: 'empty' };
         this.render();
       });
@@ -147,6 +174,7 @@ class BilibiliHistoryView {
         if (ok && body && Array.isArray(body.items)) {
           this.items = body.items;
           this.state = { kind: 'data', masked, meta: body };
+          this._saveSession(payload, masked);
           this.render();
         } else {
           const detail = body?.detail || `HTTP ${status}`;
