@@ -18,7 +18,6 @@ class BilibiliHistoryView {
     this.payload = null;            // { sessdata, extra_cookies }
     this.items = [];
     this.container = null;
-    this._eventsBound = false;
   }
 
   setContainer(container) { this.container = container; }
@@ -39,7 +38,6 @@ class BilibiliHistoryView {
 
   destroy() {
     this.container = null;
-    this._eventsBound = false;
   }
 
   // ---- 解析 ----
@@ -72,14 +70,12 @@ class BilibiliHistoryView {
 
   // ---- HTML / events ----
   _buildHTML(state) {
-    if (state.kind === 'empty' || state.kind === 'error') {
-      return this._buildForm(state.error || '');
-    }
-    if (state.kind === 'loading') {
-      return `<div class="bili-loading">拉取中…</div>`;
-    }
-    // 'data' 由后续 task 接管，此处留 stub
-    return `<div class="bili-stub">已加载 ${this.items.length} 条（渲染待 Task 4）</div>`;
+    if (state.kind === 'empty') return this._buildForm();
+    if (state.kind === 'error' && !state.masked) return this._buildForm(state.error || '');
+    if (state.kind === 'loading') return `<div class="bili-loading">拉取中…（${state.masked?.sessdata || '?'}）</div>`;
+    if (state.kind === 'error' && state.masked) return this._renderError(state.error);
+    if (state.kind === 'data') return this._buildDataHTML();
+    return '';
   }
 
   _buildForm(errorMsg = '') {
@@ -101,7 +97,6 @@ class BilibiliHistoryView {
   }
 
   bindEvents() {
-    if (this._eventsBound) return;
     const btn = this.container?.querySelector('#biliFetchBtn');
     const ta = this.container?.querySelector('#biliCookieInput');
     if (btn && ta) {
@@ -109,12 +104,55 @@ class BilibiliHistoryView {
         const result = this.parseCookies(ta.value.trim());
         if (!result.ok) { this.state = { kind: 'error', error: result.error }; this.render(); return; }
         this.payload = result.payload;
-        // Task 4 接管拉取；Task 2 先把状态推进到 loading 验证管道
         this.state = { kind: 'loading', masked: result.masked };
         this.render();
+        this._fetch(result.payload, result.masked);
       });
     }
-    this._eventsBound = true;
+    const retry = this.container?.querySelector('#biliRetryBtn');
+    if (retry && this.payload) retry.addEventListener('click', () => {
+      this.state = { kind: 'loading', masked: this.state.masked };
+      this.render();
+      this._fetch(this.payload, this.state.masked);
+    });
+  }
+
+  _fetch(payload, masked) {
+    chrome.runtime.sendMessage(
+      { action: 'bilibiliHistory/fetch', payload },
+      (resp) => {
+        if (!resp) {
+          this.state = { kind: 'error', error: '扩展通信失败，请重试' };
+          this.render();
+          return;
+        }
+        const { ok, status, body } = resp;
+        if (ok && body && Array.isArray(body.items)) {
+          this.items = body.items;
+          this.state = { kind: 'data', masked, meta: body };
+          this.render();
+        } else {
+          const detail = body?.detail || `HTTP ${status}`;
+          this.state = { kind: 'error', error: `${detail}`, masked };
+          this.render();
+        }
+      }
+    );
+  }
+
+  _buildDataHTML() {
+    // Task 4 接管，先 stub
+    return `<div class="bili-stub">✓ 数据 ${this.items.length} 条（表格待 Task 4）</div>`;
+  }
+
+  _renderError(msg) {
+    return `
+    <div class="bili-error-bar">
+      <span class="bili-error-icon">⚠</span>
+      <span class="bili-error-text">${msg}</span>
+      <button class="btn bili-retry" id="biliRetryBtn">重试</button>
+    </div>
+    ${this._buildForm()}`;
   }
 }
 
