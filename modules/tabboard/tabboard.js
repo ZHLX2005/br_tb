@@ -38,6 +38,9 @@ class AppShell {
     document.getElementById('videoProgressViewBtn')?.addEventListener('click', () => this._openVideoProgressPage());
     document.getElementById('leetcodeViewBtn')?.addEventListener('click', () => this.switchView('leetcode'));
     document.getElementById('timerViewBtn')?.addEventListener('click', () => this.switchView('timer'));
+    // TEMP Task 2 hook - 在切换按钮组最末追加一行用于验证
+    document.getElementById('timerViewBtn')?.insertAdjacentHTML('afterend',
+      '<button id="bilibiliHistoryViewBtn" class="nav-btn" title="B 站历史" onclick="window.location.reload()">Bili</button>');
   }
 
   _setupRefreshButton() {
@@ -95,6 +98,10 @@ class AppShell {
       case 'timer':
         container = document.getElementById('timerPanel');
         ModuleClass = TimerModule;
+        break;
+      case 'bilibili-history':  // 临时，Task 7 替换
+        // 行为暂不实现 — Task 7 接完整路径
+        console.warn('[temp] bilibili-history case 待 Task 7');
         break;
       case 'timeline':
       default:
