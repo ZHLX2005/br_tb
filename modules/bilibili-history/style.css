@@ -90,3 +90,68 @@
 @media (max-width: 900px) {
   .bili-charts { grid-template-columns: 1fr; }
 }
+
+/* 摘要条 + 表格 + 错误条 (Task 6) */
+.bili-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 6px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: #ccc;
+}
+.bili-summary .bili-summary-stats { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.bili-summary b { color: #00aeec; font-weight: 600; }
+.bili-summary .dot { width: 4px; height: 4px; background: #555; border-radius: 50%; }
+.bili-summary .bili-masked { color: #777; font-family: monospace; font-size: 11px; }
+.bili-summary-actions { display: flex; gap: 6px; }
+
+.bili-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+  font-size: 13px;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.bili-table th, .bili-table td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid #232323;
+}
+.bili-table thead th {
+  background: #222;
+  color: #aaa;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.bili-table tbody tr:hover { background: #202020; }
+.bili-td-time { white-space: nowrap; color: #888; font-family: monospace; font-size: 12px; }
+.bili-td-title a { color: #00aeec; text-decoration: none; }
+.bili-td-title a:hover { text-decoration: underline; }
+.bili-sub { font-size: 11px; color: #888; margin-top: 2px; }
+.bili-td-author { color: #ccc; }
+.bili-td-duration { font-family: monospace; font-size: 12px; color: #aaa; white-space: nowrap; }
+.bili-td-tag { color: #fb7299; font-size: 11px; }
+.bili-empty { padding: 32px; text-align: center; color: #777; }
+.bili-empty-mini { color: #777; font-size: 12px; margin: 8px 0; }
+
+.bili-error-bar {
+  background: #3a1a1a;
+  border: 1px solid #b94444;
+  border-radius: 4px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: #ffb3b3;
+}
+.bili-retry { margin-left: auto; }
