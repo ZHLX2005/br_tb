@@ -52,3 +52,41 @@
 }
 .bili-loading { padding: 40px; text-align: center; color: #999; }
 .bili-stub { padding: 24px; color: #888; }
+
+/* 柱图 */
+.bili-charts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 16px 0;
+}
+.bili-chart-block {
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 6px;
+  padding: 12px;
+}
+.bili-chart-block h4 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: #aaa;
+  font-weight: 500;
+}
+.bili-bar-row { display: flex; align-items: center; gap: 8px; margin: 4px 0; font-size: 12px; }
+.bili-bar-label { width: 70px; color: #ccc; text-align: right; }
+.bili-bar-track { flex: 1; height: 10px; background: #2a2a2a; border-radius: 3px; overflow: hidden; }
+.bili-bar-fill { height: 100%; background: linear-gradient(90deg, #00aeec 0%, #fb7299 100%); transition: width 0.4s ease; }
+.bili-bar-num { width: 30px; color: #999; text-align: right; }
+.bili-hour-day { display: flex; align-items: center; gap: 6px; margin: 3px 0; }
+.bili-hour-label { width: 38px; font-size: 11px; color: #888; }
+.bili-hour-row { flex: 1; display: grid; grid-template-columns: repeat(24, 1fr); gap: 1px; }
+.bili-hour-cell {
+  height: 14px;
+  background: #1f1f1f;
+  border-radius: 2px;
+  background: linear-gradient(to top, rgba(0,174,236,0.7) var(--pct), #1f1f1f var(--pct));
+}
+.bili-empty-mini { font-size: 12px; color: #777; margin: 8px 0; text-align: center; }
+@media (max-width: 900px) {
+  .bili-charts { grid-template-columns: 1fr; }
+}

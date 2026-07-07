@@ -189,9 +189,67 @@ class BilibiliHistoryView {
     return `${m}-${day}`;
   }
 
+  _topTags(limit = 6) {
+    const counter = new Map();
+    for (const it of this.items) {
+      const k = it.tag_name || it.business || '其他';
+      counter.set(k, (counter.get(k) || 0) + 1);
+    }
+    const arr = [...counter.entries()].sort((a,b) => b[1]-a[1]).slice(0, limit);
+    const max = arr[0]?.[1] || 1;
+    return arr.map(([tag, count]) => ({ tag, count, pct: Math.round(count / max * 100) }));
+  }
+
+  _byHourDay() {
+    const map = new Map();
+    for (const it of this.items) {
+      const d = new Date(it.view_at_iso);
+      if (isNaN(d.getTime())) continue;
+      const day = `${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`;
+      const hr = d.getHours();
+      if (!map.has(day)) map.set(day, new Array(24).fill(0));
+      map.get(day)[hr] += it.duration || 0;
+    }
+    return [...map.entries()].sort();
+  }
+
+  _buildChartsHTML() {
+    const tags = this._topTags();
+    const maxTag = tags[0]?.count || 1;
+    const tagRows = tags.map(t => `
+      <div class="bili-bar-row">
+        <span class="bili-bar-label">${this._escape(t.tag)}</span>
+        <div class="bili-bar-track"><div class="bili-bar-fill" style="width:${Math.round(t.count/maxTag*100)}%"></div></div>
+        <span class="bili-bar-num">${t.count}</span>
+      </div>`).join('');
+
+    const byHour = this._byHourDay();
+    const dayMax = byHour.reduce((m, [, arr]) => Math.max(m, ...arr), 1);
+    const hourGrid = byHour.map(([day, hours]) => {
+      const cells = hours.map(v => {
+        const pct = v > 0 ? Math.max(8, Math.round(v/dayMax*100)) : 0;
+        return `<div class="bili-hour-cell" style="--pct:${pct}%" title="${day} ${this._fmtDuration(v)}"></div>`;
+      }).join('');
+      return `<div class="bili-hour-day"><span class="bili-hour-label">${day}</span><div class="bili-hour-row">${cells}</div></div>`;
+    }).join('');
+
+    return `
+    <div class="bili-charts">
+      <section class="bili-chart-block">
+        <h4>分区 TOP 6</h4>
+        ${tags.length ? tagRows : '<p class="bili-empty-mini">无 tag 数据</p>'}
+      </section>
+      <section class="bili-chart-block">
+        <h4>每天 24h 时长分布</h4>
+        ${byHour.length ? hourGrid : '<p class="bili-empty-mini">无时间数据</p>'}
+      </section>
+    </div>`;
+  }
+
   _buildDataHTML() {
     const items = this.items;
     const totalDuration = items.reduce((acc, it) => acc + (it.duration || 0), 0);
+    const charts = this._buildChartsHTML();
 
     const header = `
       <div class="bili-summary">
@@ -240,7 +298,7 @@ class BilibiliHistoryView {
         <tbody>${rows || `<tr><td colspan="5" class="bili-empty">近 3 天内无观看记录</td></tr>`}</tbody>
       </table>`;
 
-    return `${header}${table}`;
+    return `${header}${charts}${table}`;
   }
 
   _escape(s) {
