@@ -66,6 +66,52 @@ class AppShell {
     });
   }
 
+  _toggleDropdown() {
+    this.dropdownOpen ? this._closeDropdown() : this._openDropdown();
+  }
+
+  _openDropdown() {
+    if (this.dropdownOpen) return;
+    const moreBtn = document.getElementById('moreViewBtn');
+    if (!moreBtn) return;
+
+    const activeView = this.currentView;
+    const html = `<div class="nav-dropdown" role="menu">${
+      this.dropdownItems.map(it => `
+        <button class="nav-dropdown-item ${activeView === it.viewName ? 'active' : ''}"
+                data-view="${it.viewName}" role="menuitem">
+          <span class="nav-dropdown-label">${it.label}</span>
+          <span class="nav-dropdown-desc">${it.desc}</span>
+        </button>`).join('')
+    }</div>`;
+
+    document.body.insertAdjacentHTML('beforeend', html);
+    const dd = document.querySelector('.nav-dropdown');
+    if (dd) {
+      const rect = moreBtn.getBoundingClientRect();
+      dd.style.top  = `${rect.bottom + 6}px`;
+      dd.style.right = `${window.innerWidth - rect.right}px`;
+    }
+
+    document.querySelectorAll('.nav-dropdown-item').forEach(el => {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const view = el.getAttribute('data-view');
+        if (view) this.switchView(view);
+      });
+    });
+
+    this.dropdownOpen = true;
+    moreBtn.setAttribute('aria-expanded', 'true');
+  }
+
+  _closeDropdown() {
+    if (!this.dropdownOpen) return;
+    document.querySelectorAll('.nav-dropdown').forEach(el => el.remove());
+    this.dropdownOpen = false;
+    document.getElementById('moreViewBtn')?.setAttribute('aria-expanded', 'false');
+  }
+
   _setupRefreshButton() {
     document.getElementById('refreshBtn')?.addEventListener('click', async () => {
       const data = await this.dataManager.loadData();
