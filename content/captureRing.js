@@ -34,7 +34,7 @@
       width: 40px; height: 40px; border-radius: 50%; background: white;
       box-shadow: 0 2px 12px rgba(0,0,0,0.15); cursor: pointer;
       display: flex; align-items: center; justify-content: center;
-      position: fixed; top: calc(50% + 52px * var(--ring-order, 0)); right: -16px;
+      position: fixed; top: calc(var(--ring-stack-anchor, 50%) + 52px * var(--ring-order, 0)); right: -16px;
       transform: translateY(-50%); opacity: 0; pointer-events: none;
       transition: right 220ms ease, opacity 180ms ease, box-shadow 200ms;
       border: 1px solid rgba(0,0,0,0.06);
@@ -46,7 +46,7 @@
     #${WRAPPER_ID}-trigger:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.22); }
 
     #${WRAPPER_ID}-panel {
-      position: fixed; top: calc(50% + 52px * var(--ring-order, 0)); right: 8px;
+      position: fixed; top: calc(var(--ring-stack-anchor, 50%) + 52px * var(--ring-order, 0)); right: 8px;
       transform: translate(10px, -50%); width: 280px;
       background: white; border-radius: 10px;
       box-shadow: -2px 4px 20px rgba(0,0,0,0.18);
@@ -255,6 +255,7 @@
     window.__tabboardRingDrag && window.__tabboardRingDrag.attach(
       shadow.getElementById(WRAPPER_ID + '-trigger'),
       shadow.getElementById(WRAPPER_ID + '-panel'),
+      wrapper,
       { defaultOrder: 3, ringId: 'capture' }
     );
 

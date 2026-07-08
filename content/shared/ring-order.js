@@ -38,14 +38,26 @@
         console.warn('[ring-order] register: invalid cfg', cfg);
         return;
       }
-      // 防重复(same ring 多次 build 时,例如 settings onChanged)
-      if (window.__tabboardRingRegistry.some(function (r) { return r.ringId === cfg.ringId; })) return;
-      window.__tabboardRingRegistry.push({
-        ringId: cfg.ringId,
-        host: cfg.host,
-        defaultOrder: cfg.defaultOrder,
-        isAlive: cfg.isAlive
-      });
+      // dedup 策略:
+      //   - 找到同 ringId 的旧 entry,若 host 还活着 → 真是重复,跳过
+      //   - 若旧 host 已 detached → 替换(让新 build 的 host 拿到 --ring-order)
+      //   - 否则 push
+      const existing = window.__tabboardRingRegistry.find(function (r) { return r.ringId === cfg.ringId; });
+      if (existing) {
+        if (existing.host === cfg.host) return; // 同一 host,真重复
+        if (existing.host && existing.host.isConnected) return; // 旧 host 还活着,不应重 register
+        // 旧 host 已 detached,替换
+        existing.host = cfg.host;
+        existing.defaultOrder = cfg.defaultOrder;
+        existing.isAlive = cfg.isAlive;
+      } else {
+        window.__tabboardRingRegistry.push({
+          ringId: cfg.ringId,
+          host: cfg.host,
+          defaultOrder: cfg.defaultOrder,
+          isAlive: cfg.isAlive
+        });
+      }
       // 注册即排一次
       this.recompute();
     },

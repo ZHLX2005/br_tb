@@ -1,15 +1,18 @@
 /**
  * Draggable Ring — 多圆环整体拖动 + 位置记忆
- * 暴露 window.__tabboardRingDrag.attach(trigger, panel, { defaultOrder })
+ * 暴露 window.__tabboardRingDrag.attach(trigger, panel, host, { defaultOrder, ringId })
  * 通过 window.__tabboardRings 数组联动：拖任一圆环 → 所有圆环整体移动(保持 52px 间距)
  *
- * 配套文档: .claude/skills/injected-dom-toggle-pattern/references/draggable-ring.md
+ * 关键设计(配合 content/shared/ring-order.js 统一 CSS 变量系统):
+ *   - drag 不再写 trigger/panel 的 inline style.top
+ *   - drag 写 host 元素的 CSS 变量 --ring-stack-anchor(锚点 Y,px 值)
+ *   - 各 ring 的 trigger/panel CSS 用:
+ *       top: calc(var(--ring-stack-anchor, 50%) + 52px * var(--ring-order, 0))
+ *     一个 calc() 同时消费锚点 + 序号,关闭其他 ring 后序号变化时位置自动重算
+ *   - applyStackPosition 按每个 ring 的**当前** order 派发,保证 ring 栈始终紧密
+ *   - __tabboardRings 按 host.isConnected 过滤死 entry
  *
- * 改动(配合 content/shared/ring-order.js):
- *   - 入参 ringIndex 改名 defaultOrder(语义更准:是 manifest 注册顺序,不是当前顺序)
- *   - applyStackPosition / initPositionFromStorage 改用 __tabboardRingOrder.getCurrentOrder(ringId)
- *     来获取每个 ring 的**当前** order(关闭其他 ring 后顺序会重排)
- *   - 通过 ringId 标识 ring(从入参传入,无 ringId 时用入参的 defaultOrder 匹配注册表)
+ * 配套文档: .claude/skills/injected-dom-toggle-pattern/references/draggable-ring.md
  */
 (function () {
   'use strict';
@@ -25,22 +28,27 @@
   window.__tabboardRings = window.__tabboardRings || [];
   window.__tabboardRingDrag = window.__tabboardRingDrag || { attach };
 
-  function attach(triggerEl, panelEl, opts = {}) {
+  function attach(triggerEl, panelEl, hostEl, opts = {}) {
     const defaultOrder = opts.defaultOrder;
-    const ringId = opts.ringId || null; // 可选;若提供则用 ringId 查当前 order,更准
+    const ringId = opts.ringId || null;
     if (defaultOrder == null) {
       console.warn('[draggable-ring] defaultOrder required');
       return;
     }
+    if (!hostEl) {
+      // 兜底:从 triggerEl 向上找最近的 shadow host
+      // shadow root 内的元素 .getRootNode() 返回 shadowRoot,.host 才是主文档节点
+      const root = triggerEl && triggerEl.getRootNode && triggerEl.getRootNode();
+      hostEl = (root && root.host) || triggerEl;
+    }
 
-    // 同一 ring 重复 attach 防呆
-    if (window.__tabboardRings.some(r => r.trigger === triggerEl)) return;
+    // 清理同一 trigger 的旧 entry(理论上不会发生,但防呆)
+    window.__tabboardRings = window.__tabboardRings.filter(function (r) { return r.trigger !== triggerEl; });
 
-    // 入栈;ringId 在后续 recompute 时用,目前先保存 defaultOrder 作为 fallback
-    const ringEntry = { trigger: triggerEl, panel: panelEl, defaultOrder, ringId };
+    const ringEntry = { trigger: triggerEl, panel: panelEl, host: hostEl, defaultOrder, ringId };
     window.__tabboardRings.push(ringEntry);
 
-    // 初始化位置：从 storage 读取已保存的 Y(以 defaultOrder=0 为锚点)
+    // 初始化位置:从 storage 读取已保存的 Y,写 --ring-stack-anchor 到 host
     initPositionFromStorage(ringEntry);
 
     // 拖动状态(per-trigger, 闭包)
@@ -48,23 +56,20 @@
     let didDrag = false;
     let scheduledFrame = null;
 
-    triggerEl.addEventListener('pointerdown', (e) => {
+    triggerEl.addEventListener('pointerdown', function (e) {
       if (e.button !== 0) return;  // 仅左键
       try { triggerEl.setPointerCapture(e.pointerId); } catch (_) {}
-      // 记录的是"锚点(LC) ring 的 top":当前 LC 的 top = 锚点;被拖 ring 的 top = 锚点 + N * 52
-      // 但被拖 ring 不一定是 LC。简化:用被拖 ring 的当前 inline top 减去它的当前 order * 52 = 锚点 top
-      const myTop = getCurrentTopPx(triggerEl);
-      const myOrder = getRingOrder(ringEntry);
-      const anchorY = myTop - myOrder * SPACING;
+      // 锚点 Y = 当前锚点(CSS 变量;未设时回退到 50% 即 innerHeight/2)
+      const anchorY = getCurrentAnchorY(hostEl);
       dragState = {
         startX: e.clientX,
         startY: e.clientY,
-        anchorY
+        anchorY: anchorY
       };
       didDrag = false;
     });
 
-    triggerEl.addEventListener('pointermove', (e) => {
+    triggerEl.addEventListener('pointermove', function (e) {
       if (!dragState) return;
       const dx = e.clientX - dragState.startX;
       const dy = e.clientY - dragState.startY;
@@ -82,29 +87,26 @@
       );
 
       if (scheduledFrame) return;
-      scheduledFrame = requestAnimationFrame(() => {
+      scheduledFrame = requestAnimationFrame(function () {
         scheduledFrame = null;
         applyStackPosition(newAnchorY);
       });
     });
 
-    triggerEl.addEventListener('pointerup', (e) => {
+    triggerEl.addEventListener('pointerup', function (e) {
       if (!dragState) return;
       try { triggerEl.releasePointerCapture(e.pointerId); } catch (_) {}
       if (didDrag) {
-        const myTop = parseFloat(triggerEl.style.top) || 0;
-        const myOrder = getRingOrder(ringEntry);
-        const anchorY = myTop - myOrder * SPACING;
+        const anchorY = getCurrentAnchorY(hostEl);
         schedulePersist(anchorY);
         suppressNextClick(triggerEl);
       }
       dragState = null;
-      setTimeout(() => { window[DRAG_FLAG] = false; }, 50);
+      setTimeout(function () { window[DRAG_FLAG] = false; }, 50);
     });
   }
 
-  // 查询某 ring 的当前 order;优先用 ringId 查注册表(准确,反映重排后的位置);
-  // fallback 到 defaultOrder(在 ring-order.js 还没注册时,例如初始化竞态)
+  // 查询某 ring 的当前 order;优先用 ringId 查注册表,fallback 到 defaultOrder
   function getRingOrder(ringEntry) {
     if (ringEntry.ringId && window.__tabboardRingOrder && typeof window.__tabboardRingOrder.getCurrentOrder === 'function') {
       const n = window.__tabboardRingOrder.getCurrentOrder(ringEntry.ringId);
@@ -113,33 +115,28 @@
     return ringEntry.defaultOrder;
   }
 
-  // 联动核心：锚点 Y → 所有 ring top
-  // 用每个 ring 的**当前** order(可能因 ring-order 重排而变化),保证 ring 栈始终紧密
+  // 联动核心:锚点 Y → 所有 host 的 --ring-stack-anchor
+  // 过滤掉死 host(已被 remove)
+  // CSS calc 会在 trigger/panel 渲染时自动算出正确位置
   function applyStackPosition(anchorY) {
-    for (const ring of window.__tabboardRings) {
-      const order = getRingOrder(ring);
-      const top = anchorY + order * SPACING;
-      ring.trigger.style.top = `${top}px`;
-      ring.trigger.style.transform = 'translateY(-50%)';
-      if (ring.panel) {
-        ring.panel.style.top = `${top}px`;
-        // panel 默认 transform 是 translate(10px, -50%)(hidden), 展开态是 translate(-56px, -50%)
-        // 拖动期间不强制改 transform, 让 panel 自身的展开/隐藏 transition 继续
-      }
+    // 过滤死 host
+    window.__tabboardRings = window.__tabboardRings.filter(function (r) {
+      return r.host && r.host.isConnected;
+    });
+    for (var i = 0; i < window.__tabboardRings.length; i++) {
+      const ring = window.__tabboardRings[i];
+      ring.host.style.setProperty('--ring-stack-anchor', anchorY + 'px');
     }
   }
 
-  // 初始化位置：已持久化则用持久值(绝对像素),按当前 order 偏移;否则不动
+  // 初始化位置:已持久化则写 --ring-stack-anchor;否则不动(默认 50%)
   function initPositionFromStorage(ringEntry) {
-    chrome.storage.local.get([STORAGE_KEY], (result) => {
+    chrome.storage.local.get([STORAGE_KEY], function (result) {
+      if (!ringEntry.host || !ringEntry.host.isConnected) return; // 已被移除
       const savedY = result[STORAGE_KEY];
       if (typeof savedY === 'number') {
-        // 用当前 order(不是 defaultOrder)算偏移,这样关闭/重排后位置仍正确
-        const order = getRingOrder(ringEntry);
-        const top = savedY + order * SPACING;
-        ringEntry.trigger.style.top = `${top}px`;
-        if (ringEntry.panel) ringEntry.panel.style.top = `${top}px`;
-        ringEntry.trigger.dataset.dragInitialized = '1';
+        ringEntry.host.style.setProperty('--ring-stack-anchor', savedY + 'px');
+        ringEntry.host.dataset.dragInitialized = '1';
       }
     });
   }
@@ -148,14 +145,14 @@
   let persistTimer = null;
   function schedulePersist(anchorY) {
     clearTimeout(persistTimer);
-    persistTimer = setTimeout(() => {
+    persistTimer = setTimeout(function () {
       chrome.storage.local.set({ [STORAGE_KEY]: anchorY });
     }, 300);
   }
 
   // 拖动后 click 抑制
   function suppressNextClick(el) {
-    const swallow = (e) => {
+    const swallow = function (e) {
       e.stopPropagation();
       e.preventDefault();
       el.removeEventListener('click', swallow, true);
@@ -167,11 +164,13 @@
     return Math.max(min, Math.min(max, v));
   }
 
-  function getCurrentTopPx(el) {
-    const inline = el.style.top;
-    if (inline && inline.endsWith('px')) return parseFloat(inline);
-    const computed = window.getComputedStyle(el).top;
-    if (computed && computed.endsWith('px')) return parseFloat(computed);
+  // 读取 host 的当前锚点 Y(优先 inline CSS 变量;fallback 到 50% of innerHeight)
+  function getCurrentAnchorY(hostEl) {
+    const inline = hostEl.style.getPropertyValue('--ring-stack-anchor');
+    if (inline && inline.endsWith('px')) {
+      const n = parseFloat(inline);
+      if (!isNaN(n)) return n;
+    }
     return window.innerHeight / 2;
   }
 })();

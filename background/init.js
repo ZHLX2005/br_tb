@@ -64,7 +64,7 @@ export async function initializeDefaultData() {
       needUpdate = true;
     }
     if (updatedSettings.showLcSidebar === undefined) {
-      updatedSettings.showLcSidebar = false;
+      updatedSettings.showLcSidebar = true;
       needUpdate = true;
     }
     if (updatedSettings.showGotoRing === undefined) {
