@@ -28,10 +28,16 @@ export async function loadGroups({ onDelete, onSetDefault, onToggleFocus } = {})
   }
 
   const settingsResponse = await chrome.runtime.sendMessage({ action: 'getSettings' });
+  if (!settingsResponse?.success && !settingsResponse?.settings) {
+    console.warn('[TabBoard] getSettings failed:', settingsResponse?.error);
+  }
   const settings = settingsResponse?.settings || {};
   const focusSearchGroups = settings.focusSearchGroups || [];
 
   const dataResponse = await chrome.runtime.sendMessage({ action: 'getAllData' });
+  if (!dataResponse?.success) {
+    console.warn('[TabBoard] getAllData failed:', dataResponse?.error);
+  }
   const tabs = dataResponse?.tabs || {};
 
   const groupsList = document.getElementById('groupsList');
@@ -137,10 +143,13 @@ export async function toggleFocusSearchGroup(groupId, enabled) {
     focusSearchGroups = focusSearchGroups.filter(id => id !== groupId);
   }
 
-  await chrome.runtime.sendMessage({
+  const response = await chrome.runtime.sendMessage({
     action: 'updateSettings',
     settings: { focusSearchGroups }
   });
+  if (!response?.success) {
+    throw new Error(response?.error || 'updateSettings failed');
+  }
 }
 
 /**

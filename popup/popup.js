@@ -148,7 +148,7 @@ async function handleToggleFocus(groupId, enabled, prevChecked) {
   try {
     await toggleFocusSearchGroup(groupId, enabled);
   } catch (e) {
-    const box = document.querySelector(`.focus-checkbox[data-id="${groupId}"]`);
+    const box = document.getElementById('groupsList')?.querySelector(`.focus-checkbox[data-id="${groupId}"]`);
     if (box) box.checked = prevChecked;
     showToast(document.querySelector('.app'), `专注搜索更新失败: ${e.message}`, 'error');
   }
