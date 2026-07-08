@@ -46,9 +46,24 @@ class AppShell {
     document.getElementById('groupViewBtn')?.addEventListener('click', () => this.switchView('group'));
     document.getElementById('recordingViewBtn')?.addEventListener('click', () => this._openRecordingPage());
     document.getElementById('videoProgressViewBtn')?.addEventListener('click', () => this._openVideoProgressPage());
-    document.getElementById('leetcodeViewBtn')?.addEventListener('click', () => this.switchView('leetcode'));
-    document.getElementById('timerViewBtn')?.addEventListener('click', () => this.switchView('timer'));
-    document.getElementById('bilibiliHistoryViewBtn')?.addEventListener('click', () => this.switchView('bilibili-history'));
+
+    const moreBtn = document.getElementById('moreViewBtn');
+    moreBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this._toggleDropdown();
+    });
+    this._setupDropdownDismiss();
+  }
+
+  _setupDropdownDismiss() {
+    document.addEventListener('click', (e) => {
+      if (!this.dropdownOpen) return;
+      if (e.target.closest('#moreViewBtn, .nav-dropdown')) return;
+      this._closeDropdown();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && this.dropdownOpen) this._closeDropdown();
+    });
   }
 
   _setupRefreshButton() {
