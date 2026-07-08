@@ -31,27 +31,19 @@
     },
     {
       "matches": ["<all_urls>"],
-      "js": ["content/shared/draggable-ring.js"],
-      "run_at": "document_end"
-    },
-    {
-      "matches": ["<all_urls>"],
-      "js": ["content/lcSidebar.js"],
-      "run_at": "document_end"
-    },
-    {
-      "matches": ["<all_urls>"],
-      "js": ["content/vpSidebar.js"],
+      "js": [
+        "content/shared/ring-order.js",
+        "content/shared/draggable-ring.js",
+        "content/lcSidebar.js",
+        "content/vpSidebar.js",
+        "content/timerSidebar.js",
+        "content/captureRing.js"
+      ],
       "run_at": "document_end"
     },
     {
       "matches": ["<all_urls>"],
       "js": ["content/inject/goto/goto.js"],
-      "run_at": "document_end"
-    },
-    {
-      "matches": ["<all_urls>"],
-      "js": ["content/timerSidebar.js"],
       "run_at": "document_end"
     }
   ],

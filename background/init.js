@@ -83,6 +83,10 @@ export async function initializeDefaultData() {
       updatedSettings.showTimerSidebar = true;
       needUpdate = true;
     }
+    if (updatedSettings.showCaptureRing === undefined) {
+      updatedSettings.showCaptureRing = true;
+      needUpdate = true;
+    }
     if (updatedSettings.lastView === undefined) {
       updatedSettings.lastView = 'timeline';
       needUpdate = true;

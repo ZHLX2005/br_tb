@@ -1,9 +1,15 @@
 /**
  * Draggable Ring — 多圆环整体拖动 + 位置记忆
- * 暴露 window.__tabboardRingDrag.attach(trigger, panel, { ringIndex })
+ * 暴露 window.__tabboardRingDrag.attach(trigger, panel, { defaultOrder })
  * 通过 window.__tabboardRings 数组联动：拖任一圆环 → 所有圆环整体移动(保持 52px 间距)
  *
  * 配套文档: .claude/skills/injected-dom-toggle-pattern/references/draggable-ring.md
+ *
+ * 改动(配合 content/shared/ring-order.js):
+ *   - 入参 ringIndex 改名 defaultOrder(语义更准:是 manifest 注册顺序,不是当前顺序)
+ *   - applyStackPosition / initPositionFromStorage 改用 __tabboardRingOrder.getCurrentOrder(ringId)
+ *     来获取每个 ring 的**当前** order(关闭其他 ring 后顺序会重排)
+ *   - 通过 ringId 标识 ring(从入参传入,无 ringId 时用入参的 defaultOrder 匹配注册表)
  */
 (function () {
   'use strict';
@@ -20,19 +26,22 @@
   window.__tabboardRingDrag = window.__tabboardRingDrag || { attach };
 
   function attach(triggerEl, panelEl, opts = {}) {
-    const ringIndex = opts.ringIndex;
-    if (ringIndex == null) {
-      console.warn('[draggable-ring] ringIndex required');
+    const defaultOrder = opts.defaultOrder;
+    const ringId = opts.ringId || null; // 可选;若提供则用 ringId 查当前 order,更准
+    if (defaultOrder == null) {
+      console.warn('[draggable-ring] defaultOrder required');
       return;
     }
 
     // 同一 ring 重复 attach 防呆
     if (window.__tabboardRings.some(r => r.trigger === triggerEl)) return;
 
-    window.__tabboardRings.push({ trigger: triggerEl, panel: panelEl, index: ringIndex });
+    // 入栈;ringId 在后续 recompute 时用,目前先保存 defaultOrder 作为 fallback
+    const ringEntry = { trigger: triggerEl, panel: panelEl, defaultOrder, ringId };
+    window.__tabboardRings.push(ringEntry);
 
-    // 初始化位置：从 storage 读取已保存的 Y(以 ringIndex=0 为锚点)
-    initPositionFromStorage(triggerEl, panelEl, ringIndex);
+    // 初始化位置：从 storage 读取已保存的 Y(以 defaultOrder=0 为锚点)
+    initPositionFromStorage(ringEntry);
 
     // 拖动状态(per-trigger, 闭包)
     let dragState = null;
@@ -42,14 +51,15 @@
     triggerEl.addEventListener('pointerdown', (e) => {
       if (e.button !== 0) return;  // 仅左键
       try { triggerEl.setPointerCapture(e.pointerId); } catch (_) {}
-      // 【修复】记录的不是被拖 ring 的 top，而是整个 ring 栈的锚点 Y（ringIndex=0 的 top）
-      // 这样拖 VP/Timer 时, dy 偏移应用到锚点, 三个 ring 的相对间距保持不变
+      // 记录的是"锚点(LC) ring 的 top":当前 LC 的 top = 锚点;被拖 ring 的 top = 锚点 + N * 52
+      // 但被拖 ring 不一定是 LC。简化:用被拖 ring 的当前 inline top 减去它的当前 order * 52 = 锚点 top
       const myTop = getCurrentTopPx(triggerEl);
-      const anchorY = myTop - ringIndex * SPACING;
+      const myOrder = getRingOrder(ringEntry);
+      const anchorY = myTop - myOrder * SPACING;
       dragState = {
         startX: e.clientX,
         startY: e.clientY,
-        anchorY       // 拖动起点时, 锚点(LC)的 top
+        anchorY
       };
       didDrag = false;
     });
@@ -61,20 +71,16 @@
       if (!didDrag && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
 
       if (!didDrag) {
-        // 首次进入拖动：屏蔽 hover-reveal
         didDrag = true;
         window[DRAG_FLAG] = true;
       }
 
-      // 计算锚点 ring(ringIndex=0) 的新 topY
-      // dragState.anchorY 是拖动起点时 LC 的 top, dy 是鼠标垂直偏移
       const newAnchorY = clamp(
         dragState.anchorY + dy,
         EDGE_TOP,
         window.innerHeight - EDGE_BOTTOM
       );
 
-      // RAF 节流更新所有 ring 位置(保持间距)
       if (scheduledFrame) return;
       scheduledFrame = requestAnimationFrame(() => {
         scheduledFrame = null;
@@ -86,22 +92,33 @@
       if (!dragState) return;
       try { triggerEl.releasePointerCapture(e.pointerId); } catch (_) {}
       if (didDrag) {
-        // 【修复】被拖 ring 的 top - 它在栈中的偏移 = 锚点(LC)的 top
         const myTop = parseFloat(triggerEl.style.top) || 0;
-        const anchorY = myTop - ringIndex * SPACING;
+        const myOrder = getRingOrder(ringEntry);
+        const anchorY = myTop - myOrder * SPACING;
         schedulePersist(anchorY);
         suppressNextClick(triggerEl);
       }
       dragState = null;
-      // 延迟清除 flag(让 click suppression 先注册)
       setTimeout(() => { window[DRAG_FLAG] = false; }, 50);
     });
   }
 
+  // 查询某 ring 的当前 order;优先用 ringId 查注册表(准确,反映重排后的位置);
+  // fallback 到 defaultOrder(在 ring-order.js 还没注册时,例如初始化竞态)
+  function getRingOrder(ringEntry) {
+    if (ringEntry.ringId && window.__tabboardRingOrder && typeof window.__tabboardRingOrder.getCurrentOrder === 'function') {
+      const n = window.__tabboardRingOrder.getCurrentOrder(ringEntry.ringId);
+      if (n >= 0) return n;
+    }
+    return ringEntry.defaultOrder;
+  }
+
   // 联动核心：锚点 Y → 所有 ring top
+  // 用每个 ring 的**当前** order(可能因 ring-order 重排而变化),保证 ring 栈始终紧密
   function applyStackPosition(anchorY) {
     for (const ring of window.__tabboardRings) {
-      const top = anchorY + ring.index * SPACING;
+      const order = getRingOrder(ring);
+      const top = anchorY + order * SPACING;
       ring.trigger.style.top = `${top}px`;
       ring.trigger.style.transform = 'translateY(-50%)';
       if (ring.panel) {
@@ -112,20 +129,22 @@
     }
   }
 
-  // 初始化位置：已持久化则用持久值(绝对像素)，否则保持默认 :host { top: 50% } 居中
-  function initPositionFromStorage(trigger, panel, ringIndex) {
+  // 初始化位置：已持久化则用持久值(绝对像素),按当前 order 偏移;否则不动
+  function initPositionFromStorage(ringEntry) {
     chrome.storage.local.get([STORAGE_KEY], (result) => {
       const savedY = result[STORAGE_KEY];
       if (typeof savedY === 'number') {
-        const top = savedY + ringIndex * SPACING;
-        trigger.style.top = `${top}px`;
-        if (panel) panel.style.top = `${top}px`;
-        trigger.dataset.dragInitialized = '1';
+        // 用当前 order(不是 defaultOrder)算偏移,这样关闭/重排后位置仍正确
+        const order = getRingOrder(ringEntry);
+        const top = savedY + order * SPACING;
+        ringEntry.trigger.style.top = `${top}px`;
+        if (ringEntry.panel) ringEntry.panel.style.top = `${top}px`;
+        ringEntry.trigger.dataset.dragInitialized = '1';
       }
     });
   }
 
-  // 防抖写入 storage(避免拖动 1 秒触发几百次 set)
+  // 防抖写入 storage
   let persistTimer = null;
   function schedulePersist(anchorY) {
     clearTimeout(persistTimer);
@@ -134,14 +153,14 @@
     }, 300);
   }
 
-  // 拖动后 click 抑制(pointerup 紧跟 click, 否则会误触面板)
+  // 拖动后 click 抑制
   function suppressNextClick(el) {
     const swallow = (e) => {
       e.stopPropagation();
       e.preventDefault();
       el.removeEventListener('click', swallow, true);
     };
-    el.addEventListener('click', swallow, true);  // capture 阶段
+    el.addEventListener('click', swallow, true);
   }
 
   function clamp(v, min, max) {
@@ -149,12 +168,10 @@
   }
 
   function getCurrentTopPx(el) {
-    // 优先读 inline style.top(像素)；否则读 computed(可能为百分比)
     const inline = el.style.top;
     if (inline && inline.endsWith('px')) return parseFloat(inline);
     const computed = window.getComputedStyle(el).top;
     if (computed && computed.endsWith('px')) return parseFloat(computed);
-    // 默认 :host { top: 50% } 时, 圆环中心在视口中部
     return window.innerHeight / 2;
   }
 })();

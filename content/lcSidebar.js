@@ -241,6 +241,8 @@
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       --accent: #42a5f5;
     }
+    /* 圆环位置由共享 ring-order 协调器通过 --ring-order 控制;
+       见 content/shared/ring-order.js —— 关闭其他 ring 后会自动重排 */
     #${WRAPPER_ID}-trigger {
       width: 40px;
       height: 40px;
@@ -252,7 +254,7 @@
       align-items: center;
       justify-content: center;
       position: fixed;
-      top: 50%;
+      top: calc(50% + 52px * var(--ring-order, 0));
       right: -16px;
       transform: translateY(-50%);
       opacity: 0;
@@ -289,7 +291,7 @@
     /* 面板：从圆环左侧滑出 */
     #${WRAPPER_ID}-panel {
       position: fixed;
-      top: 50%;
+      top: calc(50% + 52px * var(--ring-order, 0));
       right: 8px;
       transform: translate(10px, -50%);
       width: 240px;
@@ -630,8 +632,22 @@
     window.__tabboardRingDrag?.attach(
       shadow.getElementById(WRAPPER_ID + '-trigger'),
       shadow.getElementById(WRAPPER_ID + '-panel'),
-      { ringIndex: 0 }
+      { defaultOrder: 0, ringId: 'lc' }
     );
+
+    // 注册到 ring-order 协调器：参与垂直自动补位
+    // isAlive 走协调器缓存的 settings
+    window.__tabboardRingOrder?.register({
+      ringId: 'lc',
+      host: wrapper,
+      defaultOrder: 0,
+      isAlive: () => {
+        if (!document.getElementById(WRAPPER_ID)) return false;
+        const s = window.__tabboardRingOrder.getLastSettings();
+        if (!s) return isEnabled; // 初始化时 fallback 到本地 isEnabled
+        return s.ringSidebarEnabled !== false && !!s.showLcSidebar;
+      }
+    });
   }
 
   function buildTodoSection() {

@@ -13,7 +13,15 @@ description: 当用户要求创建"注入DOM的流程"、创建"悬浮展开的d
 
 ## References 导读（按需深入，不要一次全读）
 
-本 SKILL.md 讲**整体模式 + 从 0 搭建一个 toggle** 的流程。`references/` 下有四篇深入文档，**按当前任务匹配阅读**：
+本 SKILL.md 讲**整体模式 + 从 0 搭建一个 toggle** 的流程。`references/` 下有深入文档，**按当前任务匹配阅读**：
+
+| 你的任务 | 读这篇 | 这篇讲什么 |
+|---------|--------|-----------|
+| 做「hover 近场浮现」入口（静止不可见、靠近右边缘才滑入、点击展开） | `references/hover-reveal.md` | 共享 mousemove 检测（非 :has + hover-zone），多圆环幂等注册，动效同步 |
+| **注入 UI 要防宿主页 CSS reset / 类名撞车**（Notion/Linear/Figma 失效） | `references/shadow-dom-isolation.md` | Shadow DOM 装配 + 6 个必踩坑（:host 选 host、变量定义、shadowRoot 查询、事件 retarget、字体穿透、状态联动） |
+| 决定入口的 UX（要不要塞进度、怎么收起、打扰程度、入口放什么内容） | `references/ux-design-style.md` | 克制浮现 / 入口单一职责 / 分层交互 / 低关闭成本 四准则 |
+| **已有圆环、要新增一个**悬浮入口（番茄钟、AI 助手、计时器等） | `references/adding-a-new-ring.md` | 6 步流程 + Shadow DOM 版可抄模板 + 12 个错误样本 + 视觉同步关键 + 检查清单 |
+| 多圆环场景下做「可拖动悬浮环」/ 拖动坐标偏差 530px / 想统一所有 ring 拖动 | `references/draggable-ring.md` | pointer 事件契约 + host CSS 字节级一致 + 整体 ring 栈联动 + 位置记忆 |
 
 | 你的任务 | 读这篇 | 这篇讲什么 |
 |---------|--------|-----------|
@@ -24,7 +32,7 @@ description: 当用户要求创建"注入DOM的流程"、创建"悬浮展开的d
 
 **阅读顺序建议**：先读本 SKILL.md 理解整体架构 → 按任务匹配读对应 reference → 实现时对照该 reference 末尾的检查清单逐项核对。
 
-> 四篇关系：`hover-reveal.md` = **原理**（怎么实现），`ux-design-style.md` = **设计**（为什么这么做），`adding-a-new-ring.md` = **cookbook**（照抄模板）。cookbook 依赖前两者的概念。`shadow-dom-isolation.md` 是注入 UI 的强制前提（不用 Shadow DOM 的圆环会在 Notion/Figma 等站点 CSS 失效）。
+> 五篇关系：`hover-reveal.md` = **原理**（怎么实现），`ux-design-style.md` = **设计**（为什么这么做），`adding-a-new-ring.md` = **cookbook**（照抄模板），`shadow-dom-isolation.md` = **强制前提**（注入 UI 必须用 Shadow DOM），`draggable-ring.md` = **拖动扩展**（让圆环可拖动到任意位置）。cookbook 依赖前两者的概念；`shadow-dom-isolation.md` 是注入 UI 的强制前提（不用 Shadow DOM 的圆环会在 Notion/Figma 等站点 CSS 失效）；`draggable-ring.md` 仅在需要拖动能力时读取。
 
 ## 架构图
 
@@ -79,133 +87,42 @@ background/init.js
 
 **关键：host 元素（`:host`）始终用 `top: 50%`，offset 只加在 trigger 和 panel 上。** 如果 host 也带 offset，其 `transform: translateY(-50%)` 会影响 shadow 内 `position: fixed` 子元素的包含块，导致偏移叠加。
 
-### Step 2：创建 content script（Shadow DOM 模板）
+### Step 2：创建 content script（精简骨架）
+
+> **完整可抄模板**（含 Shadow DOM 装配、错误处理、master 守卫、事件清理）见 `references/adding-a-new-ring.md` 的"最小代码模板"章节。这里只列出本 skill **独有**的两块：常量声明 + 共享近场浮现的幂等注册。
 
 ```javascript
 // content/xxxSidebar.js
 (function () {
   'use strict';
 
-  const WRAPPER_ID = 'tabboard-xxx-sidebar';   // 唯一前缀
+  // ① 常量 — 改 4 处
+  const WRAPPER_ID = 'tabboard-xxx-sidebar';   // 唯一前缀（host id）
   const ACCENT = '#42a5f5';
-  const N = 2;  // 序号（0,1,2...）
+  const N = 2;                                // 垂直位置序号（0,1,2...）
 
-  const STYLES = `
-    :host {
-      position: fixed; top: 50%; right: 0;
-      transform: translateY(-50%);
-      z-index: 999999;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      --accent: ${ACCENT};
-    }
-    #${WRAPPER_ID}-trigger {
-      width: 40px; height: 40px; border-radius: 50%; background: white;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.15); cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      position: fixed; top: calc(50% + ${52 * N}px); right: -16px;
-      transform: translateY(-50%); opacity: 0; pointer-events: none;
-      transition: right 220ms ease, opacity 180ms ease, box-shadow 200ms;
-      border: 1px solid rgba(0,0,0,0.06);
-    }
-    :host(.near) #${WRAPPER_ID}-trigger,
-    #${WRAPPER_ID}-trigger:hover {
-      right: 8px; opacity: 1; pointer-events: auto;
-    }
-    #${WRAPPER_ID}-trigger:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.22); }
+  function build() { /* 见 adding-a-new-ring.md 最小代码模板 */ }
+  function shouldHide(s) { return s.ringSidebarEnabled === false || s.showXxxSidebar === false; }
+  async function init() { /* 见 ref */ }
+  chrome.storage.onChanged.addListener(/* 见 ref */);
 
-    #${WRAPPER_ID}-panel {
-      position: fixed; top: calc(50% + ${52 * N}px); right: 8px;
-      transform: translate(10px, -50%); width: 240px;
-      background: white; border-radius: 10px;
-      box-shadow: -2px 4px 20px rgba(0,0,0,0.18);
-      opacity: 0; visibility: hidden; pointer-events: none;
-      transition: transform 240ms cubic-bezier(.16,1,.3,1), opacity 180ms linear, visibility 0s linear 240ms;
-    }
-    :host(.expanded) #${WRAPPER_ID}-panel {
-      opacity: 1; visibility: visible; pointer-events: auto;
-      transform: translate(-56px, -50%);
-      transition: transform 240ms cubic-bezier(.16,1,.3,1), opacity 180ms linear, visibility 0s;
-    }
-    /* ← 面板内部样式按需加在此处 */
-  `;
-
-  function build() {
-    if (document.getElementById(WRAPPER_ID)) return;
-
-    const wrapper = document.createElement('div');
-    wrapper.id = WRAPPER_ID;
-    const shadow = wrapper.attachShadow({ mode: 'open' });
-
-    const style = document.createElement('style');
-    style.textContent = STYLES;
-    shadow.appendChild(style);
-
-    const trigger = document.createElement('div');
-    trigger.id = WRAPPER_ID + '-trigger';
-    trigger.title = 'XXX';
-    trigger.innerHTML = '...';  // ← 圆环图标
-    shadow.appendChild(trigger);
-    trigger.addEventListener('click', (e) => {
-      e.stopPropagation();
-      wrapper.classList.toggle('expanded');
+  // ② 共享近场浮现（本 skill 独有，模板里也有但要确保幂等）
+  if (!window.__tabboardSideReveal) {
+    window.__tabboardSideReveal = true;
+    document.addEventListener('mousemove', (e) => {
+      const near = e.clientX > window.innerWidth - 40;
+      document.body.classList.toggle('tabboard-side-near', near);
+      document.querySelectorAll('[id$="-sidebar"]:not([id$="-panel"]):not([id$="-trigger"])')
+        .forEach(host => host.classList.toggle('near', near));
     });
-
-    const panel = document.createElement('div');
-    panel.id = WRAPPER_ID + '-panel';
-    panel.innerHTML = `<div style="padding:12px">面板内容</div>`;
-    shadow.appendChild(panel);
-
-    // 点击外部收起（延一帧绑）
-    setTimeout(() => document.addEventListener('click', (e) => {
-      if (!wrapper.classList.contains('expanded')) return;
-      if (wrapper.contains(e.target)) return;
-      wrapper.classList.remove('expanded');
-    }), 0);
-
-    // 共享近场浮现（幂等注册一次 mousemove）
-    if (!window.__tabboardSideReveal) {
-      window.__tabboardSideReveal = true;
-      document.addEventListener('mousemove', (e) => {
-        const near = e.clientX > window.innerWidth - 40;
-        document.body.classList.toggle('tabboard-side-near', near);
-        document.querySelectorAll('[id$="-sidebar"]:not([id$="-panel"]):not([id$="-trigger"])')
-          .forEach(host => host.classList.toggle('near', near));
-      });
-    }
-
-    document.body.appendChild(wrapper);
   }
 
-  function shouldHide(s) {
-    return s.ringSidebarEnabled === false || s.showMyRing === false;
-  }
-
-  async function init() {
-    try {
-      const res = await chrome.runtime.sendMessage({ action: 'getSettings' });
-      const s = res.success ? (res.settings || {}) : {};
-      if (shouldHide(s)) return;
-      build();
-    } catch (err) { /* 扩展上下文可能失效 */ }
-  }
-
-  chrome.storage.onChanged.addListener((changes, ns) => {
-    if (ns !== 'local' || !changes.settings) return;
-    const s = changes.settings.newValue || {};
-    const el = document.getElementById(WRAPPER_ID);
-    if (shouldHide(s)) { if (el) el.remove(); }
-    else if (!el) build();
-  });
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
-  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
 })();
 ```
 
-> **完整模板（含 Shadow DOM 错误处理、master 开关、事件清理）见 `references/adding-a-new-ring.md` 的"最小代码模板"章节。**
+**复制到你的圆环时改 4 处**：WRAPPER_ID、ACCENT、N、面板内容（图标 + innerHTML）。其他全部从 ref 抄。
 
 ### Step 3: 更新 manifest.json
 
@@ -261,6 +178,27 @@ function updateSubToggles(enabled) {
   });
 }
 ```
+
+### Step 7：可选 — 让圆环可拖动
+
+如果用户希望圆环可以拖到任意位置（而不只是悬浮在右侧），在 `build()` 末尾加一行（必须在 `document.body.appendChild(wrapper)` 之后，pointer 事件才能在 host 上传递）：
+
+```javascript
+document.body.appendChild(wrapper);
+window.__tabboardRingDrag?.attach(
+  shadow.getElementById(WRAPPER_ID + '-trigger'),
+  shadow.getElementById(WRAPPER_ID + '-panel'),
+  { ringIndex: N }  // ← N 必须和 Step 1 一致（LC=0, VP=1, Timer=2, ...）
+);
+```
+
+**关键约束**：
+
+- `ringIndex` 是该 ring 在垂直栈中的序号（0/1/2/...），决定整体拖动时的间距锚点
+- 不同 ring 的 `ringIndex` 不能重复，也不能跳跃
+- 多 ring 拖动时**所有 ring 的 `:host` CSS 必须字节级一致**（特别是都不能带 `transform`），否则 `getBoundingClientRect()` 返回的坐标系会差 530px
+
+详细原理 + 拖动契约 + 530px bug 复现 → `references/draggable-ring.md`
 
 ---
 
