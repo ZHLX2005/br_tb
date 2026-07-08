@@ -243,14 +243,11 @@ class AppShell {
     document.getElementById('groupViewBtn')?.classList.toggle('active', viewName === 'group');
     document.getElementById('recordingViewBtn')?.classList.toggle('active', viewName === 'recording');
     document.getElementById('videoProgressViewBtn')?.classList.toggle('active', viewName === 'videoProgress');
-    document.getElementById('leetcodeViewBtn')?.classList.toggle('active', viewName === 'leetcode');
-    document.getElementById('timerViewBtn')?.classList.toggle('active', viewName === 'timer');
 
     document.getElementById('timelineView').style.display = viewName === 'timeline' ? 'block' : 'none';
     document.getElementById('groupView').style.display = viewName === 'group' ? 'block' : 'none';
     document.getElementById('leetcodeView').style.display = viewName === 'leetcode' ? 'block' : 'none';
     document.getElementById('timerView').style.display = viewName === 'timer' ? 'block' : 'none';
-    document.getElementById('bilibiliHistoryViewBtn')?.classList.toggle('active', viewName === 'bilibili-history');
     document.getElementById('bilibiliHistoryView').style.display = viewName === 'bilibili-history' ? 'block' : 'none';
 
     // More 按钮 active 状态：当前 view 属于 dropdown items 时高亮
