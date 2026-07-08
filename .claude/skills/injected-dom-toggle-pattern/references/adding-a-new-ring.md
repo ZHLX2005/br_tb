@@ -26,26 +26,65 @@
 
 ### Step 2：`manifest.json` 注册
 
+**所有 ring + 共享模块必须合并到一个 content_scripts 块**,按以下顺序排列(顺序错会导致 API 未就绪):
+
 ```json
 {
-  "matches": ["<all_urls>"],
-  "js": ["content/xxxSidebar.js"],
-  "run_at": "document_end"
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": [
+        "content/shared/ring-order.js",
+        "content/shared/draggable-ring.js",
+        "content/lcSidebar.js",
+        "content/vpSidebar.js",
+        "content/timerSidebar.js",
+        "content/captureRing.js",
+        "content/xxxSidebar.js"
+      ],
+      "run_at": "document_end"
+    }
+  ]
 }
 ```
 
-### Step 3：分配垂直位置
+- `ring-order.js` **第一位**——协调器,所有 ring build 之前必须就绪
+- `draggable-ring.js` **第二位**——拖动,ring build 时调 attach
+- 各 ring 放后面,按 defaultOrder 顺序
 
-圆环 40px 高，间距 52px（净空 12px）。按加载顺序往下排：
+> 多个 ring 在 manifest 中按注册顺序排列(影响 defaultOrder)。把新 ring 加到列表末尾,defaultOrder 自动 = 列表长度 - 1。
 
-| 序号 | 圆环 | `top` |
-|------|------|-------|
-| 0 | LC | `50%` |
-| 1 | VP | `calc(50% + 52px)` |
-| 2 | 新圆环 | `calc(50% + 104px)` |
-| 3 | 下一个 | `calc(50% + 156px)` |
+### Step 3：分配垂直位置(动态序号)
 
-公式：`top: calc(50% + 52 * N px)`，N = 0,1,2,3...。**trigger 和 panel 要用同一个 top。**
+**重要**：不要把"top 写死成 calc(50% + 52*N px)"。如果按这个硬编码,关闭中间一个 ring 后剩下 ring 不会自动顶位(留下 52px 间隙)。应该用 **CSS 变量自动补位**(`references/ring-order-auto-fill.md`):
+
+```css
+#${WRAPPER_ID}-trigger {
+  position: fixed;
+  top: calc(var(--ring-stack-anchor, 50%) + 52px * var(--ring-order, 0));
+  right: -16px;
+  ...
+}
+#${WRAPPER_ID}-panel {
+  position: fixed;
+  top: calc(var(--ring-stack-anchor, 50%) + 52px * var(--ring-order, 0));
+  right: 8px;
+  ...
+}
+```
+
+`--ring-order` 由 `content/shared/ring-order.js` 协调器按 manifest 注册顺序派发 0,1,2,3...;关闭中间 ring 后其他 ring 自动重新连续派发,瞬时顶位。
+
+**唯一需要你定的是 `defaultOrder`**:在 manifest 里 ring 出现的顺序,从 0 开始数。例如:
+
+| 序号(`defaultOrder`) | 圆环 | 备注 |
+|------|------|------|
+| 0 | LC | 第一位 |
+| 1 | VP | |
+| 2 | Timer | |
+| 3 | 下一个 | 你的新 ring |
+
+**trigger 和 panel 要用同一个 CSS**(都是 `calc(var(--ring-stack-anchor, 50%) + 52px * var(--ring-order, 0))`)。
 
 ### Step 4：接入 master 总开关（必做）+ 决定子开关
 
@@ -127,11 +166,14 @@ content script 不会自动重新注入已打开的页面，**必须刷新页面
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;  /* 防宿主字体穿透 */
       --accent: ${ACCENT};
     }
+    /* 触发器位置由双 CSS 变量控制:见 references/ring-order-auto-fill.md
+       --ring-stack-anchor 由 draggable-ring.js 拖动时写入(默认 50%)
+       --ring-order 由 ring-order.js 协调器写入(默认 0,关闭其他 ring 后自动重排) */
     #${WRAPPER_ID}-trigger {
       width: 40px; height: 40px; border-radius: 50%; background: white;
       box-shadow: 0 2px 12px rgba(0,0,0,0.15); cursor: pointer;
       display: flex; align-items: center; justify-content: center;
-      position: fixed; top: calc(50% + 104px); right: -16px;   /* ← 改 top */
+      position: fixed; top: calc(var(--ring-stack-anchor, 50%) + 52px * var(--ring-order, 0)); right: -16px;
       transform: translateY(-50%); opacity: 0; pointer-events: none;
       transition: right 220ms ease, opacity 180ms ease, box-shadow 200ms;
       border: 1px solid rgba(0,0,0,0.06);
@@ -144,7 +186,7 @@ content script 不会自动重新注入已打开的页面，**必须刷新页面
     #${WRAPPER_ID}-trigger:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.22); }
 
     #${WRAPPER_ID}-panel {
-      position: fixed; top: calc(50% + 104px); right: 8px;   /* ← 和 trigger 同 top */
+      position: fixed; top: calc(var(--ring-stack-anchor, 50%) + 52px * var(--ring-order, 0)); right: 8px;   /* ← 和 trigger 同 top */
       transform: translate(10px, -50%); width: 240px;
       background: white; border-radius: 10px;
       box-shadow: -2px 4px 20px rgba(0,0,0,0.18);
@@ -208,6 +250,29 @@ content script 不会自动重新注入已打开的页面，**必须刷新页面
     }
 
     document.body.appendChild(wrapper);   // host 最后挂到 body
+
+    // 可选:启用拖动(让圆环可拖到任意位置,且与 ring-order 协调器联动)
+    // 需要 manifest 同时注入 content/shared/draggable-ring.js 和 content/shared/ring-order.js
+    // 见 references/draggable-ring.md 和 references/ring-order-auto-fill.md
+    window.__tabboardRingDrag && window.__tabboardRingDrag.attach(
+      shadow.getElementById(WRAPPER_ID + '-trigger'),
+      shadow.getElementById(WRAPPER_ID + '-panel'),
+      wrapper,                                  // ← 第三个参数必须是 host
+      { defaultOrder: N, ringId: 'myRing' }     // ← N 改 Step 3 序号(0/1/2/3);ringId 唯一
+    );
+
+    // 必做:注册到 ring-order 协调器,参与垂直自动补位
+    window.__tabboardRingOrder && window.__tabboardRingOrder.register({
+      ringId: 'myRing',                         // ← 同上,唯一
+      host: wrapper,
+      defaultOrder: N,                          // ← N 同上
+      isAlive: function () {
+        if (!document.getElementById(WRAPPER_ID)) return false;
+        var s = window.__tabboardRingOrder.getLastSettings();
+        if (!s) return true;                    // 缓存未就绪时保守按"显示"
+        return s.ringSidebarEnabled !== false && s.showMyRing !== false;
+      }
+    });
   }
 
   // 主文档查询 shadow 子树：走 wrapper.shadowRoot（document.getElementById 只能查到 host）
@@ -359,7 +424,7 @@ document.addEventListener('click', (e) => { if(!wrapper.contains(e.target)) wrap
 
 1. **共享浮现触发**：`window.__tabboardSideReveal` 幂等注册一次 mousemove，鼠标靠近右边缘时**同时**给 `body` 和**所有** host 加 `.near`（`:host(.near)` 响应）。一个圆环文件注册，全局生效。
 2. **统一 transition 参数**：所有圆环 trigger 用 `right 220ms ease, opacity 180ms ease`，panel 用 `transform 240ms cubic-bezier(.16,1,.3,1)`。参数一致 = 动效完全同步。
-3. **统一位置公式**：`top: calc(50% + 52 * N px)`，N=0,1,2... 按 manifest 注册顺序。trigger 和 panel **必须同 top**。
+3. **统一位置公式**(基于双 CSS 变量):`top: calc(var(--ring-stack-anchor, 50%) + 52px * var(--ring-order, 0))`。N 由 `__tabboardRingOrder.recompute()` 动态派发,关闭其他 ring 后自动重排(0,1,2...连续)。trigger 和 panel **必须同 top**。完整机制见 `references/ring-order-auto-fill.md`。
 4. **统一收起逻辑**：每个圆环 `setTimeout(0)` 绑 document click，点外部收起；事件 retarget 到 host，`wrapper.contains(e.target)` 判断成立。
 
 > 这四条缺任何一条，多圆环就会出现"一个先出一个后出""间距不对""hover 这个那个没反应"。
@@ -390,9 +455,10 @@ window.setupSideReveal = function () {
 
 ## 检查清单
 
+### 基础
 - [ ] 新建独立 `content/xxxSidebar.js`，没塞进别的圆环文件
 - [ ] `WRAPPER_ID` 唯一（host id，主文档可见）
-- [ ] trigger 和 panel 用**不同的** `top`（按 52px 间距往下排），且两者 top 一致
+- [ ] trigger 和 panel 用**同一份** `top: calc(var(--ring-stack-anchor, 50%) + 52px * var(--ring-order, 0))`(双变量自动补位)
 - [ ] **Shadow DOM 装配**：`attachShadow`，style + trigger + panel 都进 shadow
 - [ ] host 自身样式/变量/状态用 `:host` / `:host(.expanded)` / `:host(.near)`，**不用 `#host-id`**
 - [ ] **`:host` 不要加 `transform`**(会创建 containing block，多 ring 拖动场景下其他 ring 坐标系错乱)
@@ -406,6 +472,17 @@ window.setupSideReveal = function () {
 - [ ] 写 settings 用 `updateSettings` action（合并语义），不直接 set
 - [ ] **接入 master 总开关**：init 检查 `ringSidebarEnabled === false` 不显示；监听关→`remove()` DOM、开→`build()`
 - [ ] master 判断用 `=== false`（undefined 默认开，向后兼容老用户）
-- [ ] manifest 注册了新文件
 - [ ] popup 里新增子 checkbox 放在「悬浮圆环」专区，class 为 `ring-sub`（master 关时不应能点）
 - [ ] 刷新扩展 **且** 强刷测试页面
+
+### 自动补位(必做,否则关闭其他 ring 后留下 52px 间隙)
+- [ ] manifest 把新 ring 加到 `content/shared/ring-order.js` + `content/shared/draggable-ring.js` 之后的列表里
+- [ ] `__tabboardRingOrder.register({ ringId, host: wrapper, defaultOrder, isAlive })` 在 `appendChild` 之后调
+- [ ] `isAlive` 先查 `document.getElementById(WRAPPER_ID)`,再读 `getLastSettings()` 缓存
+- [ ] `ringId` 字符串在所有 ring 间唯一
+- [ ] `defaultOrder` 与 manifest 列表顺序一致(从 0 开始,不能跳号)
+
+### 拖动(可选)
+- [ ] `__tabboardRingDrag.attach(trigger, panel, wrapper, { defaultOrder, ringId })` 4 参调用
+- [ ] 第三个参数是 host(`wrapper`),**不是 trigger**
+- [ ] 第二个参数 `opts.ringId` 与 register 的 ringId 一致(拖动查动态序号要用)
