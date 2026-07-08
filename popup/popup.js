@@ -4,9 +4,8 @@
  * 协调各功能模块
  */
 
-import { loadGroups, setDefaultGroup, deleteGroup, addToFocusSearch, addGroup, getSelectedColor } from './modules/groups.js';
+import { loadGroups, setDefaultGroup, deleteGroup, addGroup, toggleFocusSearchGroup, getSelectedColor } from './modules/groups.js';
 import { loadSettings, bindSettingsListeners } from './modules/settings.js';
-import { loadFocusSearchGroups, toggleFocusSearchGroup } from './modules/focusSearch.js';
 import { bindQuickActionsListeners } from './modules/quickActions.js';
 import { loadVideoProgress, bindVideoProgressEvents, refreshCurrentVideo } from './modules/videoProgress.js';
 import { loadLcSidebarSetting, bindLcSidebarEvents } from './modules/lcSettings.js';
@@ -107,7 +106,7 @@ async function handleAddGroup() {
     await loadGroups({
       onDelete: handleDeleteGroup,
       onSetDefault: handleSetDefaultGroup,
-      onAddToFocus: handleAddToFocus
+      onToggleFocus: handleToggleFocus
     });
     showToast(document.querySelector('.app'), '分组已创建', 'success');
   } catch (e) {
@@ -123,7 +122,7 @@ async function handleSetDefaultGroup(groupId) {
   await loadGroups({
     onDelete: handleDeleteGroup,
     onSetDefault: handleSetDefaultGroup,
-    onAddToFocus: handleAddToFocus
+    onToggleFocus: handleToggleFocus
   });
 }
 
@@ -136,36 +135,23 @@ async function handleDeleteGroup(groupId) {
     await loadGroups({
       onDelete: handleDeleteGroup,
       onSetDefault: handleSetDefaultGroup,
-      onAddToFocus: handleAddToFocus
+      onToggleFocus: handleToggleFocus
     });
     showToast(document.querySelector('.app'), '分组已删除', 'success');
   }
 }
 
 /**
- * 添加到专注搜索处理
+ * 切换专注搜索分组（行内 checkbox）
  */
-async function handleAddToFocus(groupId) {
-  await addToFocusSearch(groupId);
-  await loadGroups({
-    onDelete: handleDeleteGroup,
-    onSetDefault: handleSetDefaultGroup,
-    onAddToFocus: handleAddToFocus
-  });
-  await loadFocusSearchGroups({
-    onToggle: handleToggleFocusSearch
-  });
-  showToast(document.querySelector('.app'), '已添加到专注搜索', 'success');
-}
-
-/**
- * 切换专注搜索分组
- */
-async function handleToggleFocusSearch(groupId, enabled) {
-  await toggleFocusSearchGroup(groupId, enabled);
-  await loadFocusSearchGroups({
-    onToggle: handleToggleFocusSearch
-  });
+async function handleToggleFocus(groupId, enabled, prevChecked) {
+  try {
+    await toggleFocusSearchGroup(groupId, enabled);
+  } catch (e) {
+    const box = document.querySelector(`.focus-checkbox[data-id="${groupId}"]`);
+    if (box) box.checked = prevChecked;
+    showToast(document.querySelector('.app'), `专注搜索更新失败: ${e.message}`, 'error');
+  }
 }
 
 // ==================== Tab导航 ====================
@@ -234,10 +220,7 @@ async function init() {
     loadGroups({
       onDelete: handleDeleteGroup,
       onSetDefault: handleSetDefaultGroup,
-      onAddToFocus: handleAddToFocus
-    }),
-    loadFocusSearchGroups({
-      onToggle: handleToggleFocusSearch
+      onToggleFocus: handleToggleFocus
     })
   ]);
 
