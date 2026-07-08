@@ -18,6 +18,12 @@ class AppShell {
     this.currentModule = null;
     this.currentView = 'timeline';
     this.storageChangeTimer = null;
+    this.dropdownOpen = false;
+    this.dropdownItems = [
+      { viewName: 'leetcode',         label: 'LC',    desc: '150'  },
+      { viewName: 'timer',            label: 'Timer', desc: '日志' },
+      { viewName: 'bilibili-history', label: 'Bili',  desc: '历史' },
+    ];
     // 模块实例缓存：保留有状态模块（bilibili-history 等）的实例，
     // 避免 view 切换时丢失 state / payload / items 等内存数据
     this.modules = {};
