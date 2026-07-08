@@ -153,6 +153,7 @@ class AppShell {
       const data = initialData || await this.dataManager.loadData();
       this.currentModule.render(data);
       this.currentModule.bindEvents();
+      this._closeDropdown();
       await this.dataManager.sendMessage('updateSettings', {
         settings: { lastView: viewName }
       });
@@ -202,6 +203,7 @@ class AppShell {
     this.currentModule.render(data);
     this.currentModule.bindEvents();
 
+    this._closeDropdown();
     await this.dataManager.sendMessage('updateSettings', {
       settings: { lastView: viewName }
     });
@@ -250,6 +252,10 @@ class AppShell {
     document.getElementById('timerView').style.display = viewName === 'timer' ? 'block' : 'none';
     document.getElementById('bilibiliHistoryViewBtn')?.classList.toggle('active', viewName === 'bilibili-history');
     document.getElementById('bilibiliHistoryView').style.display = viewName === 'bilibili-history' ? 'block' : 'none';
+
+    // More 按钮 active 状态：当前 view 属于 dropdown items 时高亮
+    const inDropdown = this.dropdownItems.some(it => it.viewName === viewName);
+    document.getElementById('moreViewBtn')?.classList.toggle('active', inDropdown);
   }
 
   _openRecordingPage() {
