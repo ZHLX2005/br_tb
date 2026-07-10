@@ -1,82 +1,77 @@
 ---
 name: module-extension-guide
-description: 当用户要求扩展模块、新增视图、添加功能面板、或集成新页面到 TabBoard 时触发。指导在现有模块化架构中新增一个功能模块的完整流程。
+description: 当用户要求扩展模块、新增视图、添加功能面板、或集成新页面到 TabBoard 时触发。指导在现有模块化架构中新增一个功能模块的完整流程；并涵盖"把独立 HTML 页面内嵌成 panel"这一改造（共享 CSS 审计、CSS 作用域化、事件监听器泄漏修复、switchView 短路清理、保留 manifest 资源）。
 ---
 
-# Module Extension Guide — 模块扩展指南
+# Module Extension Guide — TabBoard 模块扩展指南
+
+> **单一职责：** 教你在 TabBoard 现有架构里加一个新模块或扩展已有模块，所有路径锚定本仓库根目录 `D:\code\a_js\proj\js\test_feature\`。
+>
+> 本 skill 不涵盖：通用前端组件设计、UI 库选择、独立无关联项目的新建。
 
 ## 触发条件
 
-- "扩展一个模块"
-- "新增视图"
-- "添加功能面板"
-- "集成新页面"
-- "添加XX按钮"
-- "再这个区域扩展"
-
-## 方案选择：内嵌视图 vs 跳转新页面
-
-### 方案 A：内嵌 view.js（推荐）
-
-在同一 TabBoard 页面内，通过 `AppShell.switchView()` 切换容器内容。
-
-**适用场景：**
-- 数据与现有模块共享（通过 DataManager + chrome.storage）
-- 需要在导航栏快速切换
-- 功能与看板/时序属于同一层级
-
-**优点：**
-- 数据统一管理，无需跨页面同步
-- 切换流畅，无页面跳转白屏
-- 可复用 DataManager、EventBus、共享样式
-- Storage listener 自动同步所有视图
-
-**缺点：**
-- DOM 结构复杂，需管理视图显隐
-- 单页 CSS 容易膨胀（需拆分）
-
-### 方案 B：跳转独立 HTML 页面
-
-如 `recording.html`、`video-progress.html`，通过 `window.location.href` 跳转。
-
-**适用场景：**
-- 功能完全独立，不依赖 TabBoard 主框架
-- 需要独立的 URL 和页面生命周期
-- 模块有自己的 Shell 和路由
-
-**优点：**
-- 代码完全隔离，不污染主页面
-- 独立的 CSS/JS，无全局命名冲突
-
-**缺点：**
-- 数据同步需要额外处理（storage change + 页面重载）
-- 跳转有白屏，体验不连贯
-- 需要独立的 Shell 初始化逻辑
-
-### 决策规则
-
-```
-是否需要与 TabBoard 共享数据和导航栏？
-  ├── 是 → 选择方案 A（内嵌 view.js）
-  └── 否 → 选择方案 B（独立页面）
-```
-
-**默认优先方案 A。** 只有当前模块是一个完全独立的功能（如录制管理、视频进度追踪有自己的复杂路由）时，才选择方案 B。
+- "扩展一个模块" / "加个新视图" / "新加个面板"
+- "在 TabBoard 里集成 XX"
+- "把 recording.html 内嵌成 panel"（属于**独立页面内嵌**的改造，详见 §10）
+- "添加 XX 按钮" / "给 group view 加个清空按钮"（属于**已有模块的扩展**，见 §6）
 
 ---
 
-## 扩展流程（按序执行）
+## 1. 方案选择：内嵌 view.js vs 跳转新页面
 
-### Phase 1: 创建模块文件（3 个文件）
+```
+是否需要与 TabBoard 共享数据(DataManager + chrome.storage)和导航栏？
+  ├── 是 → 方案 A：内嵌 view.js（默认推荐）
+  └── 否 → 方案 B：独立 HTML 页面（如 recording.html）
+```
+
+| 维度 | A：内嵌 view.js | B：独立 HTML 页面 |
+|------|-----------------|------------------|
+| 数据共享 | ✅ 天然共享 | ⚠️ 需 storage change 同步 |
+| 切换体验 | ✅ 无白屏 | ❌ 跳转白屏 |
+| 路由管理 | AppShell.switchView 统一调度 | 自管 URL/Shell |
+| 适用 | 看板/时序/专注搜索这类主面板功能 | 录制回放、视频进度这种独立 SPA |
+
+**默认方案 A。** 只有当模块有独立路由/复杂生命周期（如 recording.html 自己的 Shell）时选 B。
+
+---
+
+## 2. 现有架构快照（动手前必读）
+
+| 角色 | 文件 |
+|------|------|
+| 应用入口 | `modules/tabboard/tabboard.html` + `tabboard.js` |
+| 视图路由 | `tabboard.js::switchView()` 的 switch 语句（line 174-200） |
+| 数据中枢 | `modules/shared/data-manager.js`（chrome.storage 代理） |
+| 背景脚本 | `background/index.js` + 子模块（`commands.js` / `groups.js` / `recording.js` ...） |
+| 共享模态框 | `shared/ModalDialog.js`（**根目录的 `shared/`，不是 `modules/shared/`**） |
+| 共享工具 | `modules/shared/utils.js`、`modules/shared/event-bus.js`、`modules/shared/lib/jkanban.min.js` |
+| 各视图 | `modules/<feature>/{index.js, view.js, style.css}` |
+| 消息协议 | `chrome.runtime.sendMessage({ action, ...payload })` |
+
+### 关键不变量（违反必崩）
+
+1. **每个模块必须实现 4 个方法：** `init()`、`render(data)`、`bindEvents()`、`destroy()`。  
+   `tabboard.js:202-206` 直接调用这 4 个方法，没有 duck-typing fallback。
+2. **`render(data)` 必须更新 `#stats`**（line 132-138 的注释强调过），否则切视图时头部残留"加载中..."。
+3. **`destroy()` 必须清理所有 observer / 第三方实例**（MutationObserver、jKanban、dragula），否则切回时事件堆叠。
+4. **import 路径以文件自身所在目录为基准**（见 §7 错误案例 #1）。
+
+---
+
+## 3. 扩展流程（内嵌方案 A）
+
+### Phase 1: 创建 `modules/<feature-name>/` 三件套
 
 ```
 modules/<feature-name>/
-  ├── index.js   # 模块入口（BaseModule 接口）
-  ├── view.js    # DOM 渲染与事件绑定
-  └── style.css  # 模块样式（独立文件）
+  ├── index.js   # 模块入口（实现 4 方法）
+  ├── view.js    # DOM 渲染 + 事件绑定
+  └── style.css  # 模块专属样式（强制独立，不进 tabboard.css）
 ```
 
-**index.js 模板：**
+#### 1.1 `index.js` 模板（与现有 GroupModule 对齐）
 
 ```javascript
 import <FeatureName>View from './view.js';
@@ -90,7 +85,8 @@ class <FeatureName>Module {
   }
 
   init() {
-    this.view.setContainer(this.container);
+    // 视图内部已通过 render 初始化
+    // 如需绑定 storage listener，在这里 this.dataManager.onChange(...)
   }
 
   render(data) {
@@ -99,20 +95,30 @@ class <FeatureName>Module {
   }
 
   bindEvents() {
-    // 视图内部已绑定事件
+    // 视图内部已通过 _setupBoardActionDelegation 或 _bindEvents 自绑定
   }
 
   destroy() {
-    this.view.container = null;
+    // ⚠️ 必须清理 observer / 第三方实例 / DOM 事件
+    if (this.view.<observerOrInstance>) {
+      this.view.<observerOrInstance>.disconnect?.();
+      this.view.<observerOrInstance> = null;
+    }
+    if (this.container) this.container.innerHTML = '';
   }
 }
 
 export default <FeatureName>Module;
 ```
 
-**view.js 模板：**
+**参考真实代码：** `modules/group/index.js`（35 行，最小可用版本）。
+
+#### 1.2 `view.js` 模板
 
 ```javascript
+import { escapeHtml, formatTime, getColorClass } from '../shared/utils.js';
+import { modal } from '../../../shared/ModalDialog.js';   // ⚠️ 见 §7 #1
+
 class <FeatureName>View {
   constructor(dataManager) {
     this.dataManager = dataManager;
@@ -123,17 +129,12 @@ class <FeatureName>View {
     this.items = data.<featureKey> || [];
   }
 
-  setContainer(container) {
-    this.container = container;
-  }
-
   render() {
-    if (!this.container) return;
-    // 更新头部统计条（避免"加载中..."残留）
-    const headerStats = document.getElementById('stats');
-    if (headerStats) {
-      headerStats.textContent = '...'; // 或清空
-    }
+    // 1) 头部统计条（强制，避免残留）
+    const stats = document.getElementById('stats');
+    if (stats) stats.textContent = `${this.items.length} 项`;
+
+    // 2) 主体渲染
     this.container.innerHTML = this._buildHTML();
     this._bindEvents();
   }
@@ -145,100 +146,80 @@ class <FeatureName>View {
 export default <FeatureName>View;
 ```
 
-### Phase 2: 注册到 AppShell
+**关键提醒：**
+- `view.js` 不要直接读 `chrome.storage.local`，全部走 `dataManager.sendMessage` 或 `dataManager.loadData()`。
+- 重复渲染会导致事件堆叠 → 见 §7 #4 委托方案。
 
-**修改 `modules/tabboard/tabboard.js`：**
+### Phase 2: 注册到 AppShell（`modules/tabboard/tabboard.js`）
 
-1. **导入模块：**
-   ```javascript
-   import <FeatureName>Module from '../<feature-name>/index.js';
-   ```
+**4 处必须改，缺一不可：**
 
-2. **添加导航按钮事件：**
-   ```javascript
-   document.getElementById('<featureName>ViewBtn')
-     ?.addEventListener('click', () => this.switchView('<feature-name>'));
-   ```
+```javascript
+// (1) 顶部 import（line 9 附近）
+import <FeatureName>Module from '../<feature-name>/index.js';
 
-3. **添加视图路由：**
-   ```javascript
-   case '<feature-name>':
-     container = document.getElementById('<featureName>Panel');
-     ModuleClass = <FeatureName>Module;
-     break;
-   ```
+// (2) 导航按钮 click（line 47 附近）
+document.getElementById('<featureName>ViewBtn')
+  ?.addEventListener('click', () => this.switchView('<feature-name>'));
 
-4. **更新 UI 显隐：**
-   ```javascript
-   document.getElementById('<featureName>ViewBtn')
-     ?.classList.toggle('active', viewName === '<feature-name>');
-   document.getElementById('<featureName>View').style.display
-     = viewName === '<feature-name>' ? 'block' : 'none';
-   ```
+// (3) switch 路由（line 174-200 的 switch 内）
+case '<feature-name>':
+  container = document.getElementById('<featureName>View');
+  ModuleClass = <FeatureName>Module;
+  break;
 
-### Phase 3: 添加 HTML 容器
-
-**修改 `modules/tabboard/tabboard.html`：**
-
-1. **导航栏添加按钮：**
-   ```html
-   <button id="<featureName>ViewBtn" class="nav-btn" title="...">Label</button>
-   ```
-
-2. **添加视图容器：**
-   ```html
-   <div id="<featureName>View" class="view-container" style="display: none;">
-     <div id="<featureName>Panel"></div>
-   </div>
-   ```
-
-3. **引入 CSS：**
-   ```html
-   <link rel="stylesheet" href="<feature-name>.css">
-   ```
-
-### Phase 4: CSS 分离（强制）
-
-**每个模块必须有独立的 style.css，单文件不得超过 500 行。**
-
-如果现有 `tabboard.css` 已超过 500 行，拆分策略：
-
-```
-modules/tabboard/tabboard.css   → 通用基础样式（:root, header, nav, buttons, 右键菜单, toast）
-modules/group/style.css         → jKanban 看板样式
-modules/timeline/style.css      → Timeline 视图样式
-modules/leetcode/style.css      → LeetCode 面板样式
-modules/<feature>/style.css     → 新模块样式
+// (4) UI 显隐（line 246 附近的 _updateViewUI）
+'<feature-name>': '<featureName>View',   // 加进 viewContainerMap
+document.getElementById('<featureName>ViewBtn')
+  ?.classList.toggle('active', viewName === '<feature-name>');
 ```
 
-拆分后更新 `tabboard.html` 引入所有拆分后的 CSS 文件：
+### Phase 3: HTML 容器（`modules/tabboard/tabboard.html`）
+
 ```html
-<link rel="stylesheet" href="tabboard.css">
-<link rel="stylesheet" href="../group/style.css">
-<link rel="stylesheet" href="../timeline/style.css">
-<link rel="stylesheet" href="../leetcode/style.css">
-<link rel="stylesheet" href="../<feature>/style.css">
+<!-- 导航栏（line 18 附近） -->
+<button id="<featureName>ViewBtn" class="nav-btn" title="...">Label</button>
+
+<!-- 视图容器（line 51 附近） -->
+<div id="<featureName>View" class="view-container" style="display: none;">
+  <div id="<featureName>Panel" style="height: 100%; overflow-y: auto;"></div>
+</div>
+
+<!-- CSS 引入（line 6 附近） -->
+<link rel="stylesheet" href="../<feature-name>/style.css">
 ```
 
-### Phase 5: 数据层注册
+### Phase 4: CSS 强制独立
 
-**修改 `modules/shared/data-manager.js`：**
+- `modules/<feature-name>/style.css` 单文件 ≤ 500 行。
+- `tabboard.css` 只放通用基础（`:root`、header、nav、buttons、contextmenu、toast）。
+- 不要用全局选择器（如 `button { ... }`），全部加前缀 `.feature-name-xxx`。
 
-1. 在 `this.data` 中添加新字段：
-   ```javascript
-   this.data = {
-     // ...existing fields
-     <featureKey>: {},
-   };
-   ```
+### Phase 5: 数据层注册（如需新 storage key）
 
-2. 在 `loadData()` 的 `chrome.storage.local.get()` 参数中添加新 key
-3. 在条件判断中添加新 key 的读取
-4. 添加 getter
+**只在需要新持久化字段时执行。** 复用现有 key（groups/tabs/timelineSnapshots/recordings）跳过此步。
 
-**修改 `background/init.js`：**
+**`modules/shared/data-manager.js`：**
 
-初始化新 storage key：
+```javascript
+// constructor 的 this.data 加字段
+this.data = {
+  groups: [],
+  tabs: {},
+  // ...
+  <featureKey>: {},     // ← 新增
+};
+
+// loadData() 的 chrome.storage.local.get 列表加 key
+const result = await chrome.storage.local.get(['groups', 'tabs', '<featureKey>']);
+this.data.<featureKey> = result.<featureKey> || {};
+
+// 加 getter
+get <featureKey>() { return this.data.<featureKey>; }
+```
+
+**`background/init.js`：**
+
 ```javascript
 const result = await chrome.storage.local.get(['<featureKey>']);
 if (!result.<featureKey>) {
@@ -246,65 +227,243 @@ if (!result.<featureKey>) {
 }
 ```
 
+**`background/<feature>.js`：** 在 `setupGroupsListeners` / `setupRecordingListeners` 等路由表里加 `case '<featureAction>':` 接收 `chrome.runtime.sendMessage`。
+
 ---
 
-## 头部统计条处理（view.js 方案必须处理）
+## 4. 头部统计条（每个视图必处理）
 
-> **重要：选择 view.js 内嵌方案时，每个视图必须在 `render()` 中主动更新头部 `#stats`，否则切换后会一直显示"加载中..."或残留其他视图的数据。**
->
-> 跳转新页面方案不存在此问题，因为每个页面有自己的独立头部或不需要共享统计条。
-
-**在 view.js 的 `render()` 中必须处理：**
+`tabboard.js` 的 `#stats` 是全局共享，切换视图不会自动清空。**每个 view.js 的 `render()` 必须主动设置**，否则残留上一个视图的数据或 "加载中..."。
 
 ```javascript
 render() {
-  // 1. 先更新头部统计条，避免"加载中..."残留
-  const headerStats = document.getElementById('stats');
-  if (headerStats) {
-    const stats = this._calcStats(); // 或从 data 中提取
-    headerStats.textContent = `${stats.done}/${stats.total} 已完成 · ${stats.percent}%`;
+  const stats = document.getElementById('stats');
+  if (stats) {
+    stats.textContent = `${this.items.length} 个项目 · ${this.filtered.length} 个显示`;
   }
-
-  // 2. 再渲染主体内容
-  this.container.innerHTML = this._buildHTML();
-  this._bindEvents();
+  // ... 再渲染主体
 }
 ```
 
-**各视图负责自己的统计：**
-- TimelineView → `50 个快照 · 2382 个标签页`
-- GroupView → `2382 个标签页 · 3/5 个分组显示`
-- LeetCodeView → `45/150 已完成 · 30%`
-- 新模块 → 根据业务自定义（如 `12 个任务 · 8 个已完成`）
+参考：`modules/group/view.js:55-62`（分组视图）、`modules/timeline/view.js`（时序视图）。
 
 ---
 
-## 错误案例
+## 5. storage 变化监听（多视图同步）
 
-| 错误操作 | 实际后果 | 正确做法 |
-|---------|---------|---------|
-| 未更新 `#stats`，直接 render | 头部残留"加载中..."或其他视图数据 | 每个 view.js 的 render() 必须更新 stats.textContent |
-| CSS 全部堆在 tabboard.css | 文件超 500 行，维护困难，选择器冲突 | 每个模块独立 style.css，单文件 ≤500 行 |
-| 忘记在 `switchView` 中销毁旧模块 | 事件重复绑定，内存泄漏 | 确保 `switchView()` 调用 `this.currentModule.destroy()` |
-| 在 view.js 中直接操作 `chrome.storage` 但不处理 storage listener | 引发 render() 循环调用，DOM 闪烁 | 设置 `_lastUpdateTime` 标志跳过冗余渲染，或仅在 `render()` 中读取数据 |
-| 新模块 HTML 容器使用 `display: none` 但 CSS 中无 `overflow` 控制 | 内容溢出，布局错乱 | 为 `#<featureName>Panel` 设置 `height: 100%; overflow-y: auto;` |
-| 忘记在 DataManager 中注册新 key | 数据无法持久化，刷新后丢失 | 在 constructor、loadData、getter 中都要添加 |
-| 选择跳转新页面方案，但数据需与主页面共享 | 数据同步复杂，storage change 监听不可靠 | 优先选择内嵌 view.js 方案 |
-| import 路径写错 | Chrome 扩展加载失败：`Failed to load module` | 使用相对路径 `../<feature>/index.js`，从 `tabboard.js` 出发 |
+如果新视图依赖其他视图修改的数据，必须监听 storage change：
+
+```javascript
+// data-manager.js 中已有 onChange 调度
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== 'local') return;
+  if (changes.<featureKey>) {
+    this.data.<featureKey> = changes.<featureKey>.newValue;
+    this._notifyListeners('<featureKey>');  // 通知视图刷新
+  }
+});
+```
+
+视图侧在 `init()` 里订阅：
+
+```javascript
+init() {
+  this.dataManager.on('<featureKey>', (newVal) => {
+    this.updateData({ <featureKey>: newVal });
+    this.render();
+  });
+}
+```
+
+**坑：** 如果在视图内直接 `chrome.storage.local.get`，会绕开通知链路，导致 storage change 不触发本视图刷新。
 
 ---
 
-## 验证清单
+## 6. 已有模块的扩展（vs 新建模块）
 
-- [ ] 新模块目录创建：`modules/<feature>/`
-- [ ] 3 个文件齐全：`index.js`、`view.js`、`<feature>.css`
+给 `group view` 加按钮、改 `timeline view` 布局，**不需要新建三件套**，直接修改对应文件：
+
+| 改动类型 | 改哪里 | 注意 |
+|---------|--------|------|
+| 给看板列加按钮 | `modules/group/view.js` 的 `_addBoardActionButtons()` | 见 §7 #4 委托方案，避免每次 render 重复 `addEventListener` |
+| 加新消息 action | `background/groups.js` 的 `setupGroupsListeners` switch | 同步更新 `CLAUDE.md` 的消息协议表 |
+| 改存储字段 | `data-manager.js` + `background/init.js` + 迁移老数据 | 加 version 字段，老用户首次启动时迁移 |
+| 加新视图 | 走 §3 完整流程 | 不要混在旧模块里，单独建 `modules/<feature>/` |
+
+---
+
+## 7. 错误案例（高频踩坑，血泪教训）
+
+| # | 错误操作 | 实际后果 | 正确做法 |
+|---|---------|---------|---------|
+| **1** | `import { modal } from '../../shared/ModalDialog.js'`（从 `modules/group/view.js` 出发） | 解析到 `modules/shared/ModalDialog.js`（不存在）→ 模块加载失败 → 整个 group 视图渲染失败或部分按钮（如 Clear/Del 调用 modal.confirm）静默失效 | 正确路径是 `../../../shared/ModalDialog.js`（`shared/` 在仓库根目录，不在 `modules/` 下）。**先在终端数清楚层级**：从 view.js 所在目录回到目标文件所在目录，需要几层 `../` 就写几个 |
+| **2** | `render()` 不更新 `#stats` | 切回视图时头部残留 "加载中..." 或上一个视图的数字 | 每个 view.js 的 `render()` 第一件事就是设置 `document.getElementById('stats').textContent` |
+| **3** | `destroy()` 不清理 `MutationObserver` / jKanban 实例 | 切走再切回 → 事件委托累加（一个 click 触发 N 次 confirm），DOM 多份残留 | `destroy()` 必须 `observer.disconnect()` + `kanban = null` + `container.innerHTML = ''` |
+| **4** | 每次 `render()` 都 `btn.addEventListener('click', fn.bind(this))` | 每次重渲染都新增监听器，第 N 次点击触发 N 次回调 | **改成事件委托**：在 `container` 上一次性 `addEventListener('click', e => { if (e.target.matches('.xxx')) ... })`，用 `__bound` 标志防重复绑定 |
+| **5** | 视图内直接 `chrome.storage.local.get/set` | 绕开 DataManager 通知 → 其他视图不刷新，本视图也不响应 storage change | 全部走 `dataManager.sendMessage(action, payload)` + `dataManager.loadData()` |
+| **6** | import 路径写绝对路径或 `src/...` | Chrome 扩展严格校验 `extension://` 协议，路径错立即 `Failed to load module` | 用相对路径，写完后**在终端用 `node -e "path.resolve(__dirname, '..', '...')"` 验证目标文件存在** |
+| **7** | 新模块的 HTML 容器没设 `height: 100%; overflow-y: auto` | 视图内容溢出无滚动条，布局错乱 | 给 `#<featureName>Panel` 加 `style="height: 100%; overflow-y: auto;"` |
+| **8** | 改 storage schema 但没写迁移逻辑 | 老用户升级后旧数据丢失或解析报错 | `background/init.js` 启动时检查版本号，老数据转换后再 set |
+| **9** | CSS 全堆进 `tabboard.css` | 单文件超过 500 行，选择器冲突难定位 | 每个模块独立 `style.css`，选择器全部加 `.feature-name-` 前缀 |
+| **10** | 在 view.js 顶层 `import` 一个运行时才需要的模块 | 增加首屏加载时间，且调试时难以定位 | 用动态 `await import('./heavy.js')` 在交互时按需加载 |
+
+---
+
+## 8. 验证清单
+
+- [ ] 模块目录创建在 `modules/<feature>/`（**不是** `src/` 或 `lib/`）
+- [ ] 三件齐全：`index.js`、`view.js`、`<feature>.css`
 - [ ] CSS 文件 ≤500 行
-- [ ] tabboard.html 引入新 CSS `<link>`
-- [ ] tabboard.html 添加导航按钮和视图容器
-- [ ] tabboard.js 导入模块并注册到 `switchView`
-- [ ] `_updateViewUI` 更新按钮 active 状态和容器 display
-- [ ] DataManager 注册新 storage key
-- [ ] background/init.js 初始化新 storage key
-- [ ] view.js 的 `render()` 更新 `#stats`
-- [ ] 浏览器中加载扩展无 404 错误
-- [ ] 切换视图时统计信息正确更新
+- [ ] `tabboard.html` 加了 `<link>`、导航按钮、视图容器
+- [ ] `tabboard.js` 改了 4 处（import / 导航 click / switch case / viewContainerMap）
+- [ ] `_updateViewUI` 加了按钮 active 切换
+- [ ] DataManager 注册新 storage key（如需要）
+- [ ] `background/init.js` 初始化新 key（如需要）
+- [ ] view.js 的 `render()` 第一行更新 `#stats`
+- [ ] `destroy()` 清理所有 observer 和第三方实例
+- [ ] **终端验证所有 import 路径解析正确**（`node -e` 或对照 `ls`）
+- [ ] 浏览器加载扩展无 console 错误
+- [ ] 切视图时 `#stats` 数字正确
+- [ ] 反复切回该视图 3 次以上，确认无事件堆叠（事件委托方案）
+
+---
+
+## 9. 调试清单（按钮点击失效时）
+
+按以下顺序排查，**不要跳步**：
+
+1. **打开 DevTools console**，看是否有 `Failed to load module` 或 `TypeError`。
+2. **检查按钮 click 是否真的触发**：在 `container.addEventListener('click', ...)` 里加 `console.log('delegated', e.target)`，确认事件能冒泡到 container。
+3. **检查事件委托是否被新元素拦截**：是否用了 capture phase + `stopImmediatePropagation`，导致外层委托收不到？
+4. **检查 handler 内部的依赖**：`_handleClearGroup` 里调 `modal.confirm`，如果 `modal` 是 undefined（import 错），会抛 TypeError 被吞掉，看起来"按钮失效"。
+5. **检查数据是否真的被改**：在 `await this.dataManager.sendMessage(...)` 后 `console.log(result)`，看返回的 `{ success, ... }`。
+6. **检查 background 是否收到消息**：在 `background/groups.js` 的 `case 'clearGroup':` 第一行 `console.log('[bg] clearGroup', request)`。
+
+最常见根因是 **#4（handler 内部静默抛错）** 和 **#1（import 路径错位）**。
+
+---
+
+## 10. 把独立 HTML 页面内嵌成 panel
+
+适用于 "recording.html / video-progress.html / 任意外链页面" → 改造成 TabBoard 内的一个 panel 视图。
+
+### 10.1 决策前提
+
+满足以下才走这条路：
+- 该页面的 URL 来自 `manifest.json` 的 `web_accessible_resources`，可被任意页面引用
+- 不依赖独立 Shell 的复杂路由
+- 数据可通过 DataManager 共享
+
+### 10.2 改造步骤
+
+#### (1) 复制页面 → 模块目录
+
+```bash
+# 例：把 recording.html 内嵌
+cp modules/recording/recording.html modules/recording/recording-panel.html
+# 或新建独立模块
+mkdir modules/recording-panel && mv ...
+```
+
+#### (2) HTML 改造
+
+**去掉的元素：**
+- `<head>` 中独立的 CSS 引入改为相对路径（去掉 `<link rel="stylesheet" href="../tabboard/tabboard.css">`）
+- `<body>` 顶部独立的 `<header>` / 工具栏（合并到 TabBoard 全局 header）
+- 独立的 `<script type="module">`，改用 `<script type="module" src="./view.js">`
+
+**保留的元素：**
+- 模块专属 DOM 结构
+- 模块专属 JS 入口
+
+**容器规范：**
+```html
+<div id="<feature>Panel" style="height: 100%; overflow-y: auto;">
+  <!-- 原来 body 里的内容 -->
+</div>
+```
+
+#### (3) 共享 CSS 审计
+
+外链页面通常 import 了完整 `tabboard.css` + 自己模块的 css。内嵌后：
+
+- **删掉重复 import**：`tabboard.css` 已被 tabboard.html 引入一次
+- **作用域化选择器**：原页面可能用通用选择器（`.btn`、`.modal`），改为 `.feature-xxx`
+- **冲突检测**：用 grep 检查模块 CSS 里是否定义了 `body`、`.container` 等全局选择器
+
+```bash
+# 审计示例
+grep -n "^\s*body\s*{\|^[a-z\.]+\s*{[^}]*background" modules/recording/recording.css
+```
+
+#### (4) 事件监听器泄漏修复（高频坑）
+
+**坑：** 原页面在 `DOMContentLoaded` 里 `window.addEventListener('storage', ...)`，内嵌后每次切回该 panel 都会触发新的监听器，**几个 tab 后 storage 变化触发 N 次回调**。
+
+**解法：** 把 `window` 级监听下沉到 `container`，并在 `destroy()` 里 `removeEventListener`。
+
+```javascript
+// modules/<feature>/view.js
+init() {
+  this._onStorageChange = (changes, area) => {
+    if (area !== 'local') return;
+    this._handleStorageChange(changes);
+  };
+  chrome.storage.onChanged.addListener(this._onStorageChange);
+}
+
+destroy() {
+  chrome.storage.onChanged.removeListener(this._onStorageChange);
+  this._onStorageChange = null;
+}
+```
+
+#### (5) switchView 短路清理
+
+确认 `tabboard.js::switchView()` 在切换前调用 `currentModule.destroy()`。如果没有，每次切回会创建新的 view 实例。
+
+参考 `tabboard.js:160-164` 的 `if (this.currentModule) { this.currentModule.destroy(); ... }`。
+
+#### (6) manifest 资源保留
+
+如果原 URL 还需被外部页面引用（如 popup、其它扩展页），**保留 `web_accessible_resources` 条目**，不要删除：
+
+```json
+"web_accessible_resources": [
+  {
+    "resources": [
+      "modules/recording/recording.html",   // ← 保留！
+      "modules/<feature>/panel.html"         // ← 新增内嵌版（可选）
+    ],
+    "matches": ["<all_urls>"]
+  }
+]
+```
+
+#### (7) 原独立页面的处理
+
+- 如果该 URL 只被 TabBoard 引用 → 直接删除 `recording.html`，全部走 panel
+- 如果被 popup / 命令面板 / 其它地方引用 → 保留原页面，但加注释说明 "内嵌版在 modules/<feature>/view.js"
+
+### 10.3 内嵌改造的验证清单
+
+- [ ] 切到 panel 时 `<title>` 不变（不要污染浏览器标签标题）
+- [ ] 切走再切回 3 次，storage change 只触发 1 次回调
+- [ ] DOM 中无残留旧 panel 节点（`document.getElementById('<feature>Panel').children.length === 0` 在切走时为 0）
+- [ ] panel 内部滚动条独立工作，不影响全局滚动
+- [ ] 原 URL 仍能从外部页面打开（如有需要）
+- [ ] CSS 不与 tabboard.css 冲突（用 DevTools Computed 面板对比相同类名）
+
+---
+
+## 11. 迁移检查清单（升级时）
+
+如果是从旧版本升级，检查以下点：
+
+- [ ] `tabboard.js` 的 `viewContainerMap` 是否包含新视图
+- [ ] `data-manager.js` 是否需要加新 key（参考 §5）
+- [ ] `background/init.js` 是否初始化新 key
+- [ ] `manifest.json` 的 `web_accessible_resources` 是否需要更新
+- [ ] `CLAUDE.md` 的消息协议表是否同步更新
+- [ ] 新模块的 `style.css` 选择器是否加了前缀（无全局污染）
+- [ ] `popup/popup.html` 和 `sidepanel/sidepanel.html` 是否引用了新模块（如需要）
