@@ -1,6 +1,6 @@
 ---
 name: module-extension-guide
-description: 当用户要求扩展模块、新增视图、添加功能面板、或集成新页面到 TabBoard 时触发。指导在现有模块化架构中新增一个功能模块的完整流程；并涵盖"把独立 HTML 页面内嵌成 panel"这一改造（共享 CSS 审计、CSS 作用域化、事件监听器泄漏修复、switchView 短路清理、保留 manifest 资源）。
+description: 当用户要求扩展模块、新增视图、添加功能面板、或集成新页面到 TabBoard 时触发。指导在现有模块化架构中新增一个功能模块的完整流程；并涵盖"把独立 HTML 页面内嵌成 panel"这一改造（共享 CSS 审计、CSS 作用域化、destroy 规范、事件监听器泄漏修复、switchView 短路清理、popup/background 联动切视图、保留 manifest 资源）。也覆盖症状词触发："切换视图白页 / 必须 F5 才显示 / 归档始终显示 / 弹窗 css 失效 / destroy 清容器 / 切到某视图没反应"。
 ---
 
 # Module Extension Guide — TabBoard 模块扩展指南
@@ -330,7 +330,9 @@ init() {
 
 ---
 
-## 9. 调试清单（按钮点击失效时）
+## 9. 调试清单
+
+### 9.1 按钮点击失效时
 
 按以下顺序排查，**不要跳步**：
 
@@ -342,6 +344,28 @@ init() {
 6. **检查 background 是否收到消息**：在 `background/groups.js` 的 `case 'clearGroup':` 第一行 `console.log('[bg] clearGroup', request)`。
 
 最常见根因是 **#4（handler 内部静默抛错）** 和 **#1（import 路径错位）**。
+
+### 9.2 切换视图白页 / 必须 F5 才显示时（本次 video-progress 实战教训）
+
+症状特征：**首次进入能看，切走再切回白页；F5 修复一次；外部触发（popup）第一次能用**。这个组合几乎 100% 是 destroy() 损坏了下次 mount 需要的 DOM 或状态。
+
+**不要瞎猜**——按下面顺序仪器化观察（每步加临时 log，定位后删掉）：
+
+1. **render 入口 log**：在 `render()` 第一行 `console.log('[x.render] mode=', this.mode, 'data.len=', this.items.length, 'init=', this.isInitialized)`。看 render 是否被调、参数是否正确。
+2. **DOM 写入前后对比**：在 `renderXxxList()` 写 innerHTML 前后各 `console.log('before/after len=', el.innerHTML.length)`。
+   - 如果 after len=0 → render 写的是空内容（filter/数据问题）
+   - 如果 after len>0 但看不到 → CSS 把容器隐藏了
+3. **computed style 检查**：`console.log(getComputedStyle(panel).display, panel.style.display)`。inline style 是 `block` 但 computed 是 `none` → 被 `!important` 或祖先隐藏。
+4. **visible badge**：即使页面白屏，左下角 fixed-position 的 debug badge 也会显示，能确认 render 是否真跑过：
+   ```js
+   const dbg = document.createElement('div');
+   dbg.style.cssText = 'position:fixed;bottom:0;left:0;background:yellow;color:#000;padding:2px 6px;font-size:11px;z-index:99999;';
+   dbg.textContent = `[render] items=${this.items.length}`;
+   document.body.appendChild(dbg);
+   ```
+5. **destroy log**：在 `destroy()` 第一行 `console.log('[x.destroy]')`。如果切走时看到 destroy、切回时 render log 也有、after len>0，但视觉白 → 99% 是 destroy 清了不该清的东西（见 #11）。
+
+**反模式警告**：本次实战里我在找到真根因前做了 5+ 个错误理论（CSS scope、await init 竞态、data race、container visibility、storage listener 竞态）。**全是猜的**。真正定位只用了第 1+2+5 步的 log。先仪器化，再下结论。
 
 ---
 
@@ -451,10 +475,147 @@ destroy() {
 
 - [ ] 切到 panel 时 `<title>` 不变（不要污染浏览器标签标题）
 - [ ] 切走再切回 3 次，storage change 只触发 1 次回调
-- [ ] DOM 中无残留旧 panel 节点（`document.getElementById('<feature>Panel').children.length === 0` 在切走时为 0）
+- [ ] **切走再切回时视图内容正确重现**（这是本次最重要的验证——曾因 destroy 清空静态 HTML 导致白页）
 - [ ] panel 内部滚动条独立工作，不影响全局滚动
 - [ ] 原 URL 仍能从外部页面打开（如有需要）
 - [ ] CSS 不与 tabboard.css 冲突（用 DevTools Computed 面板对比相同类名）
+
+### 10.4 `destroy()` 正确规范（内嵌视图版）
+
+内嵌视图的 destroy 是**两次白页 bug 的共同源头**（listener 泄漏 + 清空静态 HTML）。规范如下：
+
+```js
+destroy() {
+  // ✅ 1. 解绑 chrome.storage.onChanged —— 必须存引用才能 remove
+  if (this._onStorageChange) {
+    chrome.storage.onChanged.removeListener(this._onStorageChange);
+    this._onStorageChange = null;
+  }
+
+  // ✅ 2. 解绑 document/window 级委托 —— 存进数组批量 remove
+  if (this._listeners?.length) {
+    for (const [target, type, handler, capture] of this._listeners) {
+      target.removeEventListener(type, handler, capture);
+    }
+    this._listeners = [];
+  }
+
+  // ✅ 3. 清定时器
+  if (this._timer) { clearTimeout(this._timer); this._timer = null; }
+  if (this._interval) { clearInterval(this._interval); this._interval = null; }
+
+  // ✅ 4. 断开 MutationObserver / 第三方实例（jKanban/dragula）
+  this._observer?.disconnect?.();
+  this._observer = null;
+
+  // ❌ 5. 绝不! 绝不! 绝不! 清 this.container.innerHTML
+  // #videoProgressView 下的 <header> / #stats / #groupsList 是 tabboard.html 的静态 HTML,
+  // 清掉后下次 mount 时 renderXxxList() 的 getElementById 全返回 null → 静默早退 → 白页
+  // 动态内容由各 render* 方法自己 innerHTML= 覆盖,不需要 destroy 清。
+}
+```
+
+**listener 存引用的标准写法**（init 时一次性绑，destroy 时精确 remove）：
+
+```js
+_wireListeners() {
+  if (this._listeners?.length) return; // 幂等
+  const onClick = (e) => { /* dispatch data-action */ };
+  const onKeydown = (e) => { /* ... */ };
+  document.addEventListener('click', onClick);
+  document.addEventListener('keydown', onKeydown);
+  this._listeners = [
+    [document, 'click', onClick],
+    [document, 'keydown', onKeydown],
+  ];
+}
+```
+
+> 注意：不要在 `init()` 和 `bindEvents()` 里**都**调 `_wireListeners()`——用 `if (this._listeners?.length) return` 幂等保护，或只在一个入口绑。video-progress 本次用 `__vpBound` 哨兵 + `_boundDocument` 双重保护，OK 但稍冗余。
+
+### 10.5 standalone → inline 迁移的 UX 差异（容易忽略）
+
+照搬 standalone 页面的 UX 到 inline shell 会出问题。**逐项审查**：
+
+| standalone 页面有的 | inline 后应该 | 原因 |
+|---|---|---|
+| header 里的"返回看板"按钮 | **删掉** | 顶部 nav 本身就是返回；按钮绑定 `backToTabboard()` 跳转会破坏 inline 体验 |
+| header 里的"跳转归档/子页面"按钮 | **改成 mode 切换或弹窗** | inline 后没有独立页面可跳；用 `this.mode = 'archive'` + render 切子视图，或开 modal |
+| 归档/历史 section 默认显示在底部 | **默认隐藏，按需切换** | inline 视图空间宝贵；用户来看 active 列表不该被动看到归档（本次"始终显示已归档"反馈） |
+| `window.location.href` 跳转同级页面 | **全部改成 in-app 切换** | 任何 `location.href` 都会破坏 SPA 体验；排序/编辑改 modal |
+| 独立的 `chrome.storage.onChanged` 监听 | **保留但 destroy 必须能 remove** | inline 后反复 mount/destroy，listener 不解绑会泄漏（见 10.4） |
+| 自己 link 的 `shared/ModalDialog.css` | **host shell 统一 link，模块不再 link** | 多个模块共用 modal，host link 一次即可；模块 link 重复无害但冗余 |
+
+### 10.6 popup / background 联动切换 inline 视图
+
+当 popup 或 background 要"打开某 inline 视图"时，**不要**新建 tab 打开独立页面（那是旧模式）。正确做法：**找已有 tabboard tab → focus → 发消息切视图**。
+
+**background 侧**（`background/<feature>.js`）：
+
+```js
+async function openFeatureView() {
+  const tabs = await chrome.tabs.query({});
+  const existing = tabs.find(t => t.url?.includes('modules/tabboard/tabboard.html'));
+  if (existing) {
+    await chrome.tabs.update(existing.id, { active: true });
+    try {
+      await chrome.tabs.sendMessage(existing.id, {
+        action: 'tabboardSwitchView',
+        view: '<featureName>'
+      });
+    } catch (e) {
+      // tab 刚加载 content script 还没就绪,fallback: 带 hash 新开
+      console.warn('sendMessage 失败:', e.message);
+    }
+  } else {
+    await chrome.tabs.create({
+      url: chrome.runtime.getURL('modules/tabboard/tabboard.html#<featureName>')
+    });
+  }
+}
+```
+
+**tabboard.js 侧**（接收消息切视图 + hash 路由兜底）：
+
+```js
+_setupExternalSwitchListener() {
+  chrome.runtime.onMessage.addListener((req) => {
+    if (req?.action === 'tabboardSwitchView') {
+      this.switchView(req.view);  // 不 await,fire-and-forget
+    }
+    return false;
+  });
+}
+
+// init 末尾加 hash 路由(冷启动 / redirect 进来时生效)
+_readHashRoute() {
+  const [view, params] = window.location.hash.replace(/^#/, '').split('&');
+  if (view) {
+    setTimeout(() => {
+      this.switchView(view);
+      if (params?.includes('archive=1')) this.currentModule?.view?.toggleArchiveMode?.(true);
+    }, 100);
+  }
+}
+```
+
+**popup 侧**（加 `window.close()` 与其他 quickAction 一致）：
+
+```js
+btn.addEventListener('click', async () => {
+  await chrome.runtime.sendMessage({ action: 'openFeatureView' });
+  window.close();
+});
+```
+
+**旧独立 HTML 的处理**：shell.js 改成一行 redirect，旧 URL 不 404、popup 兜底还在：
+
+```js
+// modules/<feature>/<feature>-shell.js
+window.location.replace(
+  chrome.runtime.getURL('modules/tabboard/tabboard.html#<featureName>')
+);
+```
 
 ---
 
