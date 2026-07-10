@@ -29,13 +29,10 @@ class VideoProgressView {
 
   /**
    * setContainer - 由 VideoProgressModule / tabboard.js._reattachModule 调用
-   * 重新挂载时清空旧的监听并在新容器上重绑
+   * 仅记录容器引用;事件重绑由 bindEvents() 负责(reattach 时 tabboard 会调它)。
    */
   setContainer(container) {
     this.container = container;
-    // 重新挂载时需要重绑 document 委托（document listener 在原实现里只绑一次,
-    // 容器变更后旧容器的元素不在 DOM 里,事件不冒泡,这里不需要解绑,但 new container 上一律需要重新触发一次 bindEvents）
-    if (this.isInitialized) this._wireContainerDelegation();
   }
 
   /**
@@ -57,9 +54,10 @@ class VideoProgressView {
   }
 
   /**
-   * 包装 chrome.storage.onChanged - 让 destroy 能 removeListener
+   * 包装 chrome.storage.onChanged - 幂等,让 destroy 能 removeListener 后由 bindEvents 重绑
    */
   _wireStorageListener() {
+    if (this._onStorageChange) return; // 已绑,幂等
     this._onStorageChange = (changes, namespace) => {
       if (namespace !== 'local') return;
       if (this.storageChangeTimer) clearTimeout(this.storageChangeTimer);
@@ -81,11 +79,11 @@ class VideoProgressView {
   }
 
   bindEvents() {
-    // 兼容旧调用方（VideoProgressModule.bindEvents）：首次绑定的入口
-    if (!this._wired) {
-      this._wireContainerDelegation();
-      this._wired = true;
-    }
+    // 幂等:每个 wire 函数自己防重复。tabboard cache-hit 重挂时会调 bindEvents,
+    // 此时 destroy 已移除 storage/delegation 监听并清掉 guard,这里重绑。
+    // 这修复了"切走再切回 → [data-action] 按钮全失效(归档/展开/删除等都点不动)"。
+    this._wireStorageListener();
+    this._wireContainerDelegation();
     this._wireHeaderButtons();
   }
 
@@ -961,7 +959,7 @@ class VideoProgressView {
     // Phase 7 / skill §10.4: 解绑 storage listener
     if (this._onStorageChange) {
       chrome.storage.onChanged.removeListener(this._onStorageChange);
-      this._onStorageChange = null;
+      this._onStorageChange = null; // 清 guard,让下次 bindEvents 能重绑
     }
 
     // 解绑 document 委托
@@ -972,6 +970,7 @@ class VideoProgressView {
       }
       this._listeners = [];
     }
+    this._boundDocument = null; // 清 guard,让下次 bindEvents → _wireContainerDelegation 能重绑
 
     // 清定时器
     if (this.storageChangeTimer) {
@@ -984,6 +983,9 @@ class VideoProgressView {
     // 都是 tabboard.html 的静态 HTML,清掉后下次 mount 时 renderStats()/renderGroupsList()
     // 找不到这些 element,会静默早退 → "nav 切到 video 白页,只有 F5 才行"。
     // 动态内容由各 render* 方法自己 innerHTML= 清空。
+    //
+    // ⚠️ header 按钮(vpBatchImportBtn 等)的监听不加进 _listeners,因此 destroy 不解绑;
+    // 它们挂在静态 DOM 上,跨 mount 持续有效,__vpBound guard 防重复绑。无需在此处理。
   }
 }
 

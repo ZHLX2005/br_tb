@@ -308,6 +308,7 @@ init() {
 | **10** | 在 view.js 顶层 `import` 一个运行时才需要的模块 | 增加首屏加载时间，且调试时难以定位 | 用动态 `await import('./heavy.js')` 在交互时按需加载 |
 | **11** | **内嵌视图的 `destroy()` 里 `this.container.innerHTML = ''`**（从通用 skill 模板照搬） | `#<feature>View` 下的 `<header>` / `#stats` / `#groupsList` 等是 **tabboard.html 的静态 HTML**,不是 view.js 创建的。清空后下次 mount 时 `renderStats()/renderXxxList()` 的 `getElementById` 全部返回 null → 静默早退 → **"nav 切换白页,F5 后才行"**(首次 cache-miss 能看,之后 cache-hit 走清空过的 container 就崩) | **destroy 绝不清 `this.container.innerHTML`**。各 `render*` 方法自己 `innerHTML =` 覆盖动态部分,这就够了。observer / listener / timer 才需要 destroy 解绑 |
 | **12** | `tabboard.js::switchView` 调 `this.currentModule.init()` 但**不 await** | async init 内部 `await loadData()` 与紧跟其后的 `render(data)` 竞态:render 时数据可能还没载完 | `await this.currentModule.init()` 再 `render(data)`。sync `init()` 立即 resolve 不影响其他视图 |
+| **13** | **document 级委托监听器:destroy 移除了但 guard(`_boundDocument`/`_wired`)没重置** | tabboard 缓存复用模块,reattach 只调 `bindEvents`(不调 init)。guard 没重置 → `_wireXxx` 的 `if (guard) return` 跳过 → 监听器永久消失 → **首次进入按钮能用,切走再切回后所有 `[data-action]` 按钮失效**(归档/展开/删除/恢复等全点不动) | destroy 移除监听后**必须重置 guard**(`_boundDocument=null`);wire 函数幂等;`bindEvents` 里调 wire 函数(reattach 时重绑)。详见 §10.4 |
 
 ---
 
@@ -515,23 +516,43 @@ destroy() {
 }
 ```
 
-**listener 存引用的标准写法**（init 时一次性绑，destroy 时精确 remove）：
+**listener 存引用 + 缓存模块重绑的标准写法**（关键！tabboard 缓存并复用模块实例）：
 
 ```js
+// 所有 wire 函数必须幂等(自己防重复绑)
 _wireListeners() {
-  if (this._listeners?.length) return; // 幂等
+  if (this._boundDocument) return; // 已绑,幂等
   const onClick = (e) => { /* dispatch data-action */ };
-  const onKeydown = (e) => { /* ... */ };
   document.addEventListener('click', onClick);
-  document.addEventListener('keydown', onKeydown);
-  this._listeners = [
-    [document, 'click', onClick],
-    [document, 'keydown', onKeydown],
-  ];
+  this._listeners = [[document, 'click', onClick]];
+  this._boundDocument = document; // guard
+}
+
+// init 和 bindEvents 都调 wire 函数(都幂等,安全)
+async init() {
+  this._wireListeners();      // 首次 mount 在此绑
+  await this.loadData();
+  this.isInitialized = true;
+}
+bindEvents() {
+  this._wireListeners();      // reattach 时 tabboard 只调 bindEvents(不调 init),在此重绑
+  this._wireHeaderButtons();
+}
+
+// destroy 移除监听 + 重置 guard,让下次 bindEvents 能重绑
+destroy() {
+  for (const [t, ty, h, c] of this._listeners || []) t.removeEventListener(ty, h, c);
+  this._listeners = [];
+  this._boundDocument = null; // ⚠️ 必须重置!否则 reattach 时 _wireListeners 的 guard 跳过 → 监听器永久消失
 }
 ```
 
-> 注意：不要在 `init()` 和 `bindEvents()` 里**都**调 `_wireListeners()`——用 `if (this._listeners?.length) return` 幂等保护，或只在一个入口绑。video-progress 本次用 `__vpBound` 哨兵 + `_boundDocument` 双重保护，OK 但稍冗余。
+> **血泪教训（本次 video-progress 实战）**：tabboard **缓存并复用**模块实例（`this.modules[viewName]`），cache-hit 路径只调 `render + bindEvents`，**不调 init**。所以：
+> - `document` 级委托监听器：destroy 移除后，必须靠 `bindEvents`（reattach 时会调）重绑。**前提是 wire 函数幂等 + destroy 重置 guard**。如果 guard（如 `_boundDocument`/`_wired`）在 destroy 里没重置，reattach 时 `_wireXxx` 的 `if (guard) return` 直接跳过 → **监听器永久消失 → 所有 `[data-action]` 按钮失效**（归档/展开/删除等都点不动）。症状："首次进入能用，切走再切回全失效"。
+> - `container` 级监听器（绑在持久静态 DOM 如 `#recordingView` 上）：destroy **不必移除**——容器跨 mount 持续存在，监听器跟着持续有效，`__bound` flag 防重复绑即可（recording 模块就是这模式，无此 bug）。
+> - header 按钮（静态 DOM 上的）：同上，destroy 不必移除，`__vpBound` flag 防重复。
+>
+> 一句话：**document/window 级监听 = destroy 移除 + 重置 guard + bindEvents 重绑；container/静态元素级监听 = 不移除 + flag 防重复。**
 
 ### 10.5 standalone → inline 迁移的 UX 差异（容易忽略）
 
