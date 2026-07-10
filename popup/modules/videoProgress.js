@@ -242,10 +242,12 @@ export function bindVideoProgressEvents() {
   }
 
   // 打开视频进度页面
+  // 内嵌化后:背景脚本找已有 tabboard tab + focus + 切到 videoProgress 视图;没有就新建
   const openPageBtn = document.getElementById('popupOpenVideoPageBtn');
   if (openPageBtn) {
-    openPageBtn.addEventListener('click', () => {
-      chrome.runtime.sendMessage({ action: 'openVideoProgressPage' });
+    openPageBtn.addEventListener('click', async () => {
+      await chrome.runtime.sendMessage({ action: 'openVideoProgressPage' });
+      window.close();
     });
   }
 

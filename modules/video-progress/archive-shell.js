@@ -1,34 +1,8 @@
 /**
- * ArchiveShell - 归档页面独立入口
+ * archive-shell.js - 兼容旧 URL (/archive.html)
+ * 内嵌化后改为 redirect 到 tabboard.html#videoProgress&archive=1,让 tabboard 切到归档模式。
  */
 
-import DataManager from '../shared/data-manager.js';
-import VideoProgressModule from './index.js';
-
-class ArchiveShell {
-  constructor() {
-    this.dataManager = new DataManager();
-    this.module = null;
-    this.storageChangeTimer = null;
-  }
-
-  async init() {
-    const data = await this.dataManager.loadData();
-    this.module = new VideoProgressModule(document.body, this.dataManager, null, 'archive');
-    await this.module.init();
-    this.module.render(data);
-    this.module.bindEvents();
-
-    chrome.storage.onChanged.addListener((changes, namespace) => {
-      if (namespace !== 'local') return;
-      if (this.storageChangeTimer) clearTimeout(this.storageChangeTimer);
-      this.storageChangeTimer = setTimeout(async () => {
-        const newData = await this.dataManager.loadData();
-        this.module.render(newData);
-      }, 100);
-    });
-  }
-}
-
-const shell = new ArchiveShell();
-document.addEventListener('DOMContentLoaded', () => shell.init());
+window.location.replace(
+  chrome.runtime.getURL('modules/tabboard/tabboard.html#videoProgress&archive=1')
+);

@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="../timer/style.css">
   <link rel="stylesheet" href="../bilibili-history/style.css">
   <link rel="stylesheet" href="../recording/recording.css">
+  <link rel="stylesheet" href="../video-progress/style.css">
   <!-- 共享模态对话框样式:被 modules/group、modules/recording、modules/timeline、modules/video-progress 等多个 view.js 共同通过 import { modal } from '../../shared/ModalDialog.js' 使用 -->
   <link rel="stylesheet" href="../../shared/ModalDialog.css">
 </head>
@@ -79,6 +80,59 @@
           </div>
           <div id="recordingsList" class="recordings-list"></div>
         </section>
+      </div>
+    </div>
+
+    <!-- 视频进度视图(内嵌) -->
+    <div id="videoProgressView" class="view-container" style="display: none;">
+      <div class="video-progress-content">
+        <header class="vp-header">
+          <div class="vp-header-left">
+            <h2 id="vpPageTitle">视频进度</h2>
+            <p class="subtitle" id="vpSubtitle">聚合追踪课程视频观看进度</p>
+          </div>
+          <div class="vp-header-actions">
+            <button id="vpBatchImportBtn" class="btn">批量导入</button>
+            <button id="vpAddGroupBtn" class="btn">新建课程</button>
+            <button id="vpArchiveToggleBtn" class="btn">查看归档</button>
+            <button id="vpBackToActiveBtn" class="btn" style="display: none;">返回</button>
+          </div>
+        </header>
+        <section id="videoStats"></section>
+        <section class="groups-section">
+          <div id="videoGroupsList"></div>
+        </section>
+        <section id="archiveSection" class="archive-section" style="display: none;">
+          <div class="archive-header">
+            <h2 class="archive-title">已归档</h2>
+            <p class="archive-subtitle">记录学习足迹</p>
+          </div>
+          <div id="archivedGroupsList"></div>
+        </section>
+
+        <!-- 批量导入 inline dialog (长进度条需持久 DOM,不切到 modal) -->
+        <div id="batchImportDialog" class="video-progress-dialog">
+          <div class="dialog-content">
+            <h3>批量导入视频</h3>
+            <div class="form-group">
+              <label>目标课程</label>
+              <select id="batchGroupSelect" class="input"></select>
+            </div>
+            <div class="form-group">
+              <label>视频链接(一行一个)</label>
+              <textarea id="batchUrlInput" class="input" rows="8" placeholder="https://www.bilibili.com/video/BV1xxx&#10;https://www.bilibili.com/video/BV2xxx"></textarea>
+            </div>
+            <div class="form-group">
+              <label>或上传 txt 文件</label>
+              <input type="file" id="batchFileInput" accept=".txt" class="input" style="padding: 6px;">
+            </div>
+            <div id="batchProgress" class="batch-progress"></div>
+            <div class="dialog-actions">
+              <button id="batchCancelBtn" class="btn btn-secondary">取消</button>
+              <button id="batchConfirmBtn" class="btn btn-primary">开始导入</button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 

@@ -298,7 +298,7 @@ init() {
 |---|---------|---------|---------|
 | **1** | `import { modal } from '../../shared/ModalDialog.js'`（从 `modules/group/view.js` 出发） | 解析到 `modules/shared/ModalDialog.js`（不存在）→ 模块加载失败 → 整个 group 视图渲染失败或部分按钮（如 Clear/Del 调用 modal.confirm）静默失效 | 正确路径是 `../../../shared/ModalDialog.js`（`shared/` 在仓库根目录，不在 `modules/` 下）。**先在终端数清楚层级**：从 view.js 所在目录回到目标文件所在目录，需要几层 `../` 就写几个 |
 | **2** | `render()` 不更新 `#stats` | 切回视图时头部残留 "加载中..." 或上一个视图的数字 | 每个 view.js 的 `render()` 第一件事就是设置 `document.getElementById('stats').textContent` |
-| **3** | `destroy()` 不清理 `MutationObserver` / jKanban 实例 | 切走再切回 → 事件委托累加（一个 click 触发 N 次 confirm），DOM 多份残留 | `destroy()` 必须 `observer.disconnect()` + `kanban = null` + `container.innerHTML = ''` |
+| **3** | `destroy()` 不清理 `MutationObserver` / jKanban 实例 | 切走再切回 → 事件委托累加（一个 click 触发 N 次 confirm），DOM 多份残留 | `destroy()` 必须 `observer.disconnect()` + `kanban = null`。**但绝不**清 `this.container.innerHTML`——见 #11 |
 | **4** | 每次 `render()` 都 `btn.addEventListener('click', fn.bind(this))` | 每次重渲染都新增监听器，第 N 次点击触发 N 次回调 | **改成事件委托**：在 `container` 上一次性 `addEventListener('click', e => { if (e.target.matches('.xxx')) ... })`，用 `__bound` 标志防重复绑定 |
 | **5** | 视图内直接 `chrome.storage.local.get/set` | 绕开 DataManager 通知 → 其他视图不刷新，本视图也不响应 storage change | 全部走 `dataManager.sendMessage(action, payload)` + `dataManager.loadData()` |
 | **6** | import 路径写绝对路径或 `src/...` | Chrome 扩展严格校验 `extension://` 协议，路径错立即 `Failed to load module` | 用相对路径，写完后**在终端用 `node -e "path.resolve(__dirname, '..', '...')"` 验证目标文件存在** |
@@ -306,6 +306,8 @@ init() {
 | **8** | 改 storage schema 但没写迁移逻辑 | 老用户升级后旧数据丢失或解析报错 | `background/init.js` 启动时检查版本号，老数据转换后再 set |
 | **9** | CSS 全堆进 `tabboard.css` | 单文件超过 500 行，选择器冲突难定位 | 每个模块独立 `style.css`，选择器全部加 `.feature-name-` 前缀 |
 | **10** | 在 view.js 顶层 `import` 一个运行时才需要的模块 | 增加首屏加载时间，且调试时难以定位 | 用动态 `await import('./heavy.js')` 在交互时按需加载 |
+| **11** | **内嵌视图的 `destroy()` 里 `this.container.innerHTML = ''`**（从通用 skill 模板照搬） | `#<feature>View` 下的 `<header>` / `#stats` / `#groupsList` 等是 **tabboard.html 的静态 HTML**,不是 view.js 创建的。清空后下次 mount 时 `renderStats()/renderXxxList()` 的 `getElementById` 全部返回 null → 静默早退 → **"nav 切换白页,F5 后才行"**(首次 cache-miss 能看,之后 cache-hit 走清空过的 container 就崩) | **destroy 绝不清 `this.container.innerHTML`**。各 `render*` 方法自己 `innerHTML =` 覆盖动态部分,这就够了。observer / listener / timer 才需要 destroy 解绑 |
+| **12** | `tabboard.js::switchView` 调 `this.currentModule.init()` 但**不 await** | async init 内部 `await loadData()` 与紧跟其后的 `render(data)` 竞态:render 时数据可能还没载完 | `await this.currentModule.init()` 再 `render(data)`。sync `init()` 立即 resolve 不影响其他视图 |
 
 ---
 

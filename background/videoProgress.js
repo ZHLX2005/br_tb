@@ -8,17 +8,27 @@ import { generateId, normalizeUrl } from './utils.js';
 const COLORS = ['#ef5350', '#ec407a', '#ab47bc', '#7e57c2', '#5c6bc0', '#42a5f5', '#29b6f6', '#26c6da', '#26a69a', '#66bb6a', '#9ccc65', '#d4e157', '#ffee58', '#ffca28', '#ffa726', '#ff7043'];
 
 /**
- * Open the video progress page
+ * Open the video progress view inside the existing tabboard tab.
+ * 内嵌化后:优先定位已开 tabboard tab;focus + 消息切 view;没有则新建 tabboard.html#videoProgress
  */
 async function openVideoProgressPage() {
   const tabs = await chrome.tabs.query({});
-  const existingTab = tabs.find(tab => tab.url?.includes('modules/video-progress/video-progress.html'));
+  const existingTab = tabs.find(tab => tab.url?.includes('modules/tabboard/tabboard.html'));
 
   if (existingTab) {
     await chrome.tabs.update(existingTab.id, { active: true });
+    try {
+      await chrome.tabs.sendMessage(existingTab.id, {
+        action: 'tabboardSwitchView',
+        view: 'videoProgress'
+      });
+    } catch (e) {
+      // 容器脚本还没就绪等情况(罕见),让下次手动切也成
+      console.warn('[video-progress] tabboardSwitchView 发送失败:', e.message);
+    }
   } else {
     await chrome.tabs.create({
-      url: chrome.runtime.getURL('modules/video-progress/video-progress.html')
+      url: chrome.runtime.getURL('modules/tabboard/tabboard.html#videoProgress')
     });
   }
 }

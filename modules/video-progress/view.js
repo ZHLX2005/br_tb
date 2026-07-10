@@ -1,11 +1,16 @@
 /**
- * VideoProgressView - 视频进度聚合视图
- * 显示课程组、视频列表和观看进度
+ * VideoProgressView - 视频进度聚合视图（TabBoard 内嵌版）
+ * 显示课程组、视频列表和观看进度。
+ * 旧版用 window.location.href 跳到独立 HTML；内嵌化后改为：
+ * - backToTabboard 改为空操作（nav 自身就是返回）
+ * - openArchivePage 切 mode='archive'
+ * - openSortPage 改为 import openSortDialog 走 in-app 弹窗
  */
 
-import { modal } from '../../shared/ModalDialog.js';
+import { modal } from '../../../shared/ModalDialog.js';
 import { getVideoDisplayProgress, getGroupDisplayProgress, formatDuration, getGroupTotals } from './progress-utils.js';
-import { normalizeUrl } from '../../background/utils.js';
+import { normalizeUrl } from '../../../background/utils.js';
+import { openSortDialog } from './sort-dialog.js';
 
 class VideoProgressView {
   constructor(dataManager, mode = 'full') {
@@ -14,16 +19,48 @@ class VideoProgressView {
     this.videoGroups = [];
     this.storageChangeTimer = null;
     this.isInitialized = false;
+
+    // Phase 7 修复:destroy() 解绑 chrome.storage.onChanged 监听
+    this._onStorageChange = null;
+    // Phase 7 修复:destroy() 解绑 document 委托
+    this._boundContainer = null;
+    this._listeners = [];
+  }
+
+  /**
+   * setContainer - 由 VideoProgressModule / tabboard.js._reattachModule 调用
+   * 重新挂载时清空旧的监听并在新容器上重绑
+   */
+  setContainer(container) {
+    this.container = container;
+    // 重新挂载时需要重绑 document 委托（document listener 在原实现里只绑一次,
+    // 容器变更后旧容器的元素不在 DOM 里,事件不冒泡,这里不需要解绑,但 new container 上一律需要重新触发一次 bindEvents）
+    if (this.isInitialized) this._wireContainerDelegation();
+  }
+
+  /**
+   * updateData - 由 VideoProgressModule.render(data) 调用（tabboard.js 缓存路径）
+   * 取代旧的直接 chrome.runtime.sendMessage 拉数据
+   * Bug fix: 旧版会判 isInitialized 才 render,但 init() 异步未完成时,
+   * render(data) 不会触发 → 白页。现在无条件 render,让 module.render 流程直接画 DOM。
+   */
+  updateData(data) {
+    this.videoGroups = data.videoGroups || [];
+    this.render();
   }
 
   async init() {
-    this.setupStorageListener();
+    this._wireStorageListener();
+    this._wireContainerDelegation();
     await this.loadVideoGroups();
     this.isInitialized = true;
   }
 
-  setupStorageListener() {
-    chrome.storage.onChanged.addListener((changes, namespace) => {
+  /**
+   * 包装 chrome.storage.onChanged - 让 destroy 能 removeListener
+   */
+  _wireStorageListener() {
+    this._onStorageChange = (changes, namespace) => {
       if (namespace !== 'local') return;
       if (this.storageChangeTimer) clearTimeout(this.storageChangeTimer);
       this.storageChangeTimer = setTimeout(async () => {
@@ -32,124 +69,171 @@ class VideoProgressView {
           this.render();
         }
       }, 100);
-    });
+    };
+    chrome.storage.onChanged.addListener(this._onStorageChange);
   }
 
   async loadVideoGroups() {
-    const response = await chrome.runtime.sendMessage({ action: 'getVideoGroups' });
+    const response = await this.dataManager.sendMessage('getVideoGroups');
     if (response.success) {
       this.videoGroups = response.videoGroups || [];
     }
   }
 
   bindEvents() {
-    document.getElementById('backBtn')?.addEventListener('click', () => this.backToTabboard());
-    document.getElementById('backToProgressBtn')?.addEventListener('click', () => this.backToVideoProgress());
-    document.getElementById('archivePageBtn')?.addEventListener('click', () => this.openArchivePage());
-    document.getElementById('addGroupBtn')?.addEventListener('click', () => this.createGroup());
-    document.getElementById('batchImportBtn')?.addEventListener('click', () => this.openBatchImportDialog());
-    document.getElementById('batchCancelBtn')?.addEventListener('click', () => this.closeBatchImportDialog());
-    document.getElementById('batchConfirmBtn')?.addEventListener('click', () => this.startBatchImport());
-
-    const fileInput = document.getElementById('batchFileInput');
-    if (fileInput) {
-      fileInput.addEventListener('change', (e) => this.handleBatchFile(e));
+    // 兼容旧调用方（VideoProgressModule.bindEvents）：首次绑定的入口
+    if (!this._wired) {
+      this._wireContainerDelegation();
+      this._wired = true;
     }
+    this._wireHeaderButtons();
+  }
 
+  /**
+   * Header 按钮一次性绑定（用 this.container.onscroll 之类的 frequency 通常不高,
+   * 一次性绑即可，因为 #videoProgressView 不会重渲染 header 部分——render() 只更 stats/list。
+   */
+  _wireHeaderButtons() {
+    const root = this.container || document;
+    const map = {
+      'vpBatchImportBtn':   () => this.openBatchImportDialog(),
+      'vpAddGroupBtn':      () => this.createGroup(),
+      'vpArchiveToggleBtn': () => this.toggleArchiveMode(true),
+      'vpBackToActiveBtn':  () => this.toggleArchiveMode(false),
+    };
+    Object.entries(map).forEach(([id, handler]) => {
+      const btn = root.querySelector(`#${id}`) || document.getElementById(id);
+      if (btn && !btn.__vpBound) {
+        btn.addEventListener('click', handler);
+        btn.__vpBound = true;
+      }
+    });
+
+    const cancel = document.getElementById('batchCancelBtn');
+    if (cancel && !cancel.__vpBound) {
+      cancel.addEventListener('click', () => this.closeBatchImportDialog());
+      cancel.__vpBound = true;
+    }
+    const confirm = document.getElementById('batchConfirmBtn');
+    if (confirm && !confirm.__vpBound) {
+      confirm.addEventListener('click', () => this.startBatchImport());
+      confirm.__vpBound = true;
+    }
+    const fileInput = document.getElementById('batchFileInput');
+    if (fileInput && !fileInput.__vpBound) {
+      fileInput.addEventListener('change', (e) => this.handleBatchFile(e));
+      fileInput.__vpBound = true;
+    }
     const dialog = document.getElementById('batchImportDialog');
-    if (dialog) {
+    if (dialog && !dialog.__vpBound) {
       dialog.addEventListener('click', (e) => {
         if (e.target === dialog) this.closeBatchImportDialog();
       });
+      dialog.__vpBound = true;
     }
-
-    // Event delegation for dynamically created elements
-    document.addEventListener('click', (e) => {
-      // 点击标题输入框时不触发 data-action（避免和 open-video 冲突）
-      if (e.target.closest('.video-title-input')) return;
-
-      const btn = e.target.closest('[data-action]');
-      if (!btn) return;
-
-      const action = btn.dataset.action;
-      const groupId = btn.dataset.groupId;
-      const videoId = btn.dataset.videoId;
-
-      switch (action) {
-        case 'toggle-group':
-          this.toggleGroup(groupId);
-          break;
-        case 'rename-group':
-          this.renameGroup(groupId);
-          break;
-        case 'delete-group':
-          this.deleteGroup(groupId);
-          break;
-        case 'sort-group':
-          this.openSortPage(groupId);
-          break;
-        case 'archive-group':
-          this.archiveGroup(groupId);
-          break;
-        case 'unarchive-group':
-          this.unarchiveGroup(groupId);
-          break;
-        case 'open-group':
-          this.openGroup(groupId);
-          break;
-        case 'open-video':
-          this.openVideo(btn.dataset.url);
-          break;
-        case 'remove-video':
-          this.removeVideo(groupId, videoId);
-          break;
-        case 'add-to-group':
-          this.addDetectedVideoToGroup(groupId);
-          break;
-      }
-    });
-
-    // 视频标题 inline 编辑事件（input 元素不在 [data-action] 体系内）
-    document.addEventListener('click', (e) => {
-      const input = e.target.closest('.video-title-input');
-      if (!input) return;
-      if (input.readOnly) {
-        input.readOnly = false;
-        input.select();
-      }
-    });
-
-    document.addEventListener('keydown', (e) => {
-      if (!e.target.classList.contains('video-title-input')) return;
-      if (e.key === 'Enter') {
-        e.target.blur();
-      } else if (e.key === 'Escape') {
-        const original = e.target.dataset.originalTitle || '';
-        e.target.value = original;
-        e.target.readOnly = true;
-      }
-    });
-
-    document.addEventListener('blur', (e) => {
-      if (!e.target.classList.contains('video-title-input')) return;
-      this._saveVideoTitle(e.target);
-    }, true);
   }
 
+  /**
+   * 一次性绑 4 个 document 委托监听,并把引用记到 this._listeners,
+   * destroy() 里 removeEventListener 解绑。
+   * 内部 data-action dispatch 也走同一个 handler。
+   */
+  _wireContainerDelegation() {
+    if (!this._boundDocument) {
+      const root = document;
+
+      const onClickAction = (e) => {
+        // 点击标题输入框时不触发 data-action
+        if (e.target.closest('.video-title-input')) return;
+        const btn = e.target.closest('[data-action]');
+        if (!btn) return;
+        const action = btn.dataset.action;
+        const groupId = btn.dataset.groupId;
+        const videoId = btn.dataset.videoId;
+        switch (action) {
+          case 'toggle-group':      this.toggleGroup(groupId); break;
+          case 'rename-group':      this.renameGroup(groupId); break;
+          case 'delete-group':      this.deleteGroup(groupId); break;
+          case 'sort-group':        this.openSortPage(groupId); break;
+          case 'archive-group':     this.archiveGroup(groupId); break;
+          case 'unarchive-group':   this.unarchiveGroup(groupId); break;
+          case 'open-group':        this.openGroup(groupId); break;
+          case 'open-video':        this.openVideo(btn.dataset.url); break;
+          case 'remove-video':      this.removeVideo(groupId, videoId); break;
+          case 'add-to-group':      this.addDetectedVideoToGroup(groupId); break;
+        }
+      };
+
+      const onClickInput = (e) => {
+        const input = e.target.closest('.video-title-input');
+        if (!input) return;
+        if (input.readOnly) {
+          input.readOnly = false;
+          input.select();
+        }
+      };
+
+      const onKeydownInput = (e) => {
+        if (!e.target.classList.contains('video-title-input')) return;
+        if (e.key === 'Enter') {
+          e.target.blur();
+        } else if (e.key === 'Escape') {
+          const original = e.target.dataset.originalTitle || '';
+          e.target.value = original;
+          e.target.readOnly = true;
+        }
+      };
+
+      const onBlurInput = (e) => {
+        if (!e.target.classList.contains('video-title-input')) return;
+        this._saveVideoTitle(e.target);
+      };
+
+      root.addEventListener('click', onClickAction);
+      root.addEventListener('click', onClickInput);
+      root.addEventListener('keydown', onKeydownInput);
+      root.addEventListener('blur', onBlurInput, true);
+
+      this._listeners = [
+        [root, 'click', onClickAction],
+        [root, 'click', onClickInput],
+        [root, 'keydown', onKeydownInput],
+        [root, 'blur', onBlurInput, /* capture */ true],
+      ];
+      this._boundDocument = root;
+    }
+  }
+
+  /**
+   * 切换归档 / 活跃模式
+   */
+  toggleArchiveMode(toArchive) {
+    this.mode = toArchive ? 'archive' : 'full';
+    this.render();
+  }
+
+  /**
+   * 旧 redirect 兼容—— video-progress-shell.js 仍可能在 redirect 后 import 此模块
+   */
   backToTabboard() {
+    if (window.parent !== window) return;
     window.location.href = chrome.runtime.getURL('modules/tabboard/tabboard.html');
   }
 
   backToVideoProgress() {
-    window.location.href = chrome.runtime.getURL('modules/video-progress/video-progress.html');
+    if (this.mode === 'archive') this.toggleArchiveMode(false);
   }
 
   openArchivePage() {
-    window.location.href = chrome.runtime.getURL('modules/video-progress/archive.html');
+    this.toggleArchiveMode(true);
   }
 
   openSortPage(groupId) {
-    window.location.href = chrome.runtime.getURL(`modules/video-progress/sort-videos.html?groupId=${groupId}`);
+    // 内嵌化后改走 in-app 弹窗
+    openSortDialog(groupId, this.dataManager, async () => {
+      await this.loadVideoGroups();
+      this.render();
+    });
   }
 
   async createGroup() {
@@ -161,10 +245,10 @@ class VideoProgressView {
     });
     if (!name || !name.trim()) return;
 
-    const response = await chrome.runtime.sendMessage({
-      action: 'addVideoGroup',
-      name: name.trim()
-    });
+    const response = await this.dataManager.sendMessage(
+      'addVideoGroup',
+      { name: name.trim() }
+    );
 
     if (response.success) {
       await this.loadVideoGroups();
@@ -185,11 +269,10 @@ class VideoProgressView {
     });
     if (!newName || !newName.trim() || newName === group.name) return;
 
-    const response = await chrome.runtime.sendMessage({
-      action: 'renameVideoGroup',
-      groupId,
-      newName: newName.trim()
-    });
+    const response = await this.dataManager.sendMessage(
+      'renameVideoGroup',
+      { groupId, newName: newName.trim() }
+    );
 
     if (response.success) {
       await this.loadVideoGroups();
@@ -207,10 +290,10 @@ class VideoProgressView {
     });
     if (!confirmed) return;
 
-    const response = await chrome.runtime.sendMessage({
-      action: 'deleteVideoGroup',
-      groupId
-    });
+    const response = await this.dataManager.sendMessage(
+      'deleteVideoGroup',
+      { groupId }
+    );
 
     if (response.success) {
       await this.loadVideoGroups();
@@ -234,10 +317,10 @@ class VideoProgressView {
     );
     if (!confirmed) return;
 
-    const response = await chrome.runtime.sendMessage({
-      action: 'archiveVideoGroup',
-      groupId
-    });
+    const response = await this.dataManager.sendMessage(
+      'archiveVideoGroup',
+      { groupId }
+    );
 
     if (response.success) {
       await this.loadVideoGroups();
@@ -255,10 +338,10 @@ class VideoProgressView {
     });
     if (!confirmed) return;
 
-    const response = await chrome.runtime.sendMessage({
-      action: 'unarchiveVideoGroup',
-      groupId
-    });
+    const response = await this.dataManager.sendMessage(
+      'unarchiveVideoGroup',
+      { groupId }
+    );
 
     if (response.success) {
       await this.loadVideoGroups();
@@ -268,10 +351,10 @@ class VideoProgressView {
   }
 
   async openGroup(groupId) {
-    const response = await chrome.runtime.sendMessage({
-      action: 'openVideoGroup',
-      groupId
-    });
+    const response = await this.dataManager.sendMessage(
+      'openVideoGroup',
+      { groupId }
+    );
 
     if (response.success) {
       this.showToast('正在打开视频页面...', 'success');
@@ -292,11 +375,10 @@ class VideoProgressView {
     });
     if (!confirmed) return;
 
-    const response = await chrome.runtime.sendMessage({
-      action: 'removeVideoFromGroup',
-      groupId,
-      videoId
-    });
+    const response = await this.dataManager.sendMessage(
+      'removeVideoFromGroup',
+      { groupId, videoId }
+    );
 
     if (response.success) {
       await this.loadVideoGroups();
@@ -399,17 +481,18 @@ class VideoProgressView {
       }
 
       const video = results.videos[0];
-      const response = await chrome.runtime.sendMessage({
-        action: 'addVideoToGroup',
-        groupId: group.id,
-        video: {
-          title: video.title || video.pageTitle || '未命名视频',
-          url: normalizeUrl(video.url),
-          duration: video.duration || 0,
-          watched: video.watched || 0,
-          favicon: video.favicon || '',
-          pageTitle: video.pageTitle || ''
-        }
+      const response = await this.dataManager.sendMessage(
+        'addVideoToGroup',
+        {
+          groupId: group.id,
+          video: {
+            title: video.title || video.pageTitle || '未命名视频',
+            url: normalizeUrl(video.url),
+            duration: video.duration || 0,
+            watched: video.watched || 0,
+            favicon: video.favicon || '',
+            pageTitle: video.pageTitle || ''
+          }
       });
 
       if (response.success) {
@@ -505,16 +588,17 @@ class VideoProgressView {
     }
 
     const video = results.videos[0];
-    const response = await chrome.runtime.sendMessage({
-      action: 'addVideoToGroup',
-      groupId,
-      video: {
-        title: video.title || video.pageTitle || '未命名视频',
-        url: normalizeUrl(video.url),
-        duration: video.duration || 0,
-        watched: video.watched || 0,
-        favicon: video.favicon || '',
-        pageTitle: video.pageTitle || ''
+    const response = await this.dataManager.sendMessage(
+      'addVideoToGroup',
+      {
+        groupId,
+        video: {
+          title: video.title || video.pageTitle || '未命名视频',
+          url: normalizeUrl(video.url),
+          duration: video.duration || 0,
+          watched: video.watched || 0,
+          favicon: video.favicon || '',
+          pageTitle: video.pageTitle || ''
       }
     });
 
@@ -543,12 +627,10 @@ class VideoProgressView {
     }
 
     try {
-      const response = await chrome.runtime.sendMessage({
-        action: 'updateVideoTitle',
-        groupId,
-        videoId,
-        newTitle
-      });
+      const response = await this.dataManager.sendMessage(
+        'updateVideoTitle',
+        { groupId, videoId, newTitle }
+      );
       if (response.success) {
         input.dataset.originalTitle = newTitle;
         this.showToast('标题已保存', 'success');
@@ -567,13 +649,56 @@ class VideoProgressView {
   }
 
   render() {
+    // skill §4: 每个 view.render() 必须主动更新 #stats,避免残留其他视图数据
+    this._renderHeaderStats();
+
+    // skill 错误案例:view.css 改名后 .dialog → .video-progress-dialog;批量导入 dialog 同时在两个模式都需要
+    const dialog = document.getElementById('batchImportDialog');
+    if (dialog) dialog.classList.remove('video-progress-dialog-active');
+
+    // 归档模式 toggle 同步
+    const archiveBtn = document.getElementById('vpArchiveToggleBtn');
+    const backBtn = document.getElementById('vpBackToActiveBtn');
+    if (archiveBtn && backBtn) {
+      const isArchive = this.mode === 'archive';
+      archiveBtn.style.display = isArchive ? 'none' : '';
+      backBtn.style.display = isArchive ? '' : 'none';
+    }
+
+    // 归档区域在 active 模式下整体隐藏（用户反馈"始终显示已归档的视频"——）
+    // 之前默认 visible 是老 standalone 页面的 UX,内嵌入 tabboard shell 后不合适
+    const archiveSection = document.getElementById('archiveSection');
+    const groupsSection = document.querySelector('#videoProgressView .groups-section');
+
     if (this.mode === 'archive') {
+      // archive mode:只渲染归档 + 显示归档 section + 隐藏活跃列表区域
+      if (archiveSection) archiveSection.style.display = '';
+      if (groupsSection) groupsSection.style.display = 'none';
+      this.renderStats();
       this.renderArchivedGroups();
       return;
     }
+
+    // full mode:只渲染活跃 + 隐藏归档 section
+    if (archiveSection) archiveSection.style.display = 'none';
+    if (groupsSection) groupsSection.style.display = '';
     this.renderStats();
     this.renderGroupsList();
-    this.renderArchivedGroups();
+  }
+
+  /**
+   * 更新顶部 #stats + 内嵌头部 #vpPageTitle / #vpSubtitle
+   */
+  _renderHeaderStats() {
+    const stats = document.getElementById('stats');
+    if (stats) {
+      const active = this.videoGroups.filter(g => !g.archived);
+      const archived = this.videoGroups.filter(g => g.archived);
+      const totalVideos = active.reduce((sum, g) => sum + g.videos.length, 0);
+      stats.textContent =
+        `${active.length} 课程 · ${totalVideos} 视频` +
+        (archived.length ? ` · ${archived.length} 已归档` : '');
+    }
   }
 
   renderStats() {
@@ -704,14 +829,12 @@ class VideoProgressView {
   }
 
   renderArchivedGroups() {
-    const archiveSection = document.getElementById('archiveSection');
     const listContainer = document.getElementById('archivedGroupsList');
     if (!listContainer) return;
 
     const archivedGroups = this.videoGroups.filter(g => g.archived);
 
     if (archivedGroups.length === 0) {
-      if (archiveSection) archiveSection.style.display = 'none';
       listContainer.innerHTML = `
         <div class="empty-state">
           <div class="empty-icon"></div>
@@ -721,8 +844,6 @@ class VideoProgressView {
       `;
       return;
     }
-
-    if (archiveSection) archiveSection.style.display = 'block';
     listContainer.innerHTML = archivedGroups.map(group => {
       const snap = group.archiveSnapshot || {};
       const videoCount = snap.videoCount || group.videos.length || 0;
@@ -824,19 +945,45 @@ class VideoProgressView {
 
   showToast(message, type = 'info') {
     const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
+    toast.className = `video-progress-toast toast-${type}`;
     toast.textContent = message;
-    document.body.appendChild(toast);
+    // 不再 append 到 document.body（全局元素会在 view 销毁后残留），
+    // 而是挂到 this.container 或退回到 document.body
+    const host = this.container || document.body;
+    host.appendChild(toast);
     setTimeout(() => {
-      toast.style.animation = 'slideOut 0.3s ease';
+      toast.style.animation = 'video-progress-slideOut 0.3s ease';
       setTimeout(() => toast.remove(), 300);
     }, 2000);
   }
 
   destroy() {
+    // Phase 7 / skill §10.4: 解绑 storage listener
+    if (this._onStorageChange) {
+      chrome.storage.onChanged.removeListener(this._onStorageChange);
+      this._onStorageChange = null;
+    }
+
+    // 解绑 document 委托
+    if (this._listeners && this._listeners.length) {
+      for (const entry of this._listeners) {
+        const [target, type, handler, capture] = entry;
+        target.removeEventListener(type, handler, capture);
+      }
+      this._listeners = [];
+    }
+
+    // 清定时器
     if (this.storageChangeTimer) {
       clearTimeout(this.storageChangeTimer);
+      this.storageChangeTimer = null;
     }
+
+    // ⚠️ 不要清 this.container.innerHTML!
+    // #videoProgressView 下的 #videoStats / #videoGroupsList / header / batchDialog
+    // 都是 tabboard.html 的静态 HTML,清掉后下次 mount 时 renderStats()/renderGroupsList()
+    // 找不到这些 element,会静默早退 → "nav 切到 video 白页,只有 F5 才行"。
+    // 动态内容由各 render* 方法自己 innerHTML= 清空。
   }
 }
 

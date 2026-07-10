@@ -1,253 +1,264 @@
 /**
- * Video Progress Module Styles
+ * Video Progress Module Styles - scoped under #videoProgressView
+ * 复用 tabboard.css 的 --primary / --text 等变量避免重复声明
+ * 原 .dialog 改名为 .video-progress-dialog;原 slideOut/slideUp keyframe 加 video-progress- 前缀
  */
 
-.video-progress-container {
-  max-width: 900px;
+#videoProgressView .video-progress-content {
+  max-width: 1100px;
   margin: 0 auto;
-  padding: 20px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  padding: 16px;
+  font-family: inherit;
+  height: 100%;
+  overflow-y: auto;
 }
 
 /* Header */
-.vp-header {
+#videoProgressView .vp-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid #e0e0e0;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border, #e0e0e0);
 }
 
-.vp-header-left h1 {
+#videoProgressView .vp-header-left h1 {
   margin: 0 0 4px 0;
-  font-size: 24px;
-  color: #333;
+  font-size: 20px;
+  color: var(--text, #333);
 }
 
-.vp-header-left .subtitle {
+#videoProgressView .vp-header-left h2 {
+  margin: 0 0 4px 0;
+  font-size: 18px;
+  color: var(--text, #333);
+}
+
+#videoProgressView .vp-header-left .subtitle {
   margin: 0;
-  color: #888;
-  font-size: 14px;
+  color: var(--text-light, #888);
+  font-size: 13px;
 }
 
-.vp-header-actions {
+#videoProgressView .vp-header-actions {
   display: flex;
-  gap: 10px;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 /* Stats */
-.stats-grid {
+#videoProgressView .stats-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-bottom: 20px;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
-.stat-card {
-  background: #f8f9fa;
-  border-radius: 12px;
-  padding: 16px;
+#videoProgressView .stat-card {
+  background: var(--bg, #f8f9fa);
+  border-radius: 10px;
+  padding: 14px;
   text-align: center;
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--border, #e9ecef);
 }
 
-.stat-value {
-  font-size: 28px;
+#videoProgressView .stat-value {
+  font-size: 24px;
   font-weight: 700;
-  color: #333;
+  color: var(--text, #333);
   line-height: 1;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
-.stat-label {
-  font-size: 13px;
-  color: #888;
+#videoProgressView .stat-label {
+  font-size: 12px;
+  color: var(--text-light, #888);
 }
 
-.overall-progress {
-  background: #fff;
-  border-radius: 12px;
-  padding: 16px 20px;
-  border: 1px solid #e9ecef;
-  margin-bottom: 24px;
+#videoProgressView .overall-progress {
+  background: var(--card-bg, #fff);
+  border-radius: 10px;
+  padding: 12px 16px;
+  border: 1px solid var(--border, #e9ecef);
+  margin-bottom: 20px;
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
 }
 
-.progress-bar-bg {
+#videoProgressView .progress-bar-bg {
   flex: 1;
-  height: 12px;
-  background: #e9ecef;
-  border-radius: 6px;
+  height: 10px;
+  background: var(--border, #e9ecef);
+  border-radius: 5px;
   overflow: hidden;
 }
 
-.progress-bar-fill {
+#videoProgressView .progress-bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, #42a5f5, #66bb6a);
-  border-radius: 6px;
+  background: linear-gradient(90deg, var(--primary, #42a5f5), var(--success, #66bb6a));
+  border-radius: 5px;
   transition: width 0.3s ease;
 }
 
-.progress-text {
-  font-size: 14px;
-  color: #666;
+#videoProgressView .progress-text {
+  font-size: 13px;
+  color: var(--text-light, #666);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 
 /* Groups List */
-.groups-section {
-  margin-top: 24px;
+#videoProgressView .groups-section {
+  margin-top: 20px;
 }
 
-.section-header {
+#videoProgressView .section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
-.section-title {
-  font-size: 18px;
+#videoProgressView .section-title {
+  font-size: 16px;
   font-weight: 600;
-  color: #333;
+  color: var(--text, #333);
   margin: 0;
 }
 
 /* Video Group */
-.video-group {
-  background: #fff;
-  border-radius: 12px;
-  border: 1px solid #e9ecef;
-  margin-bottom: 16px;
+#videoProgressView .video-group {
+  background: var(--card-bg, #fff);
+  border-radius: 10px;
+  border: 1px solid var(--border, #e9ecef);
+  margin-bottom: 12px;
   overflow: hidden;
 }
 
-.group-header {
+#videoProgressView .video-group > .group-header {
   display: flex;
   align-items: center;
-  padding: 14px 16px;
+  padding: 12px 14px;
   cursor: pointer;
-  gap: 12px;
+  gap: 10px;
   transition: background 0.2s;
 }
 
-.group-header:hover {
-  background: #f8f9fa;
+#videoProgressView .video-group > .group-header:hover {
+  background: var(--bg, #f8f9fa);
 }
 
-.group-color {
+#videoProgressView .group-color {
   width: 12px;
   height: 12px;
   border-radius: 50%;
   flex-shrink: 0;
 }
 
-.group-info {
+#videoProgressView .group-info {
   flex: 1;
   min-width: 0;
 }
 
-.group-name {
-  font-size: 16px;
+#videoProgressView .group-name {
+  font-size: 15px;
   font-weight: 600;
-  color: #333;
+  color: var(--text, #333);
   margin-bottom: 4px;
 }
 
-.group-meta {
+#videoProgressView .group-meta {
   display: flex;
-  gap: 12px;
-  font-size: 13px;
-  color: #888;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--text-light, #888);
 }
 
-.group-progress {
-  color: #42a5f5;
+#videoProgressView .group-progress {
+  color: var(--primary, #42a5f5);
   font-weight: 600;
 }
 
-.group-progress-bar {
+#videoProgressView .group-progress-bar {
   width: 100px;
   height: 6px;
-  background: #e9ecef;
+  background: var(--border, #e9ecef);
   border-radius: 3px;
   overflow: hidden;
   flex-shrink: 0;
 }
 
-.group-progress-fill {
+#videoProgressView .group-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #42a5f5, #66bb6a);
+  background: linear-gradient(90deg, var(--primary, #42a5f5), var(--success, #66bb6a));
   border-radius: 3px;
   transition: width 0.3s ease;
 }
 
-.group-toggle {
+#videoProgressView .group-toggle {
   font-size: 12px;
-  color: #888;
+  color: var(--text-light, #888);
   flex-shrink: 0;
   width: 20px;
   text-align: center;
 }
 
-.group-actions {
+#videoProgressView .group-actions {
   display: flex;
-  gap: 6px;
-  padding: 0 16px 10px;
-  border-bottom: 1px solid #f0f0f0;
+  gap: 4px;
+  padding: 0 14px 8px;
+  border-bottom: 1px solid var(--bg, #f0f0f0);
 }
 
 /* Videos */
-.group-videos {
-  padding: 8px 16px;
+#videoProgressView .group-videos {
+  padding: 6px 14px;
 }
 
-.group-empty {
+#videoProgressView .group-empty {
   text-align: center;
-  padding: 20px;
-  color: #aaa;
+  padding: 16px;
+  color: var(--text-light, #aaa);
   font-size: 13px;
 }
 
-.video-item {
+#videoProgressView .video-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 0;
-  border-bottom: 1px solid #f5f5f5;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--bg, #f5f5f5);
   cursor: pointer;
   transition: background 0.15s;
 }
 
-.video-item:hover {
-  background: #f8f9fa;
+#videoProgressView .video-item:hover {
+  background: var(--bg, #f8f9fa);
 }
 
-.video-item:last-child {
+#videoProgressView .video-item:last-child {
   border-bottom: none;
 }
 
-.video-favicon {
-  width: 20px;
-  height: 20px;
+#videoProgressView .video-favicon {
+  width: 18px;
+  height: 18px;
   border-radius: 4px;
   flex-shrink: 0;
   object-fit: contain;
 }
 
-.video-info {
+#videoProgressView .video-info {
   flex: 1;
   min-width: 0;
 }
 
-.video-title-input {
-  font-size: 14px;
-  color: #333;
-  margin-bottom: 4px;
+#videoProgressView .video-title-input {
+  font-size: 13px;
+  color: var(--text, #333);
+  margin-bottom: 3px;
   width: 100%;
   border: none;
   background: transparent;
@@ -260,367 +271,402 @@
   box-sizing: border-box;
 }
 
-.video-title-input:hover {
-  background: #f0f0f0;
+#videoProgressView .video-title-input:hover {
+  background: var(--bg, #f0f0f0);
   border-radius: 4px;
 }
 
-.video-title-input:focus {
+#videoProgressView .video-title-input:focus {
   outline: none;
-  background: #fff;
+  background: var(--card-bg, #fff);
   border-radius: 4px;
   cursor: text;
   box-shadow: 0 0 0 2px rgba(66, 165, 245, 0.2);
 }
 
-.video-meta {
+#videoProgressView .video-meta {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   font-size: 12px;
-  color: #888;
-  margin-bottom: 4px;
+  color: var(--text-light, #888);
+  margin-bottom: 3px;
 }
 
-.video-progress-bar {
+#videoProgressView .video-progress-bar {
   height: 4px;
-  background: #e9ecef;
+  background: var(--border, #e9ecef);
   border-radius: 2px;
   overflow: hidden;
 }
 
-.video-progress-fill {
+#videoProgressView .video-progress-fill {
   height: 100%;
-  background: #66bb6a;
+  background: var(--success, #66bb6a);
   border-radius: 2px;
   transition: width 0.3s ease;
 }
 
-/* Buttons */
-.btn {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 6px;
-  font-size: 14px;
+/* Buttons (scoped under #videoProgressView, 不污染 tabboard 主样式) */
+#videoProgressView .btn {
+  padding: 6px 12px;
+  border: 1px solid var(--border, #e0e0e0);
+  border-radius: 4px;
+  font-size: 13px;
   cursor: pointer;
   transition: all 0.2s;
-  background: #f0f0f0;
-  color: #333;
+  background: var(--card-bg, #fff);
+  color: var(--text, #333);
 }
 
-.btn:hover {
-  background: #e0e0e0;
+#videoProgressView .btn:hover {
+  background: var(--primary-light, #e3f2fd);
+  border-color: var(--primary, #42a5f5);
 }
 
-.btn-primary {
-  background: #42a5f5;
+#videoProgressView .btn-primary {
+  background: var(--primary, #42a5f5);
+  border-color: var(--primary, #42a5f5);
   color: white;
 }
 
-.btn-primary:hover {
-  background: #1976d2;
+#videoProgressView .btn-primary:hover {
+  background: var(--primary-dark, #1976d2);
+  border-color: var(--primary-dark, #1976d2);
 }
 
-.btn-secondary {
-  background: #f0f0f0;
-  color: #666;
+#videoProgressView .btn-secondary {
+  background: var(--bg, #f0f0f0);
+  color: var(--text-light, #666);
 }
 
-.btn-secondary:hover {
-  background: #e0e0e0;
+#videoProgressView .btn-small {
+  padding: 3px 8px;
+  font-size: 11px;
 }
 
-.btn-small {
-  padding: 4px 10px;
-  font-size: 12px;
+#videoProgressView .btn-icon {
+  padding: 3px 6px;
+  font-size: 11px;
 }
 
-.btn-icon {
-  padding: 4px 8px;
-  font-size: 12px;
+#videoProgressView .btn-danger {
+  background: var(--card-bg, #fff);
+  color: var(--danger, #ef5350);
+  border-color: var(--danger, #ef5350);
 }
 
-.btn-danger {
-  background: #ffebee;
-  color: #ef5350;
-}
-
-.btn-danger:hover {
-  background: #ef5350;
+#videoProgressView .btn-danger:hover {
+  background: var(--danger, #ef5350);
   color: white;
 }
 
 /* Empty State */
-.empty-state {
+#videoProgressView .empty-state {
   text-align: center;
-  padding: 60px 20px;
-  color: #aaa;
+  padding: 40px 20px;
+  color: var(--text-light, #aaa);
 }
 
-.empty-icon {
-  width: 64px;
-  height: 64px;
-  margin: 0 auto 16px;
-  background: #f0f0f0;
+#videoProgressView .empty-icon {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 12px;
+  background: var(--border, #f0f0f0);
   border-radius: 50%;
 }
 
-.empty-text {
-  font-size: 16px;
-  margin-bottom: 8px;
-  color: #888;
+#videoProgressView .empty-text {
+  font-size: 14px;
+  margin-bottom: 6px;
+  color: var(--text-light, #888);
 }
 
-.empty-desc {
-  font-size: 13px;
-  color: #bbb;
+#videoProgressView .empty-desc {
+  font-size: 12px;
+  color: var(--text-light, #bbb);
 }
 
-/* Toast */
-.toast {
+/* Toast (锚定 #videoProgressView 下的子元素, 全局以避免被多次 mount 多份) */
+#videoProgressView .video-progress-toast {
   position: fixed;
   bottom: 20px;
   left: 50%;
   transform: translateX(-50%);
-  padding: 10px 20px;
-  border-radius: 8px;
-  font-size: 14px;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
   color: white;
-  z-index: 9999;
-  animation: slideUp 0.3s ease;
+  z-index: 10001;
+  animation: video-progress-slideUp 0.3s ease;
 }
 
-.toast-success { background: #66bb6a; }
-.toast-error { background: #ef5350; }
-.toast-info { background: #42a5f5; }
-.toast-warning { background: #ffa726; }
+#videoProgressView .video-progress-toast.toast-success { background: var(--success, #66bb6a); }
+#videoProgressView .video-progress-toast.toast-error   { background: var(--danger,  #ef5350); }
+#videoProgressView .video-progress-toast.toast-info    { background: var(--primary, #42a5f5); }
+#videoProgressView .video-progress-toast.toast-warning { background: #ffa726; }
 
-@keyframes slideUp {
+@keyframes video-progress-slideUp {
   from { transform: translateX(-50%) translateY(20px); opacity: 0; }
-  to { transform: translateX(-50%) translateY(0); opacity: 1; }
+  to   { transform: translateX(-50%) translateY(0);    opacity: 1; }
 }
 
-@keyframes slideOut {
-  from { transform: translateX(-50%) translateY(0); opacity: 1; }
-  to { transform: translateX(-50%) translateY(20px); opacity: 0; }
+@keyframes video-progress-slideOut {
+  from { transform: translateX(-50%) translateY(0);    opacity: 1; }
+  to   { transform: translateX(-50%) translateY(20px); opacity: 0; }
 }
 
-/* Dialog */
-.dialog {
+/* Batch Dialog (inline, 因为有进度文本节点持久更新) */
+#videoProgressView .video-progress-dialog {
   display: none;
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(0, 0, 0, 0.5);
-  z-index: 10000;
+  z-index: 10002;
   align-items: center;
   justify-content: center;
 }
 
-.dialog.active {
+#videoProgressView .video-progress-dialog.active {
   display: flex;
 }
 
-.dialog-content {
-  background: #fff;
-  border-radius: 12px;
-  padding: 24px;
+#videoProgressView .video-progress-dialog .dialog-content {
+  background: var(--card-bg, #fff);
+  border-radius: 10px;
+  padding: 20px;
   max-width: 520px;
   width: 90%;
-  max-height: 90vh;
+  max-height: 85vh;
   overflow-y: auto;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
 }
 
-.dialog-content h3 {
-  margin: 0 0 16px 0;
-  font-size: 18px;
-  color: #333;
+#videoProgressView .video-progress-dialog h3 {
+  margin: 0 0 14px 0;
+  font-size: 16px;
+  color: var(--text, #333);
 }
 
-.form-group {
-  margin-bottom: 16px;
+#videoProgressView .video-progress-dialog .form-group {
+  margin-bottom: 14px;
 }
 
-.form-group label {
+#videoProgressView .video-progress-dialog .form-group label {
   display: block;
-  margin-bottom: 6px;
-  font-size: 13px;
+  margin-bottom: 4px;
+  font-size: 12px;
   font-weight: 500;
-  color: #555;
+  color: var(--text, #555);
 }
 
-.input {
+#videoProgressView .video-progress-dialog .input {
   width: 100%;
-  padding: 8px 12px;
-  border: 1px solid #e0e0e0;
-  border-radius: 6px;
-  font-size: 14px;
+  padding: 7px 10px;
+  border: 1px solid var(--border, #e0e0e0);
+  border-radius: 4px;
+  font-size: 13px;
   font-family: inherit;
-  background: #fff;
-  color: #333;
+  background: var(--card-bg, #fff);
+  color: var(--text, #333);
   box-sizing: border-box;
 }
 
-.input:focus {
+#videoProgressView .video-progress-dialog .input:focus {
   outline: none;
-  border-color: #42a5f5;
+  border-color: var(--primary, #42a5f5);
   box-shadow: 0 0 0 3px rgba(66, 165, 245, 0.1);
 }
 
-.dialog-actions {
+#videoProgressView .video-progress-dialog .dialog-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid #f0f0f0;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border, #f0f0f0);
 }
 
 /* Batch Import */
-.batch-progress {
-  margin: 12px 0;
-  min-height: 40px;
+#videoProgressView .batch-progress {
+  margin: 10px 0;
+  min-height: 32px;
 }
 
-.batch-progress-bar {
-  height: 8px;
-  background: #e9ecef;
-  border-radius: 4px;
+#videoProgressView .batch-progress-bar {
+  height: 6px;
+  background: var(--border, #e9ecef);
+  border-radius: 3px;
   overflow: hidden;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
-.batch-progress-fill {
+#videoProgressView .batch-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #42a5f5, #66bb6a);
-  border-radius: 4px;
+  background: linear-gradient(90deg, var(--primary, #42a5f5), var(--success, #66bb6a));
+  border-radius: 3px;
   transition: width 0.3s ease;
 }
 
-.batch-progress-text {
+#videoProgressView .batch-progress-text {
   font-size: 12px;
-  color: #666;
+  color: var(--text-light, #666);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.batch-result {
+#videoProgressView .batch-result {
   display: flex;
-  gap: 12px;
-  font-size: 13px;
-  padding: 8px;
-  background: #f8f9fa;
-  border-radius: 6px;
+  gap: 10px;
+  font-size: 12px;
+  padding: 6px 10px;
+  background: var(--bg, #f8f9fa);
+  border-radius: 4px;
 }
 
-.batch-success { color: #66bb6a; font-weight: 600; }
-.batch-skip { color: #ffa726; font-weight: 600; }
-.batch-fail { color: #ef5350; font-weight: 600; }
+#videoProgressView .batch-success { color: var(--success, #66bb6a); font-weight: 600; }
+#videoProgressView .batch-skip    { color: #ffa726; font-weight: 600; }
+#videoProgressView .batch-fail    { color: var(--danger, #ef5350); font-weight: 600; }
 
-/* Archive Section (Honor Wall) */
-.archive-section {
-  margin-top: 40px;
-  padding-top: 24px;
-  border-top: 2px dashed #e0e0e0;
+/* Archive Section */
+#videoProgressView .archive-section {
+  margin-top: 32px;
+  padding-top: 20px;
+  border-top: 2px dashed var(--border, #e0e0e0);
 }
 
-.archive-header {
-  margin-bottom: 20px;
+#videoProgressView .archive-header {
+  margin-bottom: 16px;
   text-align: center;
 }
 
-.archive-title {
-  font-size: 22px;
+#videoProgressView .archive-title {
+  font-size: 18px;
   font-weight: 700;
-  color: #555;
-  margin: 0 0 6px 0;
+  color: var(--text-light, #555);
+  margin: 0 0 4px 0;
   letter-spacing: 1px;
 }
 
-.archive-subtitle {
-  font-size: 13px;
-  color: #aaa;
+#videoProgressView .archive-subtitle {
+  font-size: 12px;
+  color: var(--text-light, #aaa);
 }
 
-/* Archived Course Cards */
-.video-group.archived {
-  background: #fafafa;
-  border-color: #e0e0e0;
+#videoProgressView .video-group.archived {
+  background: var(--bg, #fafafa);
+  border-color: var(--border, #e0e0e0);
   opacity: 0.92;
 }
 
-.video-group.archived .group-header {
+#videoProgressView .video-group.archived > .group-header {
   cursor: default;
 }
 
-.video-group.archived .group-header:hover {
+#videoProgressView .video-group.archived > .group-header:hover {
   background: transparent;
 }
 
-.video-group.archived .group-name {
-  color: #666;
+#videoProgressView .video-group.archived .group-name {
+  color: var(--text-light, #666);
 }
 
-.video-group.archived .group-meta {
-  color: #aaa;
+#videoProgressView .video-group.archived .group-meta {
+  color: var(--text-light, #aaa);
 }
 
-.video-group.archived .group-progress {
-  color: #aaa;
+#videoProgressView .video-group.archived .group-progress {
+  color: var(--text-light, #aaa);
 }
 
-.video-group.archived .group-progress-fill {
-  background: linear-gradient(90deg, #42a5f5, #66bb6a);
+#videoProgressView .video-group.archived .group-progress-fill {
+  background: linear-gradient(90deg, var(--primary, #42a5f5), var(--success, #66bb6a));
   opacity: 0.7;
 }
 
-.video-group.archived .group-actions {
+#videoProgressView .video-group.archived .group-actions {
   border-bottom: none;
 }
 
-/* Sort Videos Page */
-.sort-list {
+/* Sort Videos Dialog (NEW) — 用于 inline 排序弹窗 */
+/* 不绑 #videoProgressView 前缀: 因为它通过 JS append 到 body 作为独立 overlay */
+.video-progress-sort-overlay {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 10003;
+  align-items: center;
+  justify-content: center;
 }
 
-.sort-item {
+.video-progress-sort-dialog {
+  background: var(--card-bg, #fff);
+  border-radius: 10px;
+  padding: 20px;
+  max-width: 560px;
+  width: 92%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.video-progress-sort-dialog h3 {
+  margin: 0;
+  font-size: 16px;
+  color: var(--text, #333);
+}
+
+.video-progress-sort-dialog .video-progress-sort-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  border-top: 1px solid var(--border, #f0f0f0);
+  padding-top: 12px;
+}
+
+.video-progress-sort-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 80px;
+}
+
+.video-progress-sort-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  background: #fff;
-  border: 1px solid #e9ecef;
-  border-radius: 8px;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--bg, #fafafa);
+  border: 1px solid var(--border, #e9ecef);
+  border-radius: 6px;
   cursor: grab;
   transition: background 0.15s, box-shadow 0.15s;
 }
 
-.sort-item:hover {
-  background: #f8f9fa;
+.video-progress-sort-item:hover {
+  background: var(--card-bg, #fff);
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }
 
-.sort-item.dragging {
+.video-progress-sort-item.dragging {
   opacity: 0.5;
   cursor: grabbing;
 }
 
-.sort-handle {
-  font-size: 14px;
-  color: #bbb;
+.video-progress-sort-item .handle {
+  color: var(--text-light, #bbb);
   cursor: grab;
   user-select: none;
   flex-shrink: 0;
 }
 
-.sort-index {
-  font-size: 13px;
-  color: #888;
+.video-progress-sort-item .index {
+  font-size: 12px;
+  color: var(--text-light, #888);
   font-weight: 600;
   min-width: 24px;
   text-align: center;
@@ -628,9 +674,9 @@
   font-variant-numeric: tabular-nums;
 }
 
-.sort-title {
-  font-size: 14px;
-  color: #333;
+.video-progress-sort-item .title {
+  font-size: 13px;
+  color: var(--text, #333);
   flex: 1;
   min-width: 0;
   white-space: nowrap;
@@ -639,21 +685,21 @@
 }
 
 /* Responsive */
-@media (max-width: 600px) {
-  .stats-grid {
+@media (max-width: 720px) {
+  #videoProgressView .stats-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .overall-progress {
+  #videoProgressView .overall-progress {
     flex-direction: column;
     gap: 8px;
   }
 
-  .group-header {
+  #videoProgressView .video-group > .group-header {
     flex-wrap: wrap;
   }
 
-  .group-progress-bar {
+  #videoProgressView .group-progress-bar {
     display: none;
   }
 }

@@ -11,6 +11,7 @@ import LeetCodeModule from '../leetcode/index.js';
 import TimerModule from '../timer/index.js';
 import BilibiliHistoryModule from '../bilibili-history/index.js';
 import RecordingModule from '../recording/index.js';
+import VideoProgressModule from '../video-progress/index.js';
 
 class AppShell {
   constructor() {
@@ -46,7 +47,7 @@ class AppShell {
     document.getElementById('timelineViewBtn')?.addEventListener('click', () => this.switchView('timeline'));
     document.getElementById('groupViewBtn')?.addEventListener('click', () => this.switchView('group'));
     document.getElementById('recordingViewBtn')?.addEventListener('click', () => this.switchView('recording'));
-    document.getElementById('videoProgressViewBtn')?.addEventListener('click', () => this._openVideoProgressPage());
+    document.getElementById('videoProgressViewBtn')?.addEventListener('click', () => this.switchView('videoProgress'));
 
     const moreBtn = document.getElementById('moreViewBtn');
     moreBtn?.addEventListener('click', (e) => {
@@ -192,6 +193,10 @@ class AppShell {
         container = document.getElementById('recordingView');
         ModuleClass = RecordingModule;
         break;
+      case 'videoProgress':
+        container = document.getElementById('videoProgressView');
+        ModuleClass = VideoProgressModule;
+        break;
       case 'timeline':
       default:
         container = document.getElementById('timelineView');
@@ -201,7 +206,10 @@ class AppShell {
 
     this.currentModule = new ModuleClass(container, this.dataManager, this.eventBus);
     this.modules[viewName] = this.currentModule; // 进入缓存
-    this.currentModule.init();
+    // Bug fix: 之前 init() 不被 await,导致 async init 内部的 data load 与 render(data) 竞态,
+    // 表现为"通过 nav 切到 videoProgress → 白页,F5 后才能出现"。
+    // 现在等 init 完成(其中包含 view.init 的异步加载),再 render & bindEvents。
+    await this.currentModule.init();
     this.currentModule.render(data);
     this.currentModule.bindEvents();
 
@@ -229,6 +237,7 @@ class AppShell {
       'timer': 'timerPanel',
       'bilibili-history': 'bilibiliHistoryPanel',
       'recording': 'recordingView',
+      'videoProgress': 'videoProgressView',
     };
     const el = document.getElementById(containerMap[viewName]);
     if (!el) return;
@@ -253,16 +262,65 @@ class AppShell {
     document.getElementById('timerView').style.display = viewName === 'timer' ? 'block' : 'none';
     document.getElementById('bilibiliHistoryView').style.display = viewName === 'bilibili-history' ? 'block' : 'none';
     document.getElementById('recordingView').style.display = viewName === 'recording' ? 'block' : 'none';
+    document.getElementById('videoProgressView').style.display = viewName === 'videoProgress' ? 'block' : 'none';
 
     // More 按钮 active 状态：当前 view 属于 dropdown items 时高亮
     const inDropdown = this.dropdownItems.some(it => it.viewName === viewName);
     document.getElementById('moreViewBtn')?.classList.toggle('active', inDropdown);
   }
 
-  _openVideoProgressPage() {
-    window.location.href = chrome.runtime.getURL('modules/video-progress/video-progress.html');
+  /**
+   * popup / background 通过 chrome.runtime.sendMessage / chrome.tabs.sendMessage
+   * 触发当前 tabboard tab 切换视图。当前只支持 videoProgress;其他视图随时可加。
+   */
+  _setupExternalSwitchListener() {
+    chrome.runtime.onMessage.addListener((request) => {
+      if (request?.action === 'tabboardSwitchView') {
+        if (request.view === 'videoProgress') {
+          this.switchView('videoProgress');
+          return false;
+        }
+      }
+      return false;
+    });
   }
 }
 
 const app = new AppShell();
 document.addEventListener('DOMContentLoaded', () => app.init());
+
+// 监听 popup / background 主动切视图(无 sendResponse,统一返回 false)
+document.addEventListener('DOMContentLoaded', () => {
+  app._setupExternalSwitchListener();
+
+  // hash 路由 - 让老的独立 URL (#videoProgress 或 #videoProgress&archive=1 / &sort=GID)
+  // 在自动 redirect 到 tabboard.html 后能落到正确视图与 mode
+  const hash = window.location.hash.replace(/^#/, '');
+  if (!hash) return;
+  const [viewRaw, params] = hash.split('&').map(s => s.trim());
+  const view = viewRaw;
+  if (view === 'videoProgress') {
+    // 等 AppShell.init 切完 lastView 之后补切
+    setTimeout(() => {
+      app.switchView('videoProgress');
+      // archive=1 自动切 mode
+      if (params && params.startsWith('archive=1')) {
+        app.currentModule?.view?.toggleArchiveMode?.(true);
+      }
+      // sort=GID 自动开排序弹窗
+      const sortMatch = params && params.match(/sort=([\w-]+)/);
+      if (sortMatch) {
+        const gid = sortMatch[1];
+        setTimeout(() => {
+          // lazy import SortDialog
+          import('../video-progress/sort-dialog.js').then(m => {
+            m.openSortDialog(gid, app.dataManager, async () => {
+              await app.dataManager.loadData();
+              app.currentModule?.render?.(app.dataManager.data);
+            });
+          });
+        }, 200);
+      }
+    }, 100);
+  }
+});
