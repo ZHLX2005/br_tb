@@ -10,6 +10,7 @@ import GroupModule from '../group/index.js';
 import LeetCodeModule from '../leetcode/index.js';
 import TimerModule from '../timer/index.js';
 import BilibiliHistoryModule from '../bilibili-history/index.js';
+import RecordingModule from '../recording/index.js';
 
 class AppShell {
   constructor() {
@@ -44,7 +45,7 @@ class AppShell {
   _setupViewSwitchButtons() {
     document.getElementById('timelineViewBtn')?.addEventListener('click', () => this.switchView('timeline'));
     document.getElementById('groupViewBtn')?.addEventListener('click', () => this.switchView('group'));
-    document.getElementById('recordingViewBtn')?.addEventListener('click', () => this._openRecordingPage());
+    document.getElementById('recordingViewBtn')?.addEventListener('click', () => this.switchView('recording'));
     document.getElementById('videoProgressViewBtn')?.addEventListener('click', () => this._openVideoProgressPage());
 
     const moreBtn = document.getElementById('moreViewBtn');
@@ -137,10 +138,7 @@ class AppShell {
   }
 
   async switchView(viewName, initialData = null) {
-    if (viewName === 'recording') {
-      this._openRecordingPage();
-      return;
-    }
+    // recording 视图已内嵌到 tabboard shell,无需跳转,直接走 switch 分支即可
 
     // 缓存命中：复用已构造的模块实例，避免破坏有状态模块（bilibili-history）的内存数据。
     // 各模块的 destroy() 通常只做 container = null / 清理副作用，并不销毁内存中的 state/items/payload，
@@ -190,6 +188,10 @@ class AppShell {
         container = document.getElementById('bilibiliHistoryPanel');
         ModuleClass = BilibiliHistoryModule;
         break;
+      case 'recording':
+        container = document.getElementById('recordingView');
+        ModuleClass = RecordingModule;
+        break;
       case 'timeline':
       default:
         container = document.getElementById('timelineView');
@@ -226,6 +228,7 @@ class AppShell {
       'leetcode': 'leetcodePanel',
       'timer': 'timerPanel',
       'bilibili-history': 'bilibiliHistoryPanel',
+      'recording': 'recordingView',
     };
     const el = document.getElementById(containerMap[viewName]);
     if (!el) return;
@@ -249,14 +252,11 @@ class AppShell {
     document.getElementById('leetcodeView').style.display = viewName === 'leetcode' ? 'block' : 'none';
     document.getElementById('timerView').style.display = viewName === 'timer' ? 'block' : 'none';
     document.getElementById('bilibiliHistoryView').style.display = viewName === 'bilibili-history' ? 'block' : 'none';
+    document.getElementById('recordingView').style.display = viewName === 'recording' ? 'block' : 'none';
 
     // More 按钮 active 状态：当前 view 属于 dropdown items 时高亮
     const inDropdown = this.dropdownItems.some(it => it.viewName === viewName);
     document.getElementById('moreViewBtn')?.classList.toggle('active', inDropdown);
-  }
-
-  _openRecordingPage() {
-    window.location.href = chrome.runtime.getURL('modules/recording/recording.html');
   }
 
   _openVideoProgressPage() {

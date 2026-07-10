@@ -78,7 +78,6 @@ class GroupView {
       <button class="board-action-btn filter-groups-btn" title="选择要显示的分组">筛选</button>
       <button class="board-action-btn refresh-sort-btn" title="按点击次数刷新排序">刷新排序</button>
       <button class="board-action-btn open-all-groups-btn" title="打开所有分组">打开全部</button>
-      <button class="board-action-btn clear-all-groups-btn" title="清空所有分组">清空</button>
       <button class="board-action-btn import-bookmarks-btn" title="从浏览器书签导入">导入书签</button>
       <button class="board-action-btn export-groups-btn" title="导出分组数据">导出</button>
       <button class="board-action-btn import-groups-btn" title="导入分组数据">导入</button>
@@ -207,6 +206,59 @@ class GroupView {
 
     // 绑定分组视图操作按钮
     this._setupGroupActionButtons();
+
+    // 绑定看板内按钮(Open/Clear/Del/Goto)的事件委托,避免每次重渲染重复绑定导致事件堆叠
+    this._setupBoardActionDelegation();
+  }
+
+  /**
+   * 看板内按钮事件委托 - 一次性绑定到 #tabboard,通过事件冒泡分发
+   * 修复历史 bug: 此前每个按钮都用 .bind(this) 在 MutationObserver 触发的多次重渲染中累积监听器,
+   * 导致 Clear/Del 第一次点击时弹出多个 confirm,或因状态过期而无效。
+   */
+  _setupBoardActionDelegation() {
+    const container = document.getElementById('tabboard');
+    if (!container || container.__boardActionDelegationBound) return;
+    container.__boardActionDelegationBound = true;
+
+    container.addEventListener('click', (e) => {
+      const openBtn = e.target.closest('.open-all');
+      if (openBtn) {
+        e.stopPropagation();
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        const groupId = openBtn.dataset.boardId;
+        if (groupId) this.dataManager.sendMessage('openGroup', { groupId });
+        return;
+      }
+
+      const clearBtn = e.target.closest('.clear-group');
+      if (clearBtn) {
+        e.stopPropagation();
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        this._handleClearGroup({ stopPropagation: () => {}, currentTarget: clearBtn, target: clearBtn });
+        return;
+      }
+
+      const delBtn = e.target.closest('.delete-group');
+      if (delBtn) {
+        e.stopPropagation();
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        this._handleDeleteGroup({ stopPropagation: () => {}, currentTarget: delBtn, target: delBtn });
+        return;
+      }
+
+      const gotoBtn = e.target.closest('.push-to-goto');
+      if (gotoBtn) {
+        e.stopPropagation();
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        this._handlePushToGotoRing({ stopPropagation: () => {}, currentTarget: gotoBtn, target: gotoBtn });
+        return;
+      }
+    }, true);
   }
 
   /**
@@ -245,27 +297,6 @@ class GroupView {
 
       // 设置看板高度，使内容区域可以滚动
       board.style.height = `${Math.max(200, boardMaxHeight)}px`; // 最小高度 200px
-    });
-
-    // 绑定按钮事件
-    document.querySelectorAll('.open-all').forEach(btn => {
-      btn.removeEventListener('click', this._handleOpenAll);
-      btn.addEventListener('click', this._handleOpenAll.bind(this));
-    });
-
-    document.querySelectorAll('.clear-group').forEach(btn => {
-      btn.removeEventListener('click', this._handleClearGroup);
-      btn.addEventListener('click', this._handleClearGroup.bind(this));
-    });
-
-    document.querySelectorAll('.delete-group').forEach(btn => {
-      btn.removeEventListener('click', this._handleDeleteGroup);
-      btn.addEventListener('click', this._handleDeleteGroup.bind(this));
-    });
-
-    document.querySelectorAll('.push-to-goto').forEach(btn => {
-      btn.removeEventListener('click', this._handlePushToGotoRing);
-      btn.addEventListener('click', this._handlePushToGotoRing.bind(this));
     });
   }
 
@@ -495,7 +526,6 @@ class GroupView {
     const filterBtn = document.querySelector('.filter-groups-btn');
     const refreshSortBtn = document.querySelector('.refresh-sort-btn');
     const openAllBtn = document.querySelector('.open-all-groups-btn');
-    const clearAllBtn = document.querySelector('.clear-all-groups-btn');
     const importBookmarksBtn = document.querySelector('.import-bookmarks-btn');
     const exportBtn = document.querySelector('.export-groups-btn');
     const importBtn = document.querySelector('.import-groups-btn');
@@ -522,17 +552,6 @@ class GroupView {
         for (const group of this.groups) {
           await this.dataManager.sendMessage('openGroup', { groupId: group.id });
         }
-      });
-    }
-
-    if (clearAllBtn) {
-      clearAllBtn.addEventListener('click', async () => {
-        const confirmed = await modal.confirm('确定要清空所有分组吗？', {
-          title: '清空所有分组',
-          type: 'danger'
-        });
-        if (!confirmed) return;
-        await this.dataManager.sendMessage('clearAllGroups');
       });
     }
 

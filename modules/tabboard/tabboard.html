@@ -12,6 +12,9 @@
   <link rel="stylesheet" href="../leetcode/style.css">
   <link rel="stylesheet" href="../timer/style.css">
   <link rel="stylesheet" href="../bilibili-history/style.css">
+  <link rel="stylesheet" href="../recording/recording.css">
+  <!-- 共享模态对话框样式:被 modules/group、modules/recording、modules/timeline、modules/video-progress 等多个 view.js 共同通过 import { modal } from '../../shared/ModalDialog.js' 使用 -->
+  <link rel="stylesheet" href="../../shared/ModalDialog.css">
 </head>
 <body>
   <div class="app">
@@ -63,6 +66,20 @@
     <!-- B 站历史视图 (Task 2 临时挂载，Task 7 正式接入) -->
     <div id="bilibiliHistoryView" class="view-container" style="display: none;">
       <div id="bilibiliHistoryPanel"></div>
+    </div>
+
+    <!-- 录制视图(内嵌,与 tabboard 共用 shell/主题,避免 chrome-extension:// 跳转) -->
+    <div id="recordingView" class="view-container" style="display: none;">
+      <div class="recording-content">
+        <section id="recordingStatus" class="recording-status-section"></section>
+        <section class="recordings-section">
+          <div class="section-header">
+            <h2 class="section-title">历史录制</h2>
+            <span id="recordingCount" class="count-badge">0</span>
+          </div>
+          <div id="recordingsList" class="recordings-list"></div>
+        </section>
+      </div>
     </div>
 
     <!-- 空状态 -->

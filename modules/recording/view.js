@@ -257,23 +257,28 @@ class RecordingView {
   }
 
   /**
-   * 返回看板
-   */
-  backToTabboard() {
-    window.location.href = chrome.runtime.getURL('modules/tabboard/tabboard.html');
-  }
-
-  /**
    * 绑定事件
+   * 注:作为 TabBoard 内嵌视图运行后,"返回看板"按钮取消,统一使用顶部 nav。
+   * 录制状态的开始/停止按钮采用一次性绑定,见 render() 内部。
    */
   bindEvents() {
-    document.getElementById('backBtn').addEventListener('click', () => this.backToTabboard());
+    // 已通过 render() 内 addEventListener 完成事件绑定
   }
 
   /**
    * 渲染页面
    */
   render() {
+    // 更新顶部统计条,避免残留其他视图信息
+    const stats = document.getElementById('stats');
+    if (stats) {
+      const totalTabs = this.recordings.reduce((sum, r) => sum + (r.tabs?.length || 0), 0);
+      stats.textContent = `${this.recordings.length} 个录制 · ${totalTabs} 个标签页`;
+    }
+
+    // 列表容器由 tabboard.html 的 #recordingView 提供,若无说明该视图未在当前页面
+    if (!document.getElementById('recordingStatus')) return;
+
     this.renderRecordingStatus();
     this.renderRecordingsList();
   }

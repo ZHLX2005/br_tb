@@ -1,67 +1,48 @@
-/* 录制页面样式 - 浅色主题，与 tabboard 保持一致 */
+/* 录制视图样式
+ * 设计为 TabBoard 内嵌视图,共用父页面 :root CSS 变量
+ * 仅重置和作用域样式,避免污染 tabboard 其他视图
+ */
 
-:root {
-  --primary: #42a5f5;
-  --primary-light: #e3f2fd;
-  --primary-dark: #1976d2;
-  --secondary: #90caf9;
-  --text: #333;
-  --text-light: #666;
-  --border: #e0e0e0;
-  --bg: #f5f7fa;
-  --card-bg: #ffffff;
-  --danger: #ef5350;
-  --success: #66bb6a;
-  --warning: #ffa726;
-}
-
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: var(--bg);
-  color: var(--text);
-  min-height: 100vh;
-  line-height: 1.6;
-}
-
-.container {
+#recordingView .recording-content {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 16px;
+  height: 100%;
+  overflow-y: auto;
 }
 
-/* 头部 */
-.header {
+#recordingView *,
+#recordingView *::before,
+#recordingView *::after {
+  box-sizing: border-box;
+}
+
+#recordingView .recording-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
-  padding-bottom: 15px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
   border-bottom: 1px solid var(--border);
 }
 
-.header-left .title {
-  font-size: 20px;
+#recordingView .header-left .title {
+  font-size: 18px;
   font-weight: 600;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   color: var(--text);
 }
 
-.subtitle {
+#recordingView .subtitle {
   color: var(--text-light);
-  font-size: 13px;
-  margin-top: 4px;
+  font-size: 12px;
+  margin-top: 2px;
 }
 
 /* 按钮 */
-.btn {
+#recordingView .btn {
   padding: 8px 16px;
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -72,48 +53,48 @@ body {
   transition: all 0.2s;
 }
 
-.btn:hover {
+#recordingView .btn:hover {
   background: var(--primary-light);
   border-color: var(--primary);
 }
 
-.btn-primary {
+#recordingView .btn-primary {
   background: var(--primary);
   border-color: var(--primary);
   color: white;
 }
 
-.btn-primary:hover {
+#recordingView .btn-primary:hover {
   background: var(--primary-dark);
 }
 
-.btn-stop {
+#recordingView .btn-stop {
   background: var(--danger);
   border-color: var(--danger);
   color: white;
 }
 
-.btn-stop:hover {
+#recordingView .btn-stop:hover {
   background: #d32f2f;
 }
 
-.btn-danger {
+#recordingView .btn-danger {
   color: var(--danger);
   border-color: var(--danger);
 }
 
-.btn-danger:hover {
+#recordingView .btn-danger:hover {
   background: var(--danger);
   color: white;
 }
 
 /* 录制状态区 */
-.recording-status-section {
+#recordingView .recording-status-section {
   margin-bottom: 20px;
 }
 
 /* 未录制状态 */
-.idle-state {
+#recordingView .idle-state {
   background: var(--card-bg);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -121,27 +102,27 @@ body {
   padding: 40px 20px;
 }
 
-.idle-icon {
+#recordingView .idle-icon {
   font-size: 48px;
   margin-bottom: 12px;
   opacity: 0.7;
 }
 
-.idle-title {
+#recordingView .idle-title {
   font-size: 16px;
   font-weight: 600;
   margin-bottom: 6px;
   color: var(--text);
 }
 
-.idle-desc {
+#recordingView .idle-desc {
   color: var(--text-light);
   font-size: 13px;
   margin-bottom: 20px;
 }
 
 /* 录制中状态 */
-.recording-state {
+#recordingView .recording-state {
   background: var(--card-bg);
   border: 1px solid var(--border);
   border-left: 3px solid var(--danger);
@@ -149,81 +130,74 @@ body {
   padding: 16px;
 }
 
-.recording-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.recording-indicator {
+#recordingView .recording-indicator {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.recording-dot {
+#recordingView .recording-dot {
   width: 10px;
   height: 10px;
   background: var(--danger);
   border-radius: 50%;
-  animation: pulse 1.5s infinite;
+  animation: recording-pulse 1.5s infinite;
 }
 
-@keyframes pulse {
+@keyframes recording-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }
 }
 
-.recording-text {
+#recordingView .recording-text {
   color: var(--danger);
   font-weight: 600;
   font-size: 14px;
 }
 
-.recording-time {
+#recordingView .recording-time {
   font-family: 'Courier New', monospace;
   font-size: 18px;
   font-weight: 600;
   color: var(--primary);
 }
 
-.recording-info {
+#recordingView .recording-info {
   display: flex;
   gap: 20px;
   flex-wrap: wrap;
   margin-bottom: 12px;
 }
 
-.info-item {
+#recordingView .info-item {
   display: flex;
   gap: 6px;
   font-size: 13px;
 }
 
-.info-label {
+#recordingView .info-label {
   color: var(--text-light);
 }
 
-.info-value {
+#recordingView .info-value {
   font-weight: 500;
   color: var(--text);
 }
 
-.recording-actions {
+#recordingView .recording-actions {
   display: flex;
   gap: 8px;
 }
 
 /* 录制列表区 */
-.recordings-section {
+#recordingView .recordings-section {
   background: var(--card-bg);
   border: 1px solid var(--border);
   border-radius: 8px;
   overflow: hidden;
 }
 
-.section-header {
+#recordingView .section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -232,13 +206,13 @@ body {
   border-bottom: 1px solid var(--border);
 }
 
-.section-title {
+#recordingView .section-title {
   font-size: 14px;
   font-weight: 600;
   color: var(--text);
 }
 
-.count-badge {
+#recordingView .count-badge {
   background: var(--primary);
   padding: 2px 8px;
   border-radius: 10px;
@@ -246,24 +220,27 @@ body {
   color: white;
 }
 
-.recordings-list {
+#recordingView .recordings-list {
   display: flex;
   flex-direction: column;
 }
 
 /* 录制项 */
-.recording-item {
+#recordingView .recording-item {
   border: 1px solid var(--border);
   border-radius: 4px;
   overflow: hidden;
   margin-bottom: 8px;
 }
 
-.recording-item:last-child {
+#recordingView .recording-item:last-child {
   margin-bottom: 0;
 }
 
-.recording-header {
+/* 注意:.recording-header 同时是 view 的页头和 item 的头部,
+   已用 #recordingView .recording-header 重新定义页头,
+   这里给 item 的头部加一个更具体的 selector */
+#recordingView .recording-item > .recording-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -272,22 +249,22 @@ body {
   cursor: pointer;
 }
 
-.recording-header:hover {
+#recordingView .recording-item > .recording-header:hover {
   background: var(--primary-light);
 }
 
-.recording-main {
+#recordingView .recording-main {
   flex: 1;
 }
 
-.recording-name {
+#recordingView .recording-name {
   font-weight: 600;
   font-size: 14px;
   margin-bottom: 4px;
   color: var(--text);
 }
 
-.recording-meta {
+#recordingView .recording-meta {
   color: var(--text-light);
   font-size: 12px;
   display: flex;
@@ -295,29 +272,29 @@ body {
   align-items: center;
 }
 
-.recording-count {
+#recordingView .recording-count {
   display: flex;
   align-items: center;
   gap: 4px;
 }
 
-.count-number {
+#recordingView .count-number {
   font-weight: 600;
   color: var(--primary);
 }
 
-.recording-actions {
+#recordingView .recording-item > .recording-actions {
   display: flex;
   gap: 4px;
 }
 
-.recording-actions .btn {
+#recordingView .recording-item > .recording-actions .btn {
   padding: 4px 10px;
   font-size: 12px;
 }
 
 /* 录制标签列表 */
-.recording-tabs {
+#recordingView .recording-tabs {
   padding: 8px;
   display: flex;
   flex-direction: column;
@@ -325,7 +302,7 @@ body {
   background: var(--bg);
 }
 
-.recording-tab-row {
+#recordingView .recording-tab-row {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -335,23 +312,23 @@ body {
   transition: background 0.15s;
 }
 
-.recording-tab-row:hover {
+#recordingView .recording-tab-row:hover {
   background: var(--primary-light);
 }
 
-.recording-tab-favicon {
+#recordingView .recording-tab-favicon {
   width: 16px;
   height: 16px;
   flex-shrink: 0;
   object-fit: contain;
 }
 
-.recording-tab-favicon:not([src]),
-.recording-tab-favicon[src=""] {
+#recordingView .recording-tab-favicon:not([src]),
+#recordingView .recording-tab-favicon[src=""] {
   display: none;
 }
 
-.recording-tab-title {
+#recordingView .recording-tab-title {
   flex: 1;
   font-size: 13px;
   color: var(--text);
@@ -361,7 +338,7 @@ body {
 }
 
 /* 展开更多按钮 */
-.recording-more-btn {
+#recordingView .recording-more-btn {
   width: 100%;
   padding: 8px;
   background: transparent;
@@ -373,30 +350,30 @@ body {
   border-radius: 4px;
 }
 
-.recording-more-btn:hover {
+#recordingView .recording-more-btn:hover {
   background: var(--primary-light);
   color: var(--primary);
 }
 
 /* 空状态 */
-.empty-state {
+#recordingView .empty-state {
   text-align: center;
   padding: 40px 20px;
   color: var(--text-light);
 }
 
-.empty-icon {
+#recordingView .empty-icon {
   font-size: 40px;
   margin-bottom: 10px;
   opacity: 0.5;
 }
 
-.empty-text {
+#recordingView .empty-text {
   font-size: 13px;
 }
 
 /* Toast 提示 */
-.toast {
+#recordingView .toast {
   position: fixed;
   bottom: 20px;
   right: 20px;
@@ -405,32 +382,20 @@ body {
   color: white;
   font-size: 13px;
   z-index: 10000;
-  animation: slideIn 0.3s ease;
+  animation: toast-slideIn 0.3s ease;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
-@keyframes slideIn {
-  from {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
+@keyframes toast-slideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
 }
 
-@keyframes slideOut {
-  from {
-    transform: translateX(0);
-    opacity: 1;
-  }
-  to {
-    transform: translateX(100%);
-    opacity: 0;
-  }
+@keyframes toast-slideOut {
+  from { transform: translateX(0); opacity: 1; }
+  to { transform: translateX(100%); opacity: 0; }
 }
 
-.toast-success { background: var(--success); }
-.toast-error { background: var(--danger); }
-.toast-info { background: var(--primary); }
+#recordingView .toast-success { background: var(--success); }
+#recordingView .toast-error { background: var(--danger); }
+#recordingView .toast-info { background: var(--primary); }
