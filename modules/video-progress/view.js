@@ -75,6 +75,11 @@ class VideoProgressView {
     const response = await this.dataManager.sendMessage('getVideoGroups');
     if (response.success) {
       this.videoGroups = response.videoGroups || [];
+      // 初始化 _expanded 默认值(活跃课程默认展开,归档课程默认折叠)。
+      // 后续点击再由 toggleGroup 翻转。只在 undefined 时设一次,保留用户操作。
+      this.videoGroups.forEach(g => {
+        if (g._expanded === undefined) g._expanded = !g.archived;
+      });
     }
   }
 
@@ -703,27 +708,52 @@ class VideoProgressView {
     const statsEl = document.getElementById('videoStats');
     if (!statsEl) return;
 
-    const activeGroups = this.videoGroups.filter(g => !g.archived);
+    // archive mode 下统计卡片显示归档数据(用 archiveSnapshot 冻结数,因为原 videos 可能已被清空)
+    const isArchive = this.mode === 'archive';
+    const targetGroups = isArchive
+      ? this.videoGroups.filter(g => g.archived)
+      : this.videoGroups.filter(g => !g.archived);
     let totalVideos = 0;
     let totalDuration = 0;
     let totalWatched = 0;
 
-    activeGroups.forEach(g => {
-      g.videos.forEach(v => {
-        totalVideos++;
-        totalDuration += v.duration || 0;
-        totalWatched += v.watched || 0;
-      });
+    targetGroups.forEach(g => {
+      const snap = g.archiveSnapshot;
+      if (isArchive && snap) {
+        // 优先用 archiveSnapshot 冻结的总数(归档后原 videos 可能被改动)
+        totalVideos += snap.videoCount || 0;
+        totalDuration += snap.totalDuration || 0;
+        totalWatched += snap.totalWatched || 0;
+      } else {
+        g.videos.forEach(v => {
+          totalVideos++;
+          totalDuration += v.duration || 0;
+          totalWatched += v.watched || 0;
+        });
+      }
     });
 
-    // 保守进度：超过 50% 的视频数 / 总视频数
-    const allVideos = activeGroups.flatMap(g => g.videos);
+    // 归档页只显示一个"累计已观看时长"卡片(简洁);活跃页保留完整 4 卡片 + 进度
+    if (isArchive) {
+      statsEl.innerHTML = `
+        <div class="stats-grid" style="grid-template-columns: 1fr; max-width: 320px;">
+          <div class="stat-card">
+            <div class="stat-value">${formatDuration(totalWatched)}</div>
+            <div class="stat-label">累计已观看</div>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    // 保守进度:超过 50% 的视频数 / 总视频数
+    const allVideos = targetGroups.flatMap(g => g.videos);
     const progressPercent = getGroupDisplayProgress(allVideos);
 
     statsEl.innerHTML = `
       <div class="stats-grid">
         <div class="stat-card">
-          <div class="stat-value">${activeGroups.length}</div>
+          <div class="stat-value">${targetGroups.length}</div>
           <div class="stat-label">课程</div>
         </div>
         <div class="stat-card">
@@ -768,7 +798,7 @@ class VideoProgressView {
     listContainer.innerHTML = activeGroups.map(group => {
       const totalDuration = group.videos.reduce((sum, v) => sum + (v.duration || 0), 0);
       const progressPercent = getGroupDisplayProgress(group.videos);
-      const isExpanded = group._expanded !== false; // default expanded
+      const isExpanded = group._expanded === true || (group._expanded === undefined && !group.archived); // 活跃默认展开/归档默认折叠;_expanded 已明确时尊重用户 // default expanded
 
       return `
         <div class="video-group" data-group-id="${group.id}">
@@ -851,7 +881,7 @@ class VideoProgressView {
       const archivedDate = group.archivedAt
         ? new Date(group.archivedAt).toLocaleDateString('zh-CN')
         : '';
-      const isExpanded = group._expanded !== false;
+      const isExpanded = group._expanded === true || (group._expanded === undefined && !group.archived); // 活跃默认展开/归档默认折叠;_expanded 已明确时尊重用户
       const videos = snap.videos || group.videos || [];
 
       return `
@@ -910,7 +940,8 @@ class VideoProgressView {
   toggleGroup(groupId) {
     const group = this.videoGroups.find(g => g.id === groupId);
     if (group) {
-      group._expanded = !(group._expanded !== false);
+      // 严格布尔切换。_expanded 默认由 loadVideoGroups 设置(活跃=true / 归档=false)。
+      group._expanded = group._expanded !== true;
       this.render();
     }
   }
