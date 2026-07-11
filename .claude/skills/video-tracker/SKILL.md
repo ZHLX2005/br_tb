@@ -1,76 +1,67 @@
 ---
 name: video-tracker
-description: 当用户涉及"SPA 页面视频"、"Bilibili/YouTube 切换视频后检测不到"、"追踪视频观看进度"、"课程管理"、"单页应用视频 duration 为 0"、"前端路由切换后视频进度错乱"、"批量导入视频链接"、"视频课程分组"等场景时触发。SPA 视频检测 + 课程进度追踪完整方案，含三层 URL 劫持防护、Bilibili URL 规范化、消息协议、存储 schema。
+description: 当用户涉及"视频检测"、"SPA 页面视频"、"追踪视频观看进度"、"课程管理"、"批量导入视频"、"视频倍速控制"、"全局倍速"等场景时触发。视频检测 + 进度追踪 + 全局倍速控制完整方案。
 ---
 
-# Video Tracker — SPA 视频检测与课程进度追踪
+# Video Tracker — 视频检测与进度追踪 + 全局倍速
 
-> **合并来源**: 本 skill 合并自 `spa-video-detection`（SPA 路由感知）和 `video-progress-tracker`（课程进度管理），基于真实代码 `content/videoTracker.js`、`background/videoProgress.js` 等实现。
+> 基于真实代码实现。核心模块：`content/videoTracker.js`（进度追踪）、`content/videoSpeed.js`（全局倍速）、`background/videoProgress.js`（存储层）。
 
 ## 触发条件
 
 - "视频检测"、"SPA 页面视频"
-- "Bilibili/YouTube 切换视频后检测不到"
 - "追踪视频观看进度"、"课程管理"
-- "单页应用视频 duration 为 0"
-- "前端路由切换后视频进度错乱"
 - "批量导入视频链接"
-- "视频课程分组"
+- "视频倍速"、"全局倍速"
 
 ---
 
-## 核心架构（四层）
+## 核心架构
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│  Layer 1: Content Script (content/videoTracker.js)                  │
-│  - IIFE 独立模块，暴露 window.__tabboardVideoTracker                │
-│  - MutationObserver 动态探测新增 video 元素                         │
-│  - URL Change Listener 劫持 history.pushState/popstate             │
-│  - Video Source Change Detection (duration diff > 5s && ratio > 10%) │
-│  - 每 5s 上报 {url, duration, watched} 到 background               │
+│  content/videoTracker.js — 进度追踪                                   │
+│  - MutationObserver 探测 video 元素                                   │
+│  - 每 5s 上报 {url, duration, watched} 到 background                │
 └─────────────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────────────┐
-│  Layer 2: Content Script Bridge (content/content.js)                │
-│  - 接收 popup/module 的 detectVideos 消息                          │
-│  - 调用 tracker.forceDetect() 异步等待 loadedmetadata               │
-│  - 返回 { success: true, videos } 给调用方                         │
+│  content/videoSpeed.js — 全局倍速                                    │
+│  - 全局统一倍速，所有视频共享                                         │
+│  - 检测 video.src 变化 → 重新应用倍速                               │
+│  - 注入浮动控制面板到视频容器                                         │
 └─────────────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────────────┐
-│  Layer 3: Background Storage (background/videoProgress.js)         │
-│  - 接收 detectVideos / updateVideoProgress / CRUD 消息               │
-│  - normalizeUrl: Bilibili 去掉 ?spm=... 追踪参数                   │
-│  - 存储 schema: videoGroups[] → videos[]                          │
-│  - 进度更新策略: Math.max(oldWatched, newWatched) 只增不减         │
+│  background/videoProgress.js — 数据层                                 │
+│  - videoGroups CRUD                                                 │
+│  - updateVideoProgress (只增不减)                                    │
+│  - getVideoSpeed / setVideoSpeed (全局倍速)                         │
 └─────────────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────────────┐
-│  Layer 4: Frontend UI                                               │
-│  - popup/modules/videoProgress.js — Popup 快捷 UI                   │
-│  - popup/modules/videoCapture.js — Popup 捕获流程                   │
-│  - modules/video-progress/view.js — 完整课程管理页面                │
-│  - modules/video-progress/progress-utils.js — 进度计算工具          │
+│  前端 UI                                                           │
+│  - popup/modules/videoProgress.js — 进度管理                        │
+│  - popup/modules/videoSpeed.js — 倍速控制                           │
+│  - modules/video-progress/view.js — 完整管理页面                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Layer 1 — videoTracker.js 核心实现
+## 进度追踪 — videoTracker.js
 
-### init() — 四步启动
+### 初始化
 
 ```javascript
 init() {
-  this.findVideos();               // 首次扫描页面 video 元素
-  this.setupMutationObserver();    // 监听 DOM 变化，自动探测新增视频
-  this.setupUrlChangeListener();  // SPA 路由切换感知
-  this.startReporting();           // 每 5s 定时上报进度
+  this.findVideos();             // 扫描页面 video 元素
+  this.setupMutationObserver(); // 监听 DOM 变化
+  this.startReporting();         // 每 5s 上报进度
 }
 ```
 
-### findVideos() — Map 选型
+### findVideos — Map 去重
 
 ```javascript
 findVideos() {
@@ -87,24 +78,30 @@ findVideos() {
     });
     this.bindVideoEvents(video);
   });
-
-  this.videos = videos;
 }
 ```
 
-**注意**: 用 `Map` 而非数组 — key 是 video 元素引用，O(1) 查找 + 去重（同页多个 `<a>` 指向同一视频不会重复绑定）。
+**用 Map 而非数组**：key 是 video 元素引用，O(1) 查找 + 去重。
 
-### SPA 三层防护（摘要）
+### 视频源变化检测
 
-| Layer | 触发条件 | 动作 |
-|---|---|---|
-| 1 | URL 变化（pushState/popstate） | `trackedVideos.clear()` + 重新 findVideos |
-| 2 | duration diff > 5s && ratio > 10% | 判定换源，重置 `watched = 0` |
-| 3 | popup/module 调 `forceDetect()` | 强制重新检测，Promise.race(loadedmetadata, 3s 超时) |
+```javascript
+const onLoadedMetadata = () => {
+  const newDuration = video.duration || 0;
+  if (info.duration > 0 && newDuration > 0) {
+    const diff = Math.abs(info.duration - newDuration);
+    const ratio = diff / Math.max(info.duration, newDuration);
+    if (diff > 5 && ratio > 0.1) {
+      info.watched = 0;  // 换源重置进度
+    }
+  }
+  info.duration = newDuration;
+};
+```
 
-**完整代码 + 错误案例** 见 `references/spa-url-hijacking.md`。
+**判定条件**：`diff > 5s && ratio > 10%`
 
-### reportProgress() — 用当前 URL
+### 上报进度
 
 ```javascript
 reportProgress() {
@@ -116,61 +113,49 @@ reportProgress() {
         url: currentUrl,
         duration: info.duration,
         watched: info.watched
-      }).catch(() => {});  // 静默处理 extension 未就绪情况
+      }).catch(() => {});
     }
   });
 }
 ```
 
-**关键**: 用 `window.location.href`（当前 URL），**不**用缓存的 `info.url`。SPA 切换后 info.url 已过期。
+---
 
-### getVideoTitle() — 四级优先级
+## 全局倍速 — videoSpeed.js
+
+### 核心特性
+
+1. **全局统一倍速** — 存储在 `tabboard_global_video_speed`，所有视频共享
+2. **视频源变化自动重设** — 监听 `loadedmetadata` 检测 `video.src` 变化
+3. **被重置自动恢复** — 监听 `play` 事件，倍速被覆盖时恢复
+
+### 视频源变化检测
+
+| 事件 | 条件 | 动作 |
+|------|------|------|
+| `loadedmetadata` | `video.src` 变化 | `playbackRate = globalSpeed` |
+| `play` | `playbackRate !== globalSpeed` | 恢复 `globalSpeed` |
+| `timeupdate` | `duration` 变化 >5s 且 ratio >10% | `playbackRate = globalSpeed` |
+
+### 存储
 
 ```javascript
-getVideoTitle(video) {
-  // 1. 容器内的标题元素
-  const container = video.closest('figure, .video-container, [class*="video"], [class*="player"]');
-  if (container) {
-    const titleEl = container.querySelector('h1, h2, h3, .title, [class*="title"]');
-    if (titleEl) return titleEl.textContent.trim();
-  }
-  // 2. 页面标题
-  if (document.title) return document.title.trim();
-  // 3. aria-label / video.title
-  if (video.getAttribute('aria-label')) return video.getAttribute('aria-label');
-  if (video.title) return video.title;
-  return '未命名视频';
-}
+// chrome.storage.local['tabboard_global_video_speed']
+1.5  // number，全局有效
 ```
+
+### 页面内控制面板
+
+每个视频右下角注入浮动控制：
+- 当前速度显示（点击展开菜单）
+- 预设按钮：0.5x, 0.75x, 正常, 1.25x, 1.5x, 2x
+- 减速 (−)、重置 (⟲)、加速 (+) 按钮
 
 ---
 
-## Layer 2 — content.js 消息桥接
+## 数据层 — videoProgress.js
 
-```javascript
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === 'detectVideos') {
-    const tracker = window.__tabboardVideoTracker;
-    if (tracker) {
-      tracker.forceDetect().then(videos => {
-        sendResponse({ success: true, videos });
-      }).catch(() => {
-        sendResponse({ success: true, videos: [] });
-      });
-    } else {
-      sendResponse({ success: true, videos: [] });
-    }
-    return true;
-  }
-  // ...
-});
-```
-
----
-
-## Layer 3 — background/videoProgress.js 数据层
-
-### normalizeUrl — Bilibili URL 规范化
+### normalizeUrl — URL 规范化
 
 ```javascript
 export function normalizeUrl(url) {
@@ -192,7 +177,7 @@ export function normalizeUrl(url) {
 }
 ```
 
-**作用**: 去掉 Bilibili 的 `?spm=...` 等追踪参数，同一视频不同来源参数识别为同一 URL。
+**作用**：Bilibili 去掉 `?spm=...` 等追踪参数，同一视频不同来源识别为同一 URL。
 
 ### updateVideoProgress — 只增不减
 
@@ -213,48 +198,97 @@ case 'updateVideoProgress': {
 }
 ```
 
-**完整消息协议 / 存储 schema** 见 `references/message-protocol.md` 和 `references/storage-schema.md`。
+---
+
+## 消息协议
+
+| Action | 方向 | 参数 | 说明 |
+|--------|------|------|------|
+| `getVideoGroups` | → | - | 获取所有课程组 |
+| `addVideoGroup` | → | name, color? | 创建课程组 |
+| `deleteVideoGroup` | → | groupId | 删除课程组 |
+| `addVideoToGroup` | → | groupId, video | 添加视频 |
+| `updateVideoProgress` | → | url, duration, watched | 进度上报 |
+| `openVideoGroup` | → | groupId | 打开组内所有视频 |
+| `archiveVideoGroup` | → | groupId | 归档课程 |
+| `detectVideos` | → | - | 触发检测 |
+| `getVideoSpeed` | → | - | 获取全局倍速 |
+| `setVideoSpeed` | → | speed | 设置全局倍速 |
+
+**约定**：
+- 失败响应：`{ success: false, error: string }`
+- 异步响应必须 `return true`
 
 ---
 
-## Layer 4 — 前端 UI（关键决策摘要）
+## 存储 Schema
 
-| 决策 | 关键约束 |
-|---|---|
-| `chrome.tabs.create({active: true})` | **必须前台打开** — 后台标签 autoplay 被浏览器阻止 |
-| 2s 轮询探针 × 5 次 | 提前命中立即退出，比固定 10s 等待更高效 |
-| `tabs.update(selfTab)` 先于 `tabs.remove(tab)` | 关闭视频页前先切回 module 页，避免切到无关标签 |
+```javascript
+// chrome.storage.local['videoGroups']
+[
+  {
+    id: string,
+    name: string,
+    color: string,
+    createdAt: string,
+    archived: boolean,
+    archivedAt: string | null,
+    archiveSnapshot: { videos, totalDuration, totalWatched, videoCount } | null,
+    videos: [
+      {
+        id: string,
+        title: string,       // 用户可编辑，content script 不覆盖
+        url: string,         // normalizeUrl 后的值
+        duration: number,
+        watched: number,     // 只增不减
+        favicon: string,
+        pageTitle: string,
+        addedAt: string
+      }
+    ]
+  }
+]
 
-**完整添加视频 / 批量导入流程** 见 `references/ui-flows.md`。
-
-**三级进度计算公式**（单视频 / 分组 / 整体）见 `references/progress-utils.md`。
+// chrome.storage.local['tabboard_global_video_speed']
+1.5  // number
+```
 
 ---
 
-## References 导读（按需深入，不要一次全读）
+## References 导读
 
-| 你的任务 | 读这篇 | 这篇讲什么 |
-|---------|--------|-----------|
-| 实现 SPA 路由感知 / "切视频检测不到" | `references/spa-url-hijacking.md` | history.pushState 劫持 + loadedmetadata 阈值 + forceDetect 超时 |
-| 排查 "消息没生效 / 参数对不上" | `references/message-protocol.md` | 15 个 action 的方向/参数/说明 |
-| 看 videoGroups / archiveSnapshot 字段含义 | `references/storage-schema.md` | 完整 chrome.storage.local 结构 |
-| 实现添加视频 / 批量导入流程 | `references/ui-flows.md` | tabs.create({active:true}) + 2s 轮询 + 关闭前切回 |
-| 写进度百分比 / 看进度计算公式 | `references/progress-utils.md` | getVideoDisplayProgress / getGroupDisplayProgress |
-| 踩坑查表 / "为什么 X 错" | `references/errors-and-pitfalls.md` | 11 条错误案例 + 10 条坑点速查 |
+| 任务 | 文档 |
+|------|------|
+| 进度百分比计算 | [[progress-utils]] |
+| 添加视频流程 | [[ui-flows]] |
+| 踩坑查表 | [[errors-and-pitfalls]] |
 
 ---
 
-## 文件索引（与文档对应的真实代码）
+## 文件索引
 
-| 文档章节 | 对应文件 |
-|---------|---------|
-| Layer 1 | `content/videoTracker.js` |
-| Layer 2 | `content/content.js` |
-| Layer 3 | `background/videoProgress.js` |
-| Layer 3 normalizeUrl | `background/utils.js` |
-| Layer 4 Popup UI | `popup/modules/videoProgress.js` |
-| Layer 4 Popup 捕获 | `popup/modules/videoCapture.js` |
-| Layer 4 完整页面 | `modules/video-progress/view.js` |
-| Layer 4 进度工具 | `modules/video-progress/progress-utils.js` |
-| Layer 4 HTML | `modules/video-progress/video-progress.html` |
-| 入口配置 | `manifest.json` (`content/js: ["content/videoTracker.js", "content/content.js"]`) |
+| 功能 | 文件 |
+|------|------|
+| 进度追踪 | `content/videoTracker.js` |
+| 全局倍速 | `content/videoSpeed.js` |
+| 消息桥接 | `content/content.js` |
+| 数据层 | `background/videoProgress.js` |
+| 进度工具 | `modules/video-progress/progress-utils.js` |
+| Popup 倍速 | `popup/modules/videoSpeed.js` |
+| Popup 进度 | `popup/modules/videoProgress.js` |
+| 完整页面 | `modules/video-progress/view.js` |
+| 入口配置 | `manifest.json` |
+
+---
+
+## 本次优化经验（key_board_3）
+
+| 发现的问题 | 修复方式 |
+|------------|----------|
+| 文档说 videoTracker.js 有 `setupUrlChangeListener()`，但代码实际没有 | 移除错误介绍，只描述 MutationObserver |
+| "视频倍速控制"章节与实际内容重复 | 合并到主文档，精简描述 |
+| `content/videoSpeed.js` 缺少文档 | 补全核心特性、检测机制、存储 |
+| references 文件过多（6个）且部分内容冗余 | 精简每个 ref 到 < 100 行 |
+| message-protocol.md 缺少 `getVideoSpeed`/`setVideoSpeed` | 补全新 action |
+| errors-and-pitfalls.md 有 11 条错误案例（过时的） | 精简到核心 6 条 + 5 条坑点 |
+| 描述说"三层防护"但代码只有一层 | 按代码第一性重写，描述实际实现 |

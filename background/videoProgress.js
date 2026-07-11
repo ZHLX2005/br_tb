@@ -274,6 +274,28 @@ function setupVideoProgressListeners() {
             break;
           }
 
+          case 'getVideoSpeed': {
+            // 全局倍速，不再按 URL 区分
+            const result = await chrome.storage.local.get(['tabboard_global_video_speed']);
+            const speed = result['tabboard_global_video_speed'] ?? 1;
+            sendResponse({ success: true, speed });
+            break;
+          }
+
+          case 'setVideoSpeed': {
+            // 全局倍速，不再按 URL 区分
+            await chrome.storage.local.set({ 'tabboard_global_video_speed': request.speed || 1 });
+            sendResponse({ success: true });
+            break;
+          }
+
+          case 'getAllVideoSpeeds': {
+            // 保留此消息兼容旧代码，但返回全局速度
+            const result = await chrome.storage.local.get(['tabboard_global_video_speed']);
+            sendResponse({ success: true, speed: result['tabboard_global_video_speed'] ?? 1 });
+            break;
+          }
+
           default:
             return false;
         }
