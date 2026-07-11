@@ -255,8 +255,32 @@ function scrollToSelected() {
   if (selected) selected.scrollIntoView({ block: 'nearest' });
 }
 
+// ========== 兜底搜索 ==========
+
+function performSearch(query) {
+  if (!query || !query.trim()) return;
+  if (!isExtensionContextAlive()) {
+    console.warn('[FocusSearch] Extension context invalidated - cannot search.');
+    return;
+  }
+  try {
+    chrome.runtime.sendMessage({ action: 'performSearch', query: query.trim() });
+  } catch (e) {
+    console.error('[FocusSearch] Failed to perform search:', e);
+  }
+}
+
 async function jumpToSelected() {
-  if (selectedIndex < 0 || selectedIndex >= filteredResults.length) return;
+  if (selectedIndex < 0 || selectedIndex >= filteredResults.length) {
+    // 无匹配结果时，兜底用默认搜索引擎搜索
+    var input = document.getElementById('focus-search-input');
+    var query = input ? input.value.trim() : '';
+    if (query && !isSystemQuery(query)) {
+      closeOverlay();
+      performSearch(query);
+    }
+    return;
+  }
   var item = filteredResults[selectedIndex];
   if (!item || !item.tab) return;
   var tab = item.tab;

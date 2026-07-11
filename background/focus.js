@@ -147,6 +147,18 @@ function setupFocusListeners() {
       addToHistoryGroup(request.tabInfo).then(() => sendResponse({ success: true }));
       return true;
     }
+    if (request.action === 'performSearch') {
+      try {
+        chrome.search.query({ text: request.query, disposition: 'NEW_TAB' });
+        sendResponse({ success: true });
+      } catch (e) {
+        console.error('[FocusSearch] Search API error:', e);
+        // fallback: 用 Google 搜索兜底
+        chrome.tabs.create({ url: 'https://www.google.com/search?q=' + encodeURIComponent(request.query) });
+        sendResponse({ success: true, fallback: true });
+      }
+      return true;
+    }
     return false;
   });
 }
