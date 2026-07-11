@@ -190,7 +190,7 @@ function createOverlay() {
 
   var footer = document.createElement('div');
   footer.className = 'focus-search-footer';
-  footer.innerHTML = '<span><kbd>\u2191</kbd><kbd>\u2193</kbd> \u5bfc\u822a</span><span><kbd>Enter</kbd> \u8df3\u8f6c</span><span><kbd>Esc</kbd> \u5173\u95ed</span><span><kbd>&gt;</kbd> \u7cfb\u7edf\u9875</span>';
+  footer.innerHTML = '<span><kbd>\u2191</kbd><kbd>\u2193</kbd> \u5bfc\u822a</span><span><kbd>Enter</kbd> \u8df3\u8f6c/\u641c\u7d22</span><span><kbd>Esc</kbd> \u5173\u95ed</span><span><kbd>&gt;</kbd> \u7cfb\u7edf\u9875</span>';
 
   modal.appendChild(header);
   modal.appendChild(results);
