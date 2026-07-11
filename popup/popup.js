@@ -15,6 +15,7 @@ import { loadRingSidebarSetting, bindRingSidebarEvents } from './modules/ringSet
 import { loadVpSidebarSetting, bindVpSidebarEvents } from './modules/vpSettings.js';
 import { loadTimerSidebarSetting, bindTimerSidebarEvents } from './modules/timerSettings.js';
 import { loadCaptureRingSetting, bindCaptureRingEvents } from './modules/captureSettings.js';
+import { loadSpeedRingSetting, bindSpeedRingEvents } from './modules/speedSettings.js';
 import { renderColorPicker, resetColorPicker } from './modules/colorPicker.js';
 import { showToast } from './modules/utils.js';
 
@@ -259,6 +260,10 @@ async function init() {
   // 绑定捕获视频圆环设置
   await loadCaptureRingSetting();
   bindCaptureRingEvents();
+
+  // 绑定倍速控制圆环设置
+  await loadSpeedRingSetting();
+  bindSpeedRingEvents();
 
   // 绑定 goto 圆环设置
   await loadGotoRingSetting();

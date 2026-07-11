@@ -37,7 +37,8 @@
         "content/lcSidebar.js",
         "content/vpSidebar.js",
         "content/timerSidebar.js",
-        "content/captureRing.js"
+        "content/captureRing.js",
+        "content/speedRing.js"
       ],
       "run_at": "document_end"
     },

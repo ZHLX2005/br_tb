@@ -314,6 +314,153 @@ content script 不会自动重新注入已打开的页面，**必须刷新页面
 
 ---
 
+## Interactive 控制面板环
+
+如果环不只是静态信息面板，还需要**交互操作**（滑块调值、切换开关、预设按钮），需在基础模板之上增加以下模式。
+
+### 通信架构：UI 环 ↔ 业务 content script
+
+核心原则：**环只负责 UI 交互和后端通信，不直接操作 DOM/**HTML 元素。真正的业务逻辑交给同页面里独立运行的另一个 content script（如已有 `videoSpeed.js`）。
+
+```
+用户操作面板 → postMessage → 业务 content script → 写入 storage + 操作 DOM/元素
+                 ↓ (storage.onChanged)
+            syncPanelUI() 更新面板视图
+```
+
+| 职责 | 由谁承担 |
+|------|---------|
+| 面板交互（滑块、预设、切换） | 新环（xxxSidebar.js） |
+| 业务逻辑（操作 <video>、写数据） | 已有 content script（如 videoSpeed.js） |
+| 持久化 | 业务 script 写 storage；环监听 storage.onChanged 同步 |
+
+### `syncPanelUI()` 模式（交互式环必做）
+
+面板不是静态 HTML——用户操作后、或外部修改了值，面板必须刷新。
+
+```js
+// 定义 sync 函数——从本地变量/内存读值，写入 shadow DOM
+function syncPanelUI() {
+  const wrapper = document.getElementById(WRAPPER_ID);
+  if (!wrapper || !wrapper.shadowRoot) return;
+  const root = wrapper.shadowRoot;
+
+  // 更新显示值：数字/标签
+  const valueEl = root.getElementById('my-value');
+  if (valueEl) valueEl.textContent = currentValue + 'x';
+
+  // 更新预设按钮激活态
+  root.querySelectorAll('.my-preset-btn').forEach(function (btn) {
+    btn.classList.toggle('active', Math.abs(parseFloat(btn.dataset.val) - currentValue) < 0.01);
+  });
+
+  // 更新滑块位置
+  root.getElementById('my-slider').value = currentValue;
+
+  // 更新切换开关
+  root.getElementById('my-toggle').checked = isEnabled;
+}
+```
+
+**调用时机（三处）：** build() 末尾 / 每次用户操作后 / storage.onChanged 内。
+
+### 从 storage 加载初始值 + storage.onChanged 同步
+
+build 之前读取存储值，让面板有数据可显示：
+
+```js
+function loadMyValue(callback) {
+  chrome.storage.local.get([STORAGE_KEY], function (result) {
+    currentValue = result[STORAGE_KEY] ?? defaultValue;
+    if (callback) callback(currentValue);
+  });
+}
+
+function init() {
+  try {
+    chrome.runtime.sendMessage({ action: 'getSettings' }, function (res) {
+      var s = res && res.success ? (res.settings || {}) : {};
+      if (shouldHide(s)) return;
+      loadMyValue(function () {
+        build();
+        syncPanelUI();
+      });
+    });
+  } catch (err) {}
+}
+```
+
+storage.onChanged 监听**两件事**：存储值变了（其他 tab 改了值）和 settings 变了（popup 开关切换了）：
+
+```js
+chrome.storage.onChanged.addListener(function (changes, ns) {
+  if (ns !== 'local') return;
+
+  if (changes[STORAGE_KEY]) {
+    currentValue = changes[STORAGE_KEY].newValue ?? defaultValue;
+    syncPanelUI();
+  }
+
+  if (changes.settings) {
+    var s = changes.settings.newValue || {};
+    var el = document.getElementById(WRAPPER_ID);
+    if (shouldHide(s)) { if (el) el.remove(); }
+    else if (!el) { init(); }
+    // 同步面板里与 settings 相关的控件
+    if (s.myEnableSetting !== undefined) {
+      isEnabled = s.myEnableSetting !== false;
+      syncPanelUI();
+    }
+  }
+});
+```
+
+### postMessage 与同页面 content script 通信
+
+环要触发另一个 content script（与环同页面运行，如 `videoSpeed.js`），用 `window.postMessage`：
+
+```js
+// 环这边——只管发消息，不管对方怎么处理
+function applyAction(payload) {
+  window.postMessage({ type: 'TABBOARD_MY_ACTION', payload: payload }, '*');
+}
+```
+
+```js
+// 业务 script 那边——监听消息，执行业务逻辑 + 持久化
+window.addEventListener('message', function (event) {
+  if (event.data.type === 'TABBOARD_MY_ACTION') {
+    var val = event.data.payload;
+    // 写 storage（环的 storage.onChanged 会收到并同步面板）
+    chrome.storage.local.set({ [STORAGE_KEY]: val });
+    // 操作 DOM/元素
+    document.querySelectorAll('video').forEach(v => v.playbackRate = val);
+  }
+});
+```
+
+### 启用/禁用 toggle 的 reset 模式
+
+面板里的"启用"开关，关闭时应**恢复默认值**（而非保持用户调的值）：
+
+```js
+var toggle = shadow.getElementById('my-enable-toggle');
+if (toggle) {
+  toggle.addEventListener('change', function (e) {
+    e.stopPropagation();
+    isEnabled = toggle.checked;
+    if (isEnabled) {
+      applyAction(currentValue);  // 开→应用设定的值
+    } else {
+      applyAction(defaultValue);  // 关→恢复默认
+    }
+    syncPanelUI();
+  });
+}
+```
+
+---
+
 ## 错误样本（这次踩的坑，❌ vs ✅）
 
 ### 坑 1：每个圆环各建 hover-zone → 只显示一个
@@ -415,6 +562,24 @@ document.addEventListener('click', (e) => { if(!wrapper.contains(e.target)) wrap
 **❌ 错误**：`body.tabboard-side-near #trigger { ... }`
 **后果**：body 在 shadow 外，shadow 内 CSS 选不到 → hover 近场浮现失效。
 **✅ 正确**：`:host(.near) #trigger`，JS 在主文档 mousemove 里同时 toggle `body` 和每个 host 的 `.near` class（模板里的 mousemove 块已含）。
+
+### 坑 13：新环 ACCENT 颜色跟其他环不一致
+
+**❌ 错误**：速度控制环用 `#ff7043`（橙色），其他环全部 `#42a5f5`（蓝色）。
+**后果**：视觉突兀，用户要求统一。
+**✅ 正确**：所有环统一用 `#42a5f5`（蓝色），除非有明确的设计理由区分颜色。新增环时先看一眼已有环的 ACCENT。
+
+### 坑 14：交互式面板没有 `syncPanelUI()` / storage.onChanged 同步
+
+**❌ 错误**：环只在 `build()` 时一次性设置面板状态，不监听 `chrome.storage.onChanged`。用户从 popup 调整了值、或其他 tab 改了值，当前环面板看不到。
+**后果**：打开面板看到的是旧值，跟实际运行值不一致。
+**✅ 正确**：交互面板必须维护 `syncPanelUI()` 函数，在 build 后 / 每次更新后 / storage.onChanged 内三处调用。
+
+### 坑 15：面板值只写 storage、不用 postMessage 通知业务 script
+
+**❌ 错误**：环改了 storage key，但依赖业务 content script 在 `init()` 时读一次（不会在运行时自动重新读）。其他页面下次打开才生效，当前页面不变。
+**后果**：用户调了速度，视频倍速不变——因为 videoSpeed.js 只在 onload 时读一次 storage。
+**✅ 正确**：环不仅写 storage（持久化），还要发 `window.postMessage` 给同页面的业务 script 让其立即生效。详见 Interactive 控制面板环的 postMessage 段。
 
 ---
 
