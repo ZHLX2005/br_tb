@@ -8,6 +8,7 @@ import { loadGroups, setDefaultGroup, deleteGroup, addGroup, toggleFocusSearchGr
 import { loadSettings, bindSettingsListeners } from './modules/settings.js';
 import { bindQuickActionsListeners } from './modules/quickActions.js';
 import { loadVideoProgress, bindVideoProgressEvents, refreshCurrentVideo } from './modules/videoProgress.js';
+import { initVideoSpeedControl } from './modules/videoSpeed.js';
 import { loadLcSidebarSetting, bindLcSidebarEvents } from './modules/lcSettings.js';
 import { loadGotoRingSetting, bindGotoRingEvents } from './modules/gotoSettings.js';
 import { loadRingSidebarSetting, bindRingSidebarEvents } from './modules/ringSettings.js';
@@ -235,6 +236,9 @@ async function init() {
   await loadVideoProgress();
   bindVideoProgressEvents();
   await refreshCurrentVideo();
+
+  // 初始化视频倍速控制
+  await initVideoSpeedControl();
 
   // 绑定圆环总开关（先于子开关，控制 LC/VP 等 ring-sidebar）
   await loadRingSidebarSetting();

@@ -704,6 +704,96 @@ html,
   font-size: 11px;
 }
 
+/* ========== 视频倍速控制区域 ========== */
+
+.vp-speed-control {
+  background: var(--bg-surface);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--border-radius);
+  padding: 12px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow-sm);
+}
+
+.vp-speed-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.vp-speed-title {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.vp-speed-hint {
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.vp-speed-presets {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.vp-speed-btn {
+  padding: 6px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  border: var(--border-width) solid var(--border-color);
+  background: var(--bg-surface);
+  border-radius: var(--border-radius);
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.vp-speed-btn:hover {
+  background: var(--bg-subtle-hover);
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.vp-speed-btn.active {
+  background: var(--color-accent);
+  color: var(--text-on-accent);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+  transform: translate(-1px, -1px);
+}
+
+.vp-speed-custom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.vp-speed-custom label {
+  color: var(--text-secondary);
+}
+
+.vp-speed-custom input[type="number"] {
+  width: 60px;
+  padding: 4px 8px;
+  font-size: 12px;
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--border-radius);
+  font-family: inherit;
+  outline: none;
+}
+
+.vp-speed-custom input[type="number"]:focus {
+  border-color: var(--color-accent);
+}
+
+.vp-speed-custom .btn-small {
+  padding: 4px 10px;
+  font-size: 10px;
+}
+
 /* ========== 录制区域 ========== */
 
 .solution-recording {
