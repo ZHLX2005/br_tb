@@ -90,7 +90,7 @@ export function bindVideoSpeedEvents() {
       const input = document.getElementById('vpSpeedCustom');
       if (input) {
         let speed = parseFloat(input.value);
-        speed = Math.max(0.25, Math.min(4, speed));
+        speed = Math.max(0.25, Math.min(5, speed));
         speed = Math.round(speed * 4) / 4;
         input.value = speed;
         setVideoSpeed(speed);
@@ -104,7 +104,7 @@ export function bindVideoSpeedEvents() {
     customInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         let speed = parseFloat(customInput.value);
-        speed = Math.max(0.25, Math.min(4, speed));
+        speed = Math.max(0.25, Math.min(5, speed));
         speed = Math.round(speed * 4) / 4;
         customInput.value = speed;
         setVideoSpeed(speed);

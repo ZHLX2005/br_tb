@@ -13,7 +13,7 @@
 
   const STORAGE_KEY = 'tabboard_global_video_speed';
 
-  const PRESETS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+  const PRESETS = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3, 5];
 
   // ---------- CSS ----------
 
@@ -141,7 +141,7 @@
   // ---------- 工具函数 ----------
 
   function clampSpeed(v) {
-    return Math.min(4, Math.max(0.25, v));
+    return Math.min(5, Math.max(0.25, v));
   }
 
   function quantizeSpeed(v) {
@@ -253,7 +253,7 @@
         <div class="sp-slider-container">
           <label>微调${'  '}<span id="sp-slider-label">${currentSpeed}x</span></label>
           <input type="range" class="sp-slider" id="sp-slider"
-                 min="0.25" max="4" step="0.25" value="${currentSpeed}">
+                 min="0.25" max="5" step="0.25" value="${currentSpeed}">
         </div>
 
         <div class="sp-toggle-row">

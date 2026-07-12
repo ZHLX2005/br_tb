@@ -125,15 +125,12 @@
         info.lastDuration = video.duration || 0;
         trackedVideos.set(video, info);
       }
-
-      updateControlPanelsForVideo(video, globalSpeed);
     };
 
     // 监听播放 - 如果倍速被重置则恢复
     const onPlay = () => {
       if (video.playbackRate !== globalSpeed) {
         video.playbackRate = globalSpeed;
-        updateControlPanelsForVideo(video, globalSpeed);
       }
     };
 
@@ -298,7 +295,7 @@
    */
   function adjustSpeed(delta, panel) {
     let newSpeed = globalSpeed + delta;
-    newSpeed = Math.max(0.25, Math.min(4, newSpeed));
+    newSpeed = Math.max(0.25, Math.min(5, newSpeed));
     newSpeed = Math.round(newSpeed * 4) / 4;
     selectSpeed(newSpeed, panel);
   }
@@ -344,11 +341,9 @@
           if (node.nodeType === Node.ELEMENT_NODE) {
             if (node.tagName === 'VIDEO') {
               attachControlToVideo(node);
-              injectControlToVideo(node);
             }
             node.querySelectorAll?.('video').forEach(video => {
               attachControlToVideo(video);
-              injectControlToVideo(video);
             });
           }
         });
@@ -515,11 +510,9 @@
   // 启动
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
-      injectStyles();
       init();
     });
   } else {
-    injectStyles();
     init();
   }
 })();
