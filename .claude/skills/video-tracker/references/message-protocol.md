@@ -23,6 +23,7 @@
 | `detectVideos` | → | - | 触发 content script 检测 |
 | `getVideoSpeed` | → | - | 获取全局倍速 |
 | `setVideoSpeed` | → | speed | 设置全局倍速 |
+| `setVideoMuted` | → | muted | 设置默认静音 |
 
 **方向约定**：→ 表示 popup/module → background
 

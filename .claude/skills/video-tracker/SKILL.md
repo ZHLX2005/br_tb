@@ -2,7 +2,6 @@
 name: video-tracker
 description: 当用户涉及"视频检测"、"SPA 页面视频"、"追踪视频观看进度"、"课程管理"、"批量导入视频"、"视频倍速控制"、"全局倍速"等场景时触发。视频检测 + 进度追踪 + 全局倍速控制完整方案。
 ---
-
 # Video Tracker — 视频检测与进度追踪 + 全局倍速
 
 > 基于真实代码实现。核心模块：`content/videoTracker.js`（进度追踪）、`content/videoSpeed.js`（全局倍速）、`background/videoProgress.js`（存储层）。
@@ -123,33 +122,28 @@ reportProgress() {
 
 ## 全局倍速 — videoSpeed.js
 
+> 详见 [[speed-control-arch]]
+
 ### 核心特性
 
 1. **全局统一倍速** — 存储在 `tabboard_global_video_speed`，所有视频共享
 2. **视频源变化自动重设** — 监听 `loadedmetadata` 检测 `video.src` 变化
 3. **被重置自动恢复** — 监听 `play` 事件，倍速被覆盖时恢复
-
-### 视频源变化检测
-
-| 事件 | 条件 | 动作 |
-|------|------|------|
-| `loadedmetadata` | `video.src` 变化 | `playbackRate = globalSpeed` |
-| `play` | `playbackRate !== globalSpeed` | 恢复 `globalSpeed` |
-| `timeupdate` | `duration` 变化 >5s 且 ratio >10% | `playbackRate = globalSpeed` |
+4. **默认静音支持** — 可设置打开视频时自动静音
 
 ### 存储
 
 ```javascript
 // chrome.storage.local['tabboard_global_video_speed']
 1.5  // number，全局有效
+
+// chrome.storage.local['tabboard_global_video_muted']
+false  // boolean，默认不静音
 ```
 
-### 页面内控制面板
+### 预设倍速
 
-每个视频右下角注入浮动控制：
-- 当前速度显示（点击展开菜单）
-- 预设按钮：0.5x, 0.75x, 正常, 1.25x, 1.5x, 2x
-- 减速 (−)、重置 (⟲)、加速 (+) 按钮
+`0.5x | 0.75x | 1x | 1.25x | 1.5x | 2x | 3x | 5x | 8x`（滑块支持 0.25~8）
 
 ---
 
@@ -202,20 +196,21 @@ case 'updateVideoProgress': {
 
 ## 消息协议
 
-| Action | 方向 | 参数 | 说明 |
-|--------|------|------|------|
-| `getVideoGroups` | → | - | 获取所有课程组 |
-| `addVideoGroup` | → | name, color? | 创建课程组 |
-| `deleteVideoGroup` | → | groupId | 删除课程组 |
-| `addVideoToGroup` | → | groupId, video | 添加视频 |
-| `updateVideoProgress` | → | url, duration, watched | 进度上报 |
-| `openVideoGroup` | → | groupId | 打开组内所有视频 |
-| `archiveVideoGroup` | → | groupId | 归档课程 |
-| `detectVideos` | → | - | 触发检测 |
-| `getVideoSpeed` | → | - | 获取全局倍速 |
-| `setVideoSpeed` | → | speed | 设置全局倍速 |
+| Action                  | 方向 | 参数                   | 说明             |
+| ----------------------- | ---- | ---------------------- | ---------------- |
+| `getVideoGroups`      | →   | -                      | 获取所有课程组   |
+| `addVideoGroup`       | →   | name, color?           | 创建课程组       |
+| `deleteVideoGroup`    | →   | groupId                | 删除课程组       |
+| `addVideoToGroup`     | →   | groupId, video         | 添加视频         |
+| `updateVideoProgress` | →   | url, duration, watched | 进度上报         |
+| `openVideoGroup`      | →   | groupId                | 打开组内所有视频 |
+| `archiveVideoGroup`   | →   | groupId                | 归档课程         |
+| `detectVideos`        | →   | -                      | 触发检测         |
+| `getVideoSpeed`       | →   | -                      | 获取全局倍速     |
+| `setVideoSpeed`       | →   | speed                  | 设置全局倍速     |
 
 **约定**：
+
 - 失败响应：`{ success: false, error: string }`
 - 异步响应必须 `return true`
 
@@ -257,27 +252,31 @@ case 'updateVideoProgress': {
 
 ## References 导读
 
-| 任务 | 文档 |
-|------|------|
-| 进度百分比计算 | [[progress-utils]] |
-| 添加视频流程 | [[ui-flows]] |
-| 踩坑查表 | [[errors-and-pitfalls]] |
+| 任务 | 文档 | 何时读取 |
+|------|------|----------|
+| 倍速控制架构 | [[speed-control-arch]] | 理解 Ring → Core → Video 的数据流，或扩展新功能时 |
+| 进度百分比计算 | [[progress-utils]] | 计算视频完成度时 |
+| 添加视频流程 | [[ui-flows]] | 理解 addVideoToGroup 的完整流程时 |
+| 消息协议 | [[message-protocol]] | 需要新增 action 或调试通信时 |
+| 存储 Schema | [[storage-schema]] | 了解所有 storage 键时 |
+| 踩坑查表 | [[errors-and-pitfalls]] | 遇到 bug 或异常行为时 |
 
 ---
 
 ## 文件索引
 
-| 功能 | 文件 |
-|------|------|
-| 进度追踪 | `content/videoTracker.js` |
-| 全局倍速 | `content/videoSpeed.js` |
-| 消息桥接 | `content/content.js` |
-| 数据层 | `background/videoProgress.js` |
-| 进度工具 | `modules/video-progress/progress-utils.js` |
-| Popup 倍速 | `popup/modules/videoSpeed.js` |
-| Popup 进度 | `popup/modules/videoProgress.js` |
-| 完整页面 | `modules/video-progress/view.js` |
-| 入口配置 | `manifest.json` |
+| 功能 | 文件 | 备注 |
+|------|------|------|
+| 进度追踪 | `content/videoTracker.js` | |
+| 倍速核心 | `content/videoSpeed.js` | 视频元素操作核心 |
+| 倍速 Ring 面板 | `content/speedRing.js` | 页面悬浮控制面板 |
+| 倍速 Popup | `popup/modules/videoSpeed.js` | Popup 内的控制 UI |
+| 消息桥接 | `content/content.js` | |
+| 数据层 | `background/videoProgress.js` | |
+| 进度工具 | `modules/video-progress/progress-utils.js` | |
+| Popup 进度 | `popup/modules/videoProgress.js` | |
+| 完整页面 | `modules/video-progress/view.js` | |
+| 入口配置 | `manifest.json` | |
 
 ---
 
@@ -285,10 +284,11 @@ case 'updateVideoProgress': {
 
 | 发现的问题 | 修复方式 |
 |------------|----------|
-| 文档说 videoTracker.js 有 `setupUrlChangeListener()`，但代码实际没有 | 移除错误介绍，只描述 MutationObserver |
+| 文档说 videoTracker.js 有`setupUrlChangeListener()`，但代码实际没有 | 移除错误介绍，只描述 MutationObserver |
 | "视频倍速控制"章节与实际内容重复 | 合并到主文档，精简描述 |
 | `content/videoSpeed.js` 缺少文档 | 补全核心特性、检测机制、存储 |
 | references 文件过多（6个）且部分内容冗余 | 精简每个 ref 到 < 100 行 |
-| message-protocol.md 缺少 `getVideoSpeed`/`setVideoSpeed` | 补全新 action |
+| message-protocol.md 缺少`getVideoSpeed`/`setVideoSpeed` | 补全新 action |
 | errors-and-pitfalls.md 有 11 条错误案例（过时的） | 精简到核心 6 条 + 5 条坑点 |
 | 描述说"三层防护"但代码只有一层 | 按代码第一性重写，描述实际实现 |
+| speed 控制内容散落在多处，架构不清晰 | 抽取为 [[speed-control-arch]] ref，包含 Ring→Core→Video 数据流 |

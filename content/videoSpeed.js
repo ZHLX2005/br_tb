@@ -13,7 +13,9 @@
 
   // 全局倍速 - 所有视频共享
   let globalSpeed = 1;
+  let globalMuted = false; // 默认不静音
   const STORAGE_KEY = 'tabboard_global_video_speed';
+  const MUTED_KEY = 'tabboard_global_video_muted';
 
   // 视频跟踪
   let trackedVideos = new Map(); // video -> { lastSrc, lastDuration }
@@ -22,10 +24,34 @@
    * 初始化
    */
   async function init() {
-    await loadGlobalSpeed();
+    await Promise.all([loadGlobalSpeed(), loadGlobalMuted()]);
     findAndAttachVideos();
     setupMutationObserver();
-    console.log('[TabBoard] Video speed controller initialized, global speed:', globalSpeed);
+    console.log('[TabBoard] Video speed controller initialized, global speed:', globalSpeed, 'muted:', globalMuted);
+  }
+
+  /**
+   * 加载静音状态
+   */
+  async function loadGlobalMuted() {
+    try {
+      const result = await chrome.storage.local.get([MUTED_KEY]);
+      globalMuted = result[MUTED_KEY] ?? false; // 默认为 false（不静音）
+    } catch (e) {
+      console.warn('[VideoSpeed] Failed to load muted state:', e);
+      globalMuted = false;
+    }
+  }
+
+  /**
+   * 保存静音状态
+   */
+  async function saveGlobalMuted() {
+    try {
+      await chrome.storage.local.set({ [MUTED_KEY]: globalMuted });
+    } catch (e) {
+      console.warn('[VideoSpeed] Failed to save muted state:', e);
+    }
   }
 
   /**
@@ -82,6 +108,27 @@
   }
 
   /**
+   * 设置全局静音并应用到所有视频
+   */
+  function setGlobalMuted(muted) {
+    globalMuted = muted;
+    saveGlobalMuted();
+    applyMutedToAllVideos(muted);
+    window.postMessage({
+      type: 'TABBOARD_VIDEO_MUTED_CHANGED',
+      muted: muted
+    }, '*');
+    return muted;
+  }
+
+  /**
+   * 获取当前静音状态
+   */
+  function getGlobalMuted() {
+    return globalMuted;
+  }
+
+  /**
    * 查找并为视频添加控制
    */
   function findAndAttachVideos() {
@@ -98,8 +145,11 @@
     // 标记已处理
     video.dataset.tabboardSpeedAttached = 'true';
 
-    // 初始应用倍速
+    // 初始应用倍速和静音状态
     video.playbackRate = globalSpeed;
+    if (globalMuted) {
+      video.muted = true;
+    }
 
     // 记录初始状态
     trackedVideos.set(video, {
@@ -121,6 +171,9 @@
 
         // 重新应用倍速
         video.playbackRate = globalSpeed;
+        if (globalMuted) {
+          video.muted = true;
+        }
       } else {
         info.lastDuration = video.duration || 0;
         trackedVideos.set(video, info);
@@ -131,6 +184,10 @@
     const onPlay = () => {
       if (video.playbackRate !== globalSpeed) {
         video.playbackRate = globalSpeed;
+      }
+      // 如果需要静音则确保静音
+      if (globalMuted && !video.muted) {
+        video.muted = true;
       }
     };
 
@@ -166,6 +223,15 @@
   function applySpeedToAllVideos(speed) {
     document.querySelectorAll('video').forEach(video => {
       video.playbackRate = speed;
+    });
+  }
+
+  /**
+   * 应用静音到所有视频
+   */
+  function applyMutedToAllVideos(muted) {
+    document.querySelectorAll('video').forEach(video => {
+      video.muted = muted;
     });
   }
 
@@ -479,6 +545,10 @@
       setGlobalSpeed(event.data.speed);
     }
 
+    if (event.data.type === 'TABBOARD_SET_VIDEO_MUTED') {
+      setGlobalMuted(event.data.muted);
+    }
+
     if (event.data.type === 'TABBOARD_GET_VIDEO_SPEED') {
       event.source.postMessage({
         type: 'TABBOARD_VIDEO_SPEED',
@@ -499,12 +569,20 @@
       sendResponse({ success: true, speed });
       return true;
     }
+
+    if (request.action === 'setVideoMuted') {
+      const muted = setGlobalMuted(request.muted);
+      sendResponse({ success: true, muted });
+      return true;
+    }
   });
 
   // 暴露到全局
   window.__tabboardVideoSpeed = {
     setSpeed: setGlobalSpeed,
-    getSpeed: getGlobalSpeed
+    getSpeed: getGlobalSpeed,
+    setMuted: setGlobalMuted,
+    getMuted: getGlobalMuted
   };
 
   // 启动

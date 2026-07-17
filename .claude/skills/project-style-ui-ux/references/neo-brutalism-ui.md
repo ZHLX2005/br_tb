@@ -3,7 +3,9 @@ name: neo-brutalism-ui
 description: 当用户要求实现新粗野主义/Neo-Brutalism/Neubrutalism UI风格，或要求bold风格、黑色粗边框、硬阴影、纯色填充的UI设计时触发。
 ---
 
-# Neo-Brutalism UI 设计 Skill
+# Neo-Brutalism UI 设计规范
+
+> 原 skill：`neo-brutalism-ui`，已归档为 project-style-ui-ux 的特化 ref。
 
 ## 风格定义
 
@@ -163,7 +165,7 @@ input[type="checkbox"]:checked::after {
 ## 错误案例
 
 | 错误操作 | 实际后果 | 正确做法 |
-|---------|---------|---------|
+|---------|---------|--------|
 | 使用 Google Fonts `@import` | 每次打开 Chrome 扩展 popup 都需网络请求，导致明显卡顿 | 扩展/弹窗场景只用系统字体栈，零外部资源 |
 | 使用 `backdrop-filter: blur()` | 低端设备 GPU 开销大，动画掉帧 | 用纯色半透明遮罩替代：`rgba(0,0,0,0.6)` |
 | 使用 `linear-gradient` 做进度条 | 破坏纯色原则，显得脏 | 进度条用纯色填充，如 `background: var(--lime)` |

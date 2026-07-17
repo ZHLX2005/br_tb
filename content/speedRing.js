@@ -12,8 +12,9 @@
   const ACCENT = '#42a5f5'; // 蓝色，与其他环一致
 
   const STORAGE_KEY = 'tabboard_global_video_speed';
+  const MUTED_KEY = 'tabboard_global_video_muted';
 
-  const PRESETS = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3, 5];
+  const PRESETS = [0.5, 0.75, 1, 1.25, 1.5, 2, 3, 5, 8];
 
   // ---------- CSS ----------
 
@@ -137,11 +138,12 @@
 
   let currentSpeed = 1;
   let speedEnabled = true;
+  let isMuted = false; // 默认不静音
 
   // ---------- 工具函数 ----------
 
   function clampSpeed(v) {
-    return Math.min(5, Math.max(0.25, v));
+    return Math.min(8, Math.max(0.25, v));
   }
 
   function quantizeSpeed(v) {
@@ -159,6 +161,18 @@
       currentSpeed = result[STORAGE_KEY] ?? 1;
       if (callback) callback(currentSpeed);
     });
+  }
+
+  function loadMuted(callback) {
+    chrome.storage.local.get([MUTED_KEY], (result) => {
+      isMuted = result[MUTED_KEY] ?? false;
+      if (callback) callback(isMuted);
+    });
+  }
+
+  /** 对同页面所有 <video> 应用静音（通过 postMessage 通知 videoSpeed.js） */
+  function applyMutedToPage(muted) {
+    window.postMessage({ type: 'TABBOARD_SET_VIDEO_MUTED', muted: muted }, '*');
   }
 
   // ---------- 面板 UI 同步 ----------
@@ -185,6 +199,10 @@
     // toggle
     const toggle = root.getElementById('sp-speed-toggle');
     if (toggle) toggle.checked = speedEnabled;
+
+    // mute toggle
+    const muteToggle = root.getElementById('sp-mute-toggle');
+    if (muteToggle) muteToggle.checked = isMuted;
   }
 
   // ---------- 构建 DOM ----------
@@ -253,12 +271,17 @@
         <div class="sp-slider-container">
           <label>微调${'  '}<span id="sp-slider-label">${currentSpeed}x</span></label>
           <input type="range" class="sp-slider" id="sp-slider"
-                 min="0.25" max="5" step="0.25" value="${currentSpeed}">
+                 min="0.25" max="8" step="0.25" value="${currentSpeed}">
         </div>
 
         <div class="sp-toggle-row">
           <span>倍速开关</span>
           <input type="checkbox" class="sp-toggle" id="sp-speed-toggle"${speedEnabled ? ' checked' : ''}>
+        </div>
+
+        <div class="sp-toggle-row">
+          <span>默认静音</span>
+          <input type="checkbox" class="sp-toggle" id="sp-mute-toggle"${isMuted ? ' checked' : ''}>
         </div>
       </div>
     `;
@@ -330,6 +353,18 @@
       });
     }
 
+    // 静音切换
+    var muteToggle = shadow.getElementById('sp-mute-toggle');
+    if (muteToggle) {
+      muteToggle.addEventListener('change', function (e) {
+        e.stopPropagation();
+        isMuted = muteToggle.checked;
+        chrome.storage.local.set({ [MUTED_KEY]: isMuted });
+        applyMutedToPage(isMuted);
+        syncPanelUI();
+      });
+    }
+
     document.body.appendChild(wrapper);
 
     // 注册拖动
@@ -363,10 +398,12 @@
       chrome.runtime.sendMessage({ action: 'getSettings' }, function (res) {
         var s = res && res.success ? (res.settings || {}) : {};
         if (shouldHide(s)) return;
-        // 加载当前速度
+        // 加载当前速度和静音状态
         loadSpeed(function () {
-          build();
-          syncPanelUI();
+          loadMuted(function () {
+            build();
+            syncPanelUI();
+          });
         });
       });
     } catch (err) { /* 扩展上下文可能失效 */ }
@@ -379,6 +416,12 @@
     // 速度值变了(其他页面修改了)
     if (changes[STORAGE_KEY]) {
       currentSpeed = changes[STORAGE_KEY].newValue ?? 1;
+      syncPanelUI();
+    }
+
+    // 静音状态变了(其他页面修改了)
+    if (changes[MUTED_KEY]) {
+      isMuted = changes[MUTED_KEY].newValue ?? false;
       syncPanelUI();
     }
 
