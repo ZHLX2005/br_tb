@@ -544,17 +544,6 @@ function setupGroupsListeners() {
           break;
         }
 
-        case 'openSidebar': {
-          // 打开侧边栏
-          try {
-            await chrome.sidePanel.open({ path: 'sidepanel/sidepanel.html' });
-          } catch (err) {
-            console.error('打开侧边栏失败:', err);
-          }
-          sendResponse({ success: true });
-          break;
-        }
-
         case 'startPicker': {
           // 启动拾取器（支持标签）
           try {

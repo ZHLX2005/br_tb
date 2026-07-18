@@ -10,7 +10,6 @@ import { setupGroupsListeners } from './groups.js';
 import { setupTimelineListeners } from './timeline.js';
 import { setupRecordingListeners } from './recording.js';
 import { setupFocusListeners } from './focus.js';
-import { initActionClickHandler } from './sidepanel.js';
 import { setupVideoProgressListeners } from './videoProgress.js';
 import { setupGotoListeners } from './goto.js';
 import { setupBiliHistoryListeners } from './bilibili-history.js';
@@ -19,9 +18,6 @@ import { setupBiliHistoryListeners } from './bilibili-history.js';
 initializeDefaultData();
 initCommands();
 initRecording();
-
-// 点击扩展图标时打开侧边栏
-initActionClickHandler();
 
 // 设置各模块的消息监听器
 setupSettingsListeners();
