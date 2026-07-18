@@ -6,7 +6,6 @@
   "permissions": [
     "storage",
     "tabs",
-    "sidePanel",
     "scripting",
     "bookmarks",
     "search"
@@ -53,9 +52,6 @@
     "default_popup": "popup/popup.html",
     "default_title": "TabBoard - 标签页管理"
   },
-  "side_panel": {
-    "default_path": "sidepanel/sidepanel.html"
-  },
   "commands": {
     "add-current-tab": {
       "description": "添加当前标签页到默认分组",
@@ -87,10 +83,7 @@
       "resources": [
         "modules/tabboard/tabboard.html",
         "modules/recording/recording.html",
-        "modules/video-progress/video-progress.html",
-        "sidepanel/sidepanel.html",
-        "sidepanel/sidepanel.js",
-        "sidepanel/sidepanel.css"
+        "modules/video-progress/video-progress.html"
       ],
       "matches": ["<all_urls>"]
     }
