@@ -6,12 +6,7 @@
     {
       "name": "background.code-snippets",
       "description": "Chrome Extension background service worker patterns",
-      "snippet_count": 5
-    },
-    {
-      "name": "sidepanel.code-snippets",
-      "description": "Sidebar multi-controller app patterns",
-      "snippet_count": 11
+      "snippet_count": 4
     },
     {
       "name": "modules.code-snippets",
@@ -24,7 +19,7 @@
       "snippet_count": 16
     }
   ],
-  "total_snippets": 38,
+  "total_snippets": 26,
   "patterns_identified": [
     "Controller pattern with lifecycle hooks (init, onShow)",
     "Message passing with Promise wrapper",

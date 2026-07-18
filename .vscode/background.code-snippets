@@ -51,21 +51,6 @@
       "await chrome.storage.local.set({ ${1:key}: ${2:value} });"
     ],
     "description": "Chrome storage.local set"
-  },
-
-  // SidePanel Open Pattern
-  "sidepanel-open": {
-    "prefix": "sidepanel-open",
-    "body": [
-      "chrome.sidePanel.open({ tabId: tab.id })",
-      "  .catch(() => {",
-      "    // Fallback: open in new tab",
-      "    chrome.tabs.create({",
-      "      url: chrome.runtime.getURL('${1:path}'),",
-      "      active: true",
-      "    });",
-      "  });"
-    ],
-    "description": "Open sidepanel with fallback to tab"
   }
 }
+
