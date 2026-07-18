@@ -12,15 +12,6 @@ export async function openTabboard() {
 }
 
 /**
- * 打开侧边栏
- */
-export async function openSidebar() {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  await chrome.sidePanel.open({ tabId: tab.id });
-  window.close();
-}
-
-/**
  * 收集并打开看板
  */
 export async function collectAndOpen() {
@@ -43,7 +34,6 @@ export async function collectOtherTabs() {
 export function bindQuickActionsListeners(handlers = {}) {
   const actionMap = {
     'openTabboardBtn': handlers.onOpenTabboard || openTabboard,
-    'openSidebarBtn': handlers.onOpenSidebar || openSidebar,
     'collectAndOpenBtn': handlers.onCollectAndOpen || collectAndOpen,
     'collectOtherTabsBtn': handlers.onCollectOtherTabs || collectOtherTabs
   };
