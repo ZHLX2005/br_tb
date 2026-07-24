@@ -116,6 +116,43 @@
     };
   }
 
+  // ===================== 圆环位置钳制 =====================
+  // 将圆环 wrapper 限制在 viewport 内（浏览器缩放导致 innerWidth 变化时尤为重要）
+  function clampWrapperPosition() {
+    if (!wrapper) return;
+    const rect = wrapper.getBoundingClientRect();
+    const maxX = Math.max(0, window.innerWidth - rect.width);
+    const maxY = Math.max(0, window.innerHeight - rect.height);
+    let changed = false;
+    if (rect.left > maxX) {
+      wrapper.style.left = `${maxX}px`;
+      wrapper.style.right = 'auto';
+      wrapper.style.bottom = 'auto';
+      changed = true;
+    } else if (rect.left < 0) {
+      wrapper.style.left = '0px';
+      wrapper.style.right = 'auto';
+      wrapper.style.bottom = 'auto';
+      changed = true;
+    }
+    if (rect.top > maxY) {
+      wrapper.style.top = `${maxY}px`;
+      wrapper.style.right = 'auto';
+      wrapper.style.bottom = 'auto';
+      changed = true;
+    } else if (rect.top < 0) {
+      wrapper.style.top = '0px';
+      wrapper.style.right = 'auto';
+      wrapper.style.bottom = 'auto';
+      changed = true;
+    }
+    if (changed) {
+      localStorage.setItem('tabboardGotoRingPos', JSON.stringify({
+        left: wrapper.style.left,
+        top: wrapper.style.top
+      }));
+    }
+  }
   // ===================== 打开 URL（与 background openUrl 行为一致） =====================
   function handleUrlNavigation(url) {
     if (!url) return;
@@ -163,6 +200,9 @@
     circle.title = '悬浮激活菜单';
     wrapper.appendChild(circle);
     document.body.appendChild(wrapper);
+
+    // 初始钳制（如缩放后保存的位置已不在 viewport 内）
+    clampWrapperPosition();
 
     bindRingEvents(circle);
   }
@@ -248,6 +288,12 @@
         if (isActive) collapseMenu();
       }, 50);
     });
+
+    // 缩放/窗口大小变化时钳制圆环位置，收起已展开的菜单（坐标已过期）
+    window.addEventListener('resize', () => {
+      clampWrapperPosition();
+      if (isActive) collapseMenu();
+    });
   }
 
   // ===================== 菜单展开/收起 =====================
@@ -297,12 +343,32 @@
     });
   }
 
+  // 元素尺寸常量（与 CSS 中 .${WRAPPER_ID}-item 保持一致）
+  const ITEM_SIZE = 50;
+
+  // 工具：把 center + 偏移得到的 left/top 限制在 viewport 内,
+  // 防止圆环靠近边缘时菜单项溢出页面外（尤其是浏览器缩放下）
+  function clampToViewport(left, top) {
+    const maxX = Math.max(0, window.innerWidth - ITEM_SIZE);
+    const maxY = Math.max(0, window.innerHeight - ITEM_SIZE);
+    return {
+      left: Math.min(Math.max(0, left), maxX),
+      top: Math.min(Math.max(0, top), maxY)
+    };
+  }
+
   function createMenuItem(item, center, x, y) {
     const menuItem = document.createElement('div');
     menuItem.className = WRAPPER_ID + '-item';
     menuItem.textContent = item.name;
-    menuItem.style.left = `${center.x - 25 + x}px`;
-    menuItem.style.top = `${center.y - 25 + y}px`;
+
+    // 视口边界 clamp：避免菜单项溢出页面窗口之外（缩放/边缘拖动场景）
+    const { left, top } = clampToViewport(
+      center.x - ITEM_SIZE / 2 + x,
+      center.y - ITEM_SIZE / 2 + y
+    );
+    menuItem.style.left = `${left}px`;
+    menuItem.style.top = `${top}px`;
 
     menuItem.addEventListener('click', (e) => {
       e.stopPropagation();
