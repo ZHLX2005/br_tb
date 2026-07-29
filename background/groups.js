@@ -52,6 +52,41 @@ async function addTabToGroup(tab, groupId) {
   return false;
 }
 
+// 从分组移除标签(精确 URL 匹配)
+async function removeTabFromGroup(tab, groupId) {
+  if (!tab || !tab.url) return false;
+
+  const result = await chrome.storage.local.get(['tabs']);
+  const tabs = result.tabs || {};
+  const groupTabs = tabs[groupId];
+
+  if (!Array.isArray(groupTabs) || groupTabs.length === 0) {
+    return false;
+  }
+
+  const before = groupTabs.length;
+  tabs[groupId] = groupTabs.filter(t => t.url !== tab.url);
+
+  if (tabs[groupId].length === before) {
+    // 没有匹配项
+    return false;
+  }
+
+  await chrome.storage.local.set({ tabs });
+  return true;
+}
+
+// 切换标签在分组中的存在状态:不存在则添加,存在则移除
+async function toggleTabInGroup(tab, groupId) {
+  const added = await addTabToGroup(tab, groupId);
+  if (added) return 'added';
+
+  const removed = await removeTabFromGroup(tab, groupId);
+  if (removed) return 'removed';
+
+  return 'noop';
+}
+
 // 添加当前标签页到默认分组
 async function addCurrentTabToDefaultGroup() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -107,9 +142,9 @@ async function addCurrentTabToDefaultGroup() {
   const targetGroup = groups.find(g => g.id === defaultGroupId);
   const groupName = targetGroup?.name || '目标分组';
 
-  const added = await addTabToGroup(tab, defaultGroupId);
+  const added = await toggleTabInGroup(tab, defaultGroupId);
 
-  if (added) {
+  if (added === 'added') {
     showToast(tab.id, {
       type: 'success',
       title: '已添加',
@@ -117,7 +152,15 @@ async function addCurrentTabToDefaultGroup() {
       duration: 2000,
       showOpenButton: true
     });
+  } else if (added === 'removed') {
+    showToast(tab.id, {
+      type: 'info',
+      title: '已移除',
+      message: `已从「${groupName}」移除`,
+      duration: 2000
+    });
   } else {
+    // noop 兜底(实际不可达)
     showToast(tab.id, {
       type: 'info',
       title: '标签已存在',
@@ -135,7 +178,9 @@ export {
   addTabToGroup,
   getDefaultGroupId,
   openTabboard,
-  setupGroupsListeners
+  removeTabFromGroup,
+  setupGroupsListeners,
+  toggleTabInGroup
 };
 
 // 设置分组相关的消息监听器
@@ -174,8 +219,9 @@ function setupGroupsListeners() {
 
         case 'addTab': {
           const defaultId = await getDefaultGroupId();
-          await addTabToGroup(request.tab, request.groupId || defaultId);
-          sendResponse({ success: true });
+          const targetGroupId = request.groupId || defaultId;
+          const action = await toggleTabInGroup(request.tab, targetGroupId);
+          sendResponse({ success: true, action });
           break;
         }
 

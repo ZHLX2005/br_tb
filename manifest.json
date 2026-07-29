@@ -54,7 +54,7 @@
   },
   "commands": {
     "add-current-tab": {
-      "description": "添加当前标签页到默认分组",
+      "description": "切换当前标签页在默认分组中的状态（已存在则移除）",
       "suggested_key": {
         "default": "Alt+Shift+A"
       }
