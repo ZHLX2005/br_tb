@@ -76,6 +76,8 @@
 
   /* ===== Nav-tab transition (theme override) ===== */
   --nav-tab-transition: background 0.12s ease, color 0.12s ease;
+
+  width: var(--body-width);
 }
 
 html {
