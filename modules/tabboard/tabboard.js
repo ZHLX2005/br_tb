@@ -12,6 +12,7 @@ import TimerModule from '../timer/index.js';
 import BilibiliHistoryModule from '../bilibili-history/index.js';
 import RecordingModule from '../recording/index.js';
 import VideoProgressModule from '../video-progress/index.js';
+import NoteModule from '../note/index.js';
 
 class AppShell {
   constructor() {
@@ -25,6 +26,7 @@ class AppShell {
       { viewName: 'leetcode',         label: 'LC',    desc: '150'  },
       { viewName: 'timer',            label: 'Timer', desc: '日志' },
       { viewName: 'bilibili-history', label: 'Bili',  desc: '历史' },
+      { viewName: 'note',            label: 'Note', desc: '便签' },
     ];
     // 模块实例缓存：保留有状态模块（bilibili-history 等）的实例，
     // 避免 view 切换时丢失 state / payload / items 等内存数据
@@ -197,6 +199,10 @@ class AppShell {
         container = document.getElementById('videoProgressView');
         ModuleClass = VideoProgressModule;
         break;
+      case 'note':
+        container = document.getElementById('noteView');
+        ModuleClass = NoteModule;
+        break;
       case 'timeline':
       default:
         container = document.getElementById('timelineView');
@@ -238,6 +244,7 @@ class AppShell {
       'bilibili-history': 'bilibiliHistoryPanel',
       'recording': 'recordingView',
       'videoProgress': 'videoProgressView',
+      'note': 'noteView',
     };
     const el = document.getElementById(containerMap[viewName]);
     if (!el) return;
@@ -263,6 +270,7 @@ class AppShell {
     document.getElementById('bilibiliHistoryView').style.display = viewName === 'bilibili-history' ? 'block' : 'none';
     document.getElementById('recordingView').style.display = viewName === 'recording' ? 'block' : 'none';
     document.getElementById('videoProgressView').style.display = viewName === 'videoProgress' ? 'block' : 'none';
+    document.getElementById('noteView').style.display = viewName === 'note' ? 'block' : 'none';
 
     // More 按钮 active 状态：当前 view 属于 dropdown items 时高亮
     const inDropdown = this.dropdownItems.some(it => it.viewName === viewName);

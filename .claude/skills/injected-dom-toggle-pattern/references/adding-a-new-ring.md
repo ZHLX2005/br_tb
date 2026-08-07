@@ -8,11 +8,16 @@
 
 ## 前置：现有机制（必读）
 
+> **本篇只覆盖 Mode A（Ring-Stack Entry）**——圆环要进右侧栈、受 master 控制、参与整体拖动。
+> Mode B（Free-Floating,独立圆环,如 noteRing / goto）走 `references/free-floating-entry.md`,**别混**。
+
 - **LC 圆环** = `content/lcSidebar.js`，受 `settings.showLcSidebar` 开关控制
 - **VP 圆环** = `content/vpSidebar.js`，总是显示
-- 两者共享 `body.tabboard-side-near`：鼠标靠近右边缘时 JS 给 `<body>` 加这个 class
+- 两者共享 `body.tabboard-side-near` + 各 host `.near`:鼠标靠近右边缘时 JS **同时** toggle body class 和每个 ring host 的 `.near`
+  - CSS 用 `:host(.near) #${WRAPPER_ID}-trigger` 响应(在 shadow DOM 内只能 `:host(.near)` 选中 host)
+  - `body.tabboard-side-near` 是为跨 shadow boundary 的外部逻辑服务的(如以后要做 `:has` 选择器等)
 - mousemove 监听靠 `window.__tabboardSideReveal` **幂等注册**——不管几个圆环文件，全局只注册一次
-- 所有圆环 CSS 统一用 `body.tabboard-side-near #我的trigger` 触发滑出
+- 所有圆环 CSS 统一用 `:host(.near)` 触发滑出
 
 ## 扩展流程（6 步）
 
@@ -95,22 +100,22 @@
 如需本圆环**自己的子开关**（像 LC 有 `showLcSidebar`、VP 有 `showVpSidebar`）：
 
 ```js
-// init 里多加一行
-if (s.showMyRing === false) return;
-// 监听里 shouldShow = s.ringSidebarEnabled !== false && s.showMyRing !== false
+// init 里多加一行（用你的 settings key,如 showXxxSidebar）
+if (s.showXxxSidebar === false) return;
+// 监听里 shouldShow = s.ringSidebarEnabled !== false && s.showXxxSidebar !== false
 ```
 
-并在 `popup/popup.html` 的「悬浮圆环」专区加子 checkbox、`background/init.js` 加 `showMyRing: false` 默认值、popup 新建独立 settings 模块。
+并在 `popup/popup.html` 的「注入DOM控制」板块加子 checkbox(`ring-sub` class)、`background/init.js` 加 `showXxxSidebar: true` 默认值、popup 新建独立 settings 模块。
 
 > master 用 `=== false` 判断（undefined 视为开，向后兼容老用户）。当前 LC、VP 都既有 master 守卫也有自己的子开关，因此模板默认展示双守卫。如果你的圆环确实不需要单独关闭，可以只跟 master。
 
 ### Step 5：popup 里的 UI 分组规范
 
-新增圆环开关必须遵循「悬浮圆环」专区布局：
+新增圆环开关必须遵循「注入DOM控制」专区布局(Mode A 子开关):
 
 ```html
 <div class="page-section">
-  <div class="section-title">悬浮圆环</div>
+  <div class="section-title">注入DOM控制</div>
   <div class="settings-list">
     <!-- master：加粗 + 下分隔线 -->
     <label class="setting-row ring-master">
@@ -119,10 +124,10 @@ if (s.showMyRing === false) return;
     </label>
     <!-- 接入 master 的子开关：缩进 -->
     <label class="setting-row ring-sub">
-      <input type="checkbox" id="popupShowMyRing">
+      <input type="checkbox" id="popupShowXxxSidebar">
       <span>我的圆环</span>
     </label>
-    <!-- 不接入 master 的独立入口：不缩进 -->
+    <!-- 不接入 master 的独立入口：不缩进（Mode B 自由圆环） -->
     <label class="setting-row">
       <input type="checkbox" id="popupShowGotoRing">
       <span>悬浮 goto 圆环（所有页面）</span>
@@ -270,7 +275,7 @@ content script 不会自动重新注入已打开的页面，**必须刷新页面
         if (!document.getElementById(WRAPPER_ID)) return false;
         var s = window.__tabboardRingOrder.getLastSettings();
         if (!s) return true;                    // 缓存未就绪时保守按"显示"
-        return s.ringSidebarEnabled !== false && s.showMyRing !== false;
+        return s.ringSidebarEnabled !== false && s.showXxxSidebar !== false;
       }
     });
   }
@@ -283,7 +288,7 @@ content script 不会自动重新注入已打开的页面，**必须刷新页面
 
   // 显示条件：master 总开关开 + 本圆环子开关开（两者都用 === false 判断，undefined 视为开）
   function shouldHide(s) {
-    return s.ringSidebarEnabled === false || s.showMyRing === false;
+    return s.ringSidebarEnabled === false || s.showXxxSidebar === false;
   }
 
   async function init() {
@@ -637,7 +642,7 @@ window.setupSideReveal = function () {
 - [ ] 写 settings 用 `updateSettings` action（合并语义），不直接 set
 - [ ] **接入 master 总开关**：init 检查 `ringSidebarEnabled === false` 不显示；监听关→`remove()` DOM、开→`build()`
 - [ ] master 判断用 `=== false`（undefined 默认开，向后兼容老用户）
-- [ ] popup 里新增子 checkbox 放在「悬浮圆环」专区，class 为 `ring-sub`（master 关时不应能点）
+- [ ] popup 里新增子 checkbox 放在「注入DOM控制」专区，class 为 `ring-sub`（master 关时不应能点）
 - [ ] 刷新扩展 **且** 强刷测试页面
 
 ### 自动补位(必做,否则关闭其他 ring 后留下 52px 间隙)
@@ -651,3 +656,4 @@ window.setupSideReveal = function () {
 - [ ] `__tabboardRingDrag.attach(trigger, panel, wrapper, { defaultOrder, ringId })` 4 参调用
 - [ ] 第三个参数是 host(`wrapper`),**不是 trigger**
 - [ ] 第二个参数 `opts.ringId` 与 register 的 ringId 一致(拖动查动态序号要用)
+提价

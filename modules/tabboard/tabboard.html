@@ -14,6 +14,7 @@
   <link rel="stylesheet" href="../bilibili-history/style.css">
   <link rel="stylesheet" href="../recording/recording.css">
   <link rel="stylesheet" href="../video-progress/style.css">
+    <link rel="stylesheet" href="../note/style.css">
   <!-- 共享模态对话框样式:被 modules/group、modules/recording、modules/timeline、modules/video-progress 等多个 view.js 共同通过 import { modal } from '../../shared/ModalDialog.js' 使用 -->
   <link rel="stylesheet" href="../../shared/ModalDialog.css">
 </head>
@@ -135,6 +136,9 @@
         </div>
       </div>
     </div>
+
+    <!-- 便签页视图(内嵌) -->
+    <div id="noteView" class="view-container" style="display: none;"></div>
 
     <!-- 空状态 -->
     <div id="emptyState" class="empty-state" style="display: none;">

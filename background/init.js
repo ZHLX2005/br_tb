@@ -13,7 +13,8 @@ export async function initializeDefaultData() {
     'timelineSnapshots',
     'settings',
     'recordings',
-    'recordingState'
+    'recordingState',
+    'notePages'
   ]);
 
   if (!result.groups) {
@@ -91,6 +92,10 @@ export async function initializeDefaultData() {
       updatedSettings.showSpeedRing = true;
       needUpdate = true;
     }
+    if (updatedSettings.showNoteRing === undefined) {
+      updatedSettings.showNoteRing = true;
+      needUpdate = true;
+    }
     if (updatedSettings.lastView === undefined) {
       updatedSettings.lastView = 'timeline';
       needUpdate = true;
@@ -141,6 +146,11 @@ export async function initializeDefaultData() {
     await chrome.storage.local.set({
       timerState: { isRunning: false, startTime: null, elapsed: 0 }
     });
+  }
+
+  // 初始化便签页存储
+  if (!result.notePages) {
+    await chrome.storage.local.set({ notePages: [] });
   }
 
   // 初始化 goto 圆环：检查是否存在 goto=true 的 group，若无则创建"📄 面包"分组

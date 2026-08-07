@@ -1,6 +1,6 @@
 ---
 name: injected-dom-toggle-pattern
-description: 当用户要求创建"注入DOM的流程"、创建"悬浮展开的dot-nav侧边栏"、在popup添加对应控制按钮、创建"类似视频注入效果的侧边栏"、或需要在任意页面注入可展开收起UI时触发。用于Chrome扩展中内容脚本注入模式的标准化开发。
+description: 当用户要求创建"注入DOM的流程"、创建"悬浮展开的dot-nav侧边栏"、在popup添加对应控制按钮、创建"类似视频注入效果的侧边栏"、或需要在任意页面注入可展开收起UI（无论是右侧 ring 栈形式还是自由悬浮圆环形式）时触发。用于Chrome扩展中内容脚本注入模式的标准化开发。
 ---
 
 # Injected DOM Toggle Pattern — 注入式悬浮 UI 模式
@@ -23,38 +23,66 @@ description: 当用户要求创建"注入DOM的流程"、创建"悬浮展开的d
 | **已有圆环、要新增一个**悬浮入口（番茄钟、AI 助手、计时器等） | `references/adding-a-new-ring.md` | 6 步流程 + Shadow DOM 版可抄模板 + 错误样本 + 视觉同步关键 + 检查清单 |
 | 多圆环场景下做「可拖动悬浮环」/ 拖动坐标偏差 530px / 想统一所有 ring 拖动 | `references/draggable-ring.md` | pointer 事件契约 + 双 CSS 变量系统 + 整体 ring 栈联动 + 位置记忆 |
 | 多圆环（≥2）控制一个开关后中间空缺 / 想让剩下的 ring 自动顶位 | `references/ring-order-auto-fill.md` | ring-order 协调器 + 三档 dedup + 关闭瞬时顶位 + 与拖动双变量解耦 |
+| **要新增一个自由悬浮的圆环**（不参与右侧栈、可拖到任意位置、不受 master 控制）| `references/free-floating-entry.md` | goto.js / noteRing.js 同款模式：独立 content_script block、单 host 不进 Shadow DOM、pointer 拖动 + click 区分阈值 |
+| **注入 UI 里的下拉选择器点不动 / 看不到**（页面切换器、下拉菜单、选择器）| `references/dropdown-picker.md` | body 级 dropdown 定位（避开面板 overflow:hidden 裁剪）+ 拖拽 pointer capture 劫持点击 + capture 阶段 outside-click 误关 |
+| **注入 DOM 要与 TabBoard module 共享数据**（两边同步增删改查）| `references/module-collaboration.md` | 共享 storage key + background action 唯一写路径 + onChanged 双向广播 + 防回环签名比较 + 切换前 flush |
 
 **阅读顺序建议**：先读本 SKILL.md 理解整体架构 → 按任务匹配读对应 reference → 实现时对照该 reference 末尾的检查清单逐项核对。
 
-> 六篇关系：`hover-reveal.md` = **原理**（怎么实现），`ux-design-style.md` = **设计**（为什么这么做），`adding-a-new-ring.md` = **cookbook**（照抄模板），`shadow-dom-isolation.md` = **强制前提**（注入 UI 必须用 Shadow DOM），`draggable-ring.md` = **拖动扩展**（让圆环可拖动到任意位置），`ring-order-auto-fill.md` = **协调扩展**（多 ring 自动补位）。cookbook 依赖前两者的概念；`shadow-dom-isolation.md` 是注入 UI 的强制前提（不用 Shadow DOM 的圆环会在 Notion/Figma 等站点 CSS 失效）；`draggable-ring.md` 和 `ring-order-auto-fill.md` 仅在需要对应能力时读取,两者通过双 CSS 变量系统解耦,可独立使用。
+> 九篇关系：`hover-reveal.md` = **原理**（怎么实现），`ux-design-style.md` = **设计**（为什么这么做），`adding-a-new-ring.md` = **ring-stack cookbook**（照抄模板），`free-floating-entry.md` = **自由圆环 cookbook**（goto / noteRing 同款模板），`dropdown-picker.md` = **下拉选择器专项**（body 级 dropdown + 点击劫持防坑），`module-collaboration.md` = **数据协作专项**（注入 DOM ↔ module 双向同步），`shadow-dom-isolation.md` = **ring-stack 强制前提**（ring-stack UI 必须 Shadow DOM），`draggable-ring.md` = **拖动扩展**（让 ring-stack 圆环可拖动到任意位置），`ring-order-auto-fill.md` = **协调扩展**（多 ring 自动补位）。**自由圆环不需要 Shadow DOM / ring-order / draggable-ring 三件套**——单 host 没有撞 CSS 风险，独立拖动不参与栈联动。
 
 ## 架构图
 
+项目里注入式 UI 实际有**两类**模式，先判断属于哪一类，再读对应 cookbook：
+
+### 模式 A：Ring-Stack Entry（右侧圆环，参与自动补位）
+
 ```
 manifest.json
-├── content_scripts (matches: "<all_urls>")  ← 按顺序合并到一个 block
+├── content_scripts (matches: "<all_urls>")  ← 一个 block
 │   ├── content/shared/ring-order.js          ← 协调器(必含,manifest 第一位)
-│   ├── content/shared/draggable-ring.js      ← 拖动(可选,需要时才加)
-│   ├── content/xxxSidebar.js (IIFE, 自执行)  ← 各 ring,按 defaultOrder 顺序排
-│   │   ├── WRAPPER_ID — 唯一前缀 (host id)
-│   │   ├── STYLES — CSS 字符串 (在 Shadow Root 内,双 CSS 变量公式)
-│   │   ├── build() — attachShadow → style + trigger + panel → body.appendChild(host)
-│   │   │            → __tabboardRingDrag.attach(trigger, panel, host, opts) [可选]
-│   │   │            → __tabboardRingOrder.register({ ringId, host, defaultOrder, isAlive })
-│   │   ├── shouldHide(s) — master + 子开关双守卫
-│   │   ├── init() — 检查设置 → build()
-│   │   └── storage.onChanged — 关→remove() / 开→build()
-│   └── （所有注入内容共用一个 mousemove 监听: __tabboardSideReveal）
+│   ├── content/shared/draggable-ring.js      ← 拖动(可选)
+│   ├── content/xxxSidebar.js (IIFE)          ← 各 ring,按 defaultOrder 顺序排
+│   │   ├── Shadow DOM + WRAPPER_ID 唯一前缀
+│   │   ├── build() 末尾:
+│   │   │   → __tabboardRingDrag.attach(trigger, panel, host, opts) [可选]
+│   │   │   → __tabboardRingOrder.register({ ringId, host, defaultOrder, isAlive }) [必做]
+│   │   └── shouldHide(s) — master (ringSidebarEnabled) + 子开关 (showXxxSidebar) 双守卫
+│   └── 共享 mousemove (__tabboardSideReveal) 触发 :host(.near) + body.tabboard-side-near
 │
-popup/popup.html
-├── 悬浮圆环专区
-│   ├── <input> 总开关 (ringSidebarEnabled)
-│   └── <input> 各圆环子开关 (ring-sub class, 缩进)
-└── popup/modules/xxxSettings.js — 独立 popup 设置模块
+popup/popup.html「注入DOM控制」板块
+├── <input id="popupRingSidebarEnabled"> 总开关 (ring-master, 加粗 + 下分隔线)
+└── <input id="popupShowXxxSidebar"> 各 ring-sub 子开关（缩进 20px, master 关时置灰）
+└── popup/modules/xxxSettings.js — popup 独立设置模块
 
 background/init.js
-└── settings 含 showXxxSidebar: true, ringSidebarEnabled: true
+└── settings 含 showXxxSidebar: true + ringSidebarEnabled: true
 ```
+
+### 模式 B：Free-Floating Entry（自由圆环，独立存在，可拖到任意位置）
+
+```
+manifest.json
+├── content_scripts (matches: "<all_urls>")  ← 独立 block（与 ring block 并列）
+│   └── content/xxxRing.js (IIFE)             ← 单 host,无外部依赖
+│       ├── <style> 注入 document.head（不进 Shadow DOM — 单 host 无撞 CSS 风险）
+│       ├── pointer 拖动 + 6px 阈值区分 click
+│       └── shouldHide(s) — 只查自己的开关 (showXxx)，不查 ringSidebarEnabled
+│
+popup/popup.html「注入DOM控制」板块
+└── <input id="popupShowXxx"> 顶层条目（不带 .ring-sub，不被 master 置灰）
+└── popup/modules/xxxSettings.js — popup 独立设置模块
+
+background/init.js
+└── settings 含 showXxx: true（不接触 ringSidebarEnabled）
+```
+
+> **两类模式互斥**：一个圆环要么走 A（接入栈），要么走 B（自由）。**不要混搭**——
+> 混搭会同时进 Shadow DOM + 注册 ring-order + 顶层 checkbox + 自己的拖动 = 行为冲突、状态错乱。
+>
+> 当前实际清单：
+> - **A 类**：lcSidebar, vpSidebar, timerSidebar, captureRing, speedRing（5 个 ring-stack entry）
+> - **B 类**：goto (`content/inject/goto/goto.js`)，noteRing (`content/noteRing.js`)
 
 ## 多 ring 垂直自动补位(≥2 个 ring 时必看)
 
@@ -83,23 +111,43 @@ background/init.js
 
 ## 文件清单与职责
 
+### Mode A：Ring-Stack Entry
+
 | 文件 | 职责 |
 |------|------|
 | `manifest.json` | 添加 `content_scripts` 条目，**所有 ring + 共享模块合并到同一 block**，`"matches": ["<all_urls>"]` |
 | `content/shared/ring-order.js` | **协调器**(必含,manifest 第一位)——ring 注册表 + recompute + 三档 dedup,管 `--ring-order` |
 | `content/shared/draggable-ring.js` | **拖动共享模块**(可选,需要时才加)——管 `--ring-stack-anchor`,实现整体联动 + 位置记忆 |
 | `content/xxxSidebar.js` | **Shadow DOM IIFE**：注入 DOM、样式、交互逻辑。build 末尾必调 `__tabboardRingOrder.register(...)`(≥2 ring) |
-| `popup/popup.html` | 悬浮圆环专区：总开关（ring-master） + 缩进子开关（ring-sub） |
+| `popup/popup.html` | 「注入DOM控制」板块：总开关（ring-master） + 缩进子开关（ring-sub） |
 | `popup/modules/xxxSettings.js` | 独立的 popup settings 模块，`loadXxxSidebarSetting()` + `bindXxxSidebarEvents()` |
 | `popup/popup.js` | import 并调用 `loadXxxSetting()` / `bindXxxSidebarEvents()` |
 | `background/init.js` | `settings` 初始化时设置 `showXxxSidebar: true` + `ringSidebarEnabled` |
-| `background/groups.js` | 无改动（openTab 已支持任意 URL，包括 edge://） |
+
+### Mode B：Free-Floating Entry
+
+| 文件 | 职责 |
+|------|------|
+| `manifest.json` | 添加**独立** `content_scripts` 条目（与 ring block 并列,各自 block），`"matches": ["<all_urls>"]` |
+| `content/xxxRing.js` | **IIFE**：单 host、`<style>` 注入 document.head、pointer 拖动 + click 区分。无外部依赖（不接 ring-order / draggable-ring） |
+| `popup/popup.html` | 「注入DOM控制」板块：**顶层** checkbox（不带 `.ring-sub`，不被 master 置灰） |
+| `popup/modules/xxxSettings.js` | 独立的 popup settings 模块（参考 `gotoSettings.js` / `noteSettings.js`） |
+| `popup/popup.js` | import 并调用 load/bind（不需要 master 联动逻辑） |
+| `background/init.js` | `settings` 初始化时设置 `showXxx: true`（**不**接触 `ringSidebarEnabled`） |
+
+> 模式 B 不在 `popup/modules/ringSettings.js` 的 `updateSubToggles` ID 列表中添加——它不受 master 控制。
 
 ## Step-by-Step 实现流程
 
-> **前置：所有步骤假设使用 Shadow DOM + mousemove 共享浮现。** 不遵循此前提的注入会在多圆环共存场景或 CSS 严格页面失效。
+> **前置**：先判断走哪条路径。
+> - **Mode A（Ring-Stack）**：圆环要在右侧边栏叠在一起、参与整体拖动、受 master 总开关统一控制 → 读 Step 1-8
+> - **Mode B（Free-Floating）**：圆环独立存在、可单独拖动、不受 master 控制 → 跳到 `references/free-floating-entry.md` 直接抄模板
+>
+> **不要混搭**——一个圆环只走一条路径（混搭会让 ring-order / 拖动 / Shadow DOM / popup 状态都冲突）。
 
-### Step 1：垂直位置(动态序号,不要硬编码)
+### Mode A：Ring-Stack Entry
+
+#### Step 1：垂直位置(动态序号,不要硬编码)
 
 > **多 ring 必须用双 CSS 变量,不要写 `top: calc(50% + 52*N px)` 这种硬编码**。
 > 硬编码会导致关闭中间一个 ring 后剩下 ring 留下 52px 永久空缺。详见"多 ring 垂直自动补位"段。
@@ -126,14 +174,16 @@ CSS 公式(每个 ring 的 trigger 和 panel 都要这样写):
 | 0 | LC | 第一位,拖动锚点 |
 | 1 | VP | |
 | 2 | Timer | |
-| 3 | 下一个 | 你的新 ring |
+| 3 | Capture | |
+| 4 | Speed | |
+| 5 | 下一个 | 你的新 ring |
 
 **关键约束**:
 - `defaultOrder` 不能跳号,所有现存 ring 必须是 0,1,2,3... 连续
 - trigger 和 panel 用同一份 calc 公式(都用 `--ring-order`,不是分别写)
 - host 元素 `:host` 仍用 `top: 50%`(作为 calc 锚点 fallback)。如果 host 也带 offset,host 的 `transform: translateY(-50%)` 会影响 shadow 内 `position: fixed` 子元素的包含块,导致偏移叠加
 
-### Step 2：创建 content script（精简骨架）
+#### Step 2：创建 content script（精简骨架）
 
 > **完整可抄模板**（含 Shadow DOM 装配、错误处理、master 守卫、事件清理、register/attach 接入）见 `references/adding-a-new-ring.md` 的"最小代码模板"章节。这里只列出本 skill **独有**的两块：常量声明 + 共享近场浮现的幂等注册。
 
@@ -143,20 +193,28 @@ CSS 公式(每个 ring 的 trigger 和 panel 都要这样写):
   'use strict';
 
   // ① 常量 — 改 5 处
-  const WRAPPER_ID = 'tabboard-xxx-sidebar';   // 唯一前缀（host id）
+  const WRAPPER_ID = 'tabboard-xxx-sidebar';   // 唯一前缀（host id，主文档可见）
   const ACCENT = '#42a5f5';
   const N = 2;                                 // defaultOrder(manifest 列表顺序,0/1/2/3...)
   const RING_ID = 'myRing';                    // ringId 唯一字符串
 
   function build() { /* 见 adding-a-new-ring.md 最小代码模板 */ }
-  function shouldHide(s) { return s.ringSidebarEnabled === false || s.showXxxSidebar === false; }
+  function shouldHide(s) {
+    // Mode A 双守卫:master 总开关 + 子开关（用 !== false，向后兼容 undefined）
+    return s.ringSidebarEnabled === false || s.showXxxSidebar === false;
+  }
   async function init() { /* 见 ref */ }
   chrome.storage.onChanged.addListener(/* 见 ref */);
 
-  // ② 共享近场浮现（本 skill 独有，模板里也有但要确保幂等）
+  // ② 共享近场浮现：本 skill 独有，幂等注册
+  // 同时 toggle body.tabboard-side-near(给外部逻辑)
+  // + 每个 ring host 的 .near(shadow 内 :host(.near) 响应)
+  // 选择器只挑 -sidebar 后缀的 host,自由圆环(note-ring 等)不会自动接入
   if (!window.__tabboardSideReveal) {
     window.__tabboardSideReveal = true;
     document.addEventListener('mousemove', (e) => {
+      // 拖动期间屏蔽 hover-reveal，避免圆环被重新贴回右边
+      if (window.__tabboardRingDragging) return;
       const near = e.clientX > window.innerWidth - 40;
       document.body.classList.toggle('tabboard-side-near', near);
       document.querySelectorAll('[id$="-sidebar"]:not([id$="-panel"]):not([id$="-trigger"])')
@@ -193,13 +251,14 @@ window.__tabboardRingOrder?.register({
     const s = window.__tabboardRingOrder.getLastSettings();
     if (!s) return true;
     return s.ringSidebarEnabled !== false && s.showXxxSidebar !== false;
+    //   ↑ Mode A 双守卫:master + 子开关
   }
 });
 ```
 
-### Step 3: 更新 manifest.json
+#### Step 3: 更新 manifest.json
 
-**所有 ring + 共享模块必须合并到同一个 content_script block**,按以下顺序:
+**所有 ring + 共享模块合并到同一个 content_script block**,按以下顺序:
 
 ```json
 {
@@ -213,6 +272,7 @@ window.__tabboardRingOrder?.register({
         "content/vpSidebar.js",
         "content/timerSidebar.js",
         "content/captureRing.js",
+        "content/speedRing.js",
         "content/xxxSidebar.js"
       ],
       "run_at": "document_end"
@@ -226,46 +286,48 @@ window.__tabboardRingOrder?.register({
 - 各 ring 排在最后,**按 defaultOrder 顺序**(0/1/2/3...),加新 ring 到列表末尾,defaultOrder = 列表长度 - 1
 - Chrome 同 block 内按数组顺序串行注入,跨 block 顺序不可控(尽量别拆 block)
 
-### Step 4: 添加 popup 开关
+#### Step 4: 添加 popup 开关
 
-**popup.html** 悬浮圆环专区添加：
+**popup.html「注入DOM控制」板块**下,作为**子开关**（缩进 20px,受 master 控制）添加:
 ```html
 <label class="setting-row ring-sub">
-  <input type="checkbox" id="popupShowMyRing">
+  <input type="checkbox" id="popupShowXxxSidebar">
   <span>我的圆环</span>
 </label>
 ```
 
-**popup/modules/mySettings.js**（参考 `vpSettings.js` / `timerSettings.js`）：
-- `loadMyRingSetting()` — 从 settings 加载开关状态
-- `bindMyRingEvents()` — change 时调 `updateSettings` action（合并语义，不直接 set）
+> **如果你的圆环要作为 Mode B 自由圆环**：不带 `ring-sub` class，放在顶层（与 goto / noteRing 平级），**不要**用 `popupShowXxxSidebar` 这种带 `Sidebar` 后缀的命名——直接 `popupShowXxx` 即可。详见 `references/free-floating-entry.md` Step 3。
+
+**popup/modules/xxxSettings.js**（参考 `vpSettings.js` / `timerSettings.js`）：
+- `loadXxxSidebarSetting()` — 从 settings 加载开关状态
+- `bindXxxSidebarEvents()` — change 时调 `updateSettings` action（合并语义，不直接 set）
 
 > 写 settings 用 `chrome.runtime.sendMessage({ action: 'updateSettings', settings })`，background 的合并语义会保留其他 key。**禁止** `chrome.storage.local.set({ settings: { myKey: val } })` 整体覆盖。
 
-### Step 5: 更新 background/init.js
+#### Step 5: 更新 background/init.js
 
 ```javascript
-// 新字段
-if (updatedSettings.showMyRing === undefined) {
-  updatedSettings.showMyRing = true;   // 默认开
+// 新字段（Mode A 用 showXxxSidebar，Mode B 用 showXxx）
+if (updatedSettings.showXxxSidebar === undefined) {
+  updatedSettings.showXxxSidebar = true;   // Mode A 默认开（受 master 控制）
   needUpdate = true;
 }
 ```
 
-### Step 6: popup/modules/ringSettings.js 添加子开关禁用
+#### Step 6: popup/modules/ringSettings.js 添加子开关禁用
 
-在 `updateSubToggles` 的 ID 列表中加上新的 checkbox id：
+在 `updateSubToggles` 的 ID 列表中加上新的 checkbox id（**Mode A 才需要这一步**，Mode B 不在 master 控制下，不需要禁用）：
 
 ```javascript
 function updateSubToggles(enabled) {
-  ['popupShowLcSidebar', 'popupShowVpSidebar', 'popupShowMyRing'].forEach(id => {
+  ['popupShowLcSidebar', 'popupShowVpSidebar', 'popupShowTimerSidebar', 'popupShowCaptureRing', 'popupShowSpeedRing', 'popupShowXxxSidebar'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.disabled = !enabled;
   });
 }
 ```
 
-### Step 7：可选 — 让圆环可拖动
+#### Step 7：可选 — 让圆环可拖动
 
 如果用户希望圆环可以拖到任意位置（而不只是悬浮在右侧），在 `build()` 末尾加一行（必须在 `document.body.appendChild(wrapper)` 之后，pointer 事件才能在 host 上传递）:
 
@@ -289,7 +351,7 @@ window.__tabboardRingDrag?.attach(
 
 详细原理 + 拖动契约 + 530px bug 复现 → `references/draggable-ring.md`
 
-### Step 8：必做 — 注册到 ring-order 协调器(≥2 ring 时)
+#### Step 8：必做 — 注册到 ring-order 协调器(≥2 ring 时)
 
 每个 ring 的 `build()` 末尾还要再调一行 `register`(在 attach 之后或之前都行):
 
@@ -306,6 +368,10 @@ window.__tabboardRingOrder?.register({
 
 完整协调器设计 + dedup 三档 + 错误案例 → `references/ring-order-auto-fill.md`
 
+### Mode B：Free-Floating Entry
+
+**跳到 `references/free-floating-entry.md` 直接抄模板**——那里有最小可运行代码 + 5 步流程 + 11 项检查清单。
+
 ---
 
 ## 多圆环总开关（master switch）
@@ -316,19 +382,25 @@ window.__tabboardRingOrder?.register({
 - **每个 ring content script**：`init()` 里 `if (settings.ringSidebarEnabled === false) { return; }`；监听 `ringSidebarEnabled` 变化——关→**移除 DOM**，开→rebuild
 - **关键**：关闭要**移除 DOM**（不只是 `opacity:0`），否则 hover/mousemove 仍能触发已"隐藏"的圆环
 
-### popup 中的「悬浮圆环」专区
+### popup 中的「注入DOM控制」专区
+
+popup.html 里的板块标题是「注入DOM控制」(`section-title` class),板块内布局:
 
 ```
-悬浮圆环
-  ☑ 圆环侧边栏（总开关）          ← master，加粗 + 下分隔线
-    ☑ 刷题侧边栏（LeetCode CN）    ← 子开关，缩进 20px
-    ☑ 视频进度圆环                 ← 子开关，缩进
-    ☑ 计时圆环                    ← 子开关，缩进
-  ☑ 悬浮 goto 圆环（所有页面）     ← 独立入口，不缩进
+注入DOM控制
+  ☑ 圆环侧边栏（总开关）               ← master，加粗 + 下分隔线（ring-master class）
+    ☑ 刷题侧边栏（LeetCode CN）         ← ring-stack 子开关,缩进 20px（ring-sub class）
+    ☑ 视频进度圆环                      ← ring-stack 子开关,缩进
+    ☑ 计时圆环                         ← ring-stack 子开关,缩进
+    ☑ 捕获视频圆环                      ← ring-stack 子开关,缩进
+    ☑ 倍速控制圆环                      ← ring-stack 子开关,缩进
+  ☑ 网页笔记圆环（独立注入）            ← Mode B 自由圆环（顶层,不带 ring-sub）
+  ☑ 悬浮 goto 圆环（所有页面）          ← Mode B 自由圆环（顶层,不带 ring-sub）
 ```
 
-- **接入 master 的 ring**：用 `.ring-sub` 缩进 20px，master 关闭时 `disabled` 置灰
-- **不接入 master 的入口**（如 goto 快捷菜单，性质不同）：保持独立开关，不缩进
+**判定标准**:
+- **Mode A ring-stack** → 用 `.ring-sub` 缩进 20px,master 关闭时 `disabled` 置灰;`settings.showXxxSidebar`
+- **Mode B 自由圆环** → 顶层 checkbox,**不带** `.ring-sub`,master 关闭时**不影响**;`settings.showXxx`(不带 `Sidebar` 后缀,与 Mode A 命名区分)
 
 ---
 
@@ -363,17 +435,28 @@ window.__tabboardRingOrder?.register({
 | **isAlive 每次都 `chrome.runtime.sendMessage({action: 'getSettings'})`** | 异步,recompute 时 settings 还没回,看到空 | 用 `getLastSettings()` 读协调器缓存,fire-and-forget 仅在初始化时调一次 |
 | **register dedup 用 `find` 后直接 `return`** | 快速 toggle 关→开时,旧 host 还没被清理,新 host 被 skip,新 wrapper 拿不到 `--ring-order` → 多 ring 重叠 | 三档 dedup:同 host 跳过 / 活 host 跳过 / 死 host 替换 |
 
+### Mode B（Free-Floating）专属踩坑
+
+| 错误操作 | 实际后果 | 正确做法 |
+|---------|---------|---------|
+| **自由圆环也走 ring-stack 流程（Shadow DOM + ring-order.register + popupShowXxxSidebar）** | 圆环被塞进右侧栈、与其他 ring 撞位置、改了 `body.tabboard-side-near` 还让栈内其他圆环同时浮现 | 先判断走 Mode A 还是 Mode B;Mode B 走 `references/free-floating-entry.md`,不进 Shadow DOM,不调 `__tabboardRingOrder.register` |
+| **自由圆环也写 `id` 为 `tabboard-xxx-sidebar`** | 被 `[id$="-sidebar"]` 选择器捕获,鼠标近场时 `.near` class 被加上,意外触发弹出 | Mode B 用 `tabboard-xxx-ring`(不带 `-sidebar` 后缀),绕开 ring-stack 选择器 |
+| **自由圆环用 `popupShowXxxSidebar` 命名 + `.ring-sub` class** | master 总开关关时强制 `disabled`,用户关掉 master 后自由圆环也跟着灰掉 | Mode B 用 `popupShowXxx`(无 `Sidebar` 后缀)+ 不带 `.ring-sub` 顶层 checkbox;不要进 `updateSubToggles` 列表 |
+| **自由圆环注入样式用 `shadow.appendChild(style)`(Shadow DOM)** | 单 host 没必要,且限制外部 CSS 工具调试;与 Mode A 模板混抄导致误判 | Mode B 用 `document.head.appendChild(styleEl)`(注:虽然 shadow-dom-isolation.md 说"必须 Shadow DOM",但**那是 Mode A 的强制前提**——Mode B 单 host 无撞 CSS 风险) |
+| **自由圆环拖动和 click 都绑 `click` 事件** | 拖动结束后 click 也会触发,误展开面板 | pointer 事件 + 6px 阈值:超阈值 → drag,不触发 click;未超 → click,展开面板 |
+| **自由圆环调用 `__tabboardRingDrag.attach`** | attach 会写入 `--ring-stack-anchor`,与 ring-stack 圆环的位置混淆,触发整体联动 | Mode B 自己写 pointer 拖动逻辑(模板见 `references/free-floating-entry.md`),不调用 `__tabboardRingDrag` |
+
 ---
 
 ## 成功标准检查清单
 
-### 基础
-- [ ] manifest.json 包含 `<all_urls>` 的 content_scripts 条目
+### Mode A：Ring-Stack Entry 基础
+- [ ] manifest.json 的 ring content_scripts block 包含 `<all_urls>` 条目
 - [ ] content script 使用 **Shadow DOM**（`attachShadow`），style + trigger + panel 都进 shadow
 - [ ] shadow 内 host 自身样式/变量用 `:host`，**不用 `#host-id`**
 - [ ] host 的 `top` 用 `50%`（不带 offset），offset 只加在 trigger 和 panel 上
 - [ ] trigger 和 panel 用 `top: calc(var(--ring-stack-anchor, 50%) + 52px * var(--ring-order, 0))`(双 CSS 变量,**不要硬编码**)
-- [ ] 近场浮现使用共享 mousemove（`__tabboardSideReveal` 幂等注册），不建 hover-zone div
+- [ ] 近场浮现使用共享 mousemove（`__tabboardSideReveal` 幂等注册），同时 toggle `body.tabboard-side-near` + 各 host 的 `.near`
 - [ ] transition 参数与已有圆环统一（`right 220ms / opacity 180ms`）
 - [ ] popup 有独立 `xxxSettings.js` 模块
 - [ ] 开关状态通过 `updateSettings` action 保存（合并语义）
@@ -381,19 +464,37 @@ window.__tabboardRingOrder?.register({
 - [ ] 接入 master 总开关（`ringSidebarEnabled`），判断用 `!== false`
 - [ ] master 关闭时**移除 DOM**（不是只 `opacity:0`）
 - [ ] popup 中子开关用 `ring-sub` class 缩进，master 关时 `disabled` 置灰
+- [ ] popup/modules/ringSettings.js 的 `updateSubToggles` ID 列表中包含新 id
 - [ ] 点击外部收起用 `setTimeout(0)` 延一帧绑 document click
-- [ ] WRAPPER_ID 全局唯一，各 ring 无 id 冲突
+- [ ] WRAPPER_ID 全局唯一,各 ring 无 id 冲突,**用 `-sidebar` 后缀**(让共享 mousemove 选择器能捕获)
 - [ ] `:host` 显式设 `font-family`（防宿主字体穿透）
 
-### 多 ring 协调(≥2 ring 时必做)
+### Mode A：多 ring 协调(≥2 ring 时必做)
 - [ ] manifest 把 `content/shared/ring-order.js` 排在所有 ring 之前(同 block 内)
 - [ ] 每个 ring build 末尾调 `__tabboardRingOrder.register({ ringId, host, defaultOrder, isAlive })`
 - [ ] `defaultOrder` 连续 0/1/2/3...,与 manifest 列表顺序一致
 - [ ] `ringId` 字符串在所有 ring 间唯一
-- [ ] `isAlive` 先查 `document.getElementById(WRAPPER_ID)`,再读 `getLastSettings()` 缓存
+- [ ] `isAlive` 先查 `document.getElementById(WRAPPER_ID)`,再读 `getLastSettings()` 缓存,**双守卫** `ringSidebarEnabled !== false && showXxxSidebar !== false`
 
-### 拖动(可选)
+### Mode A：拖动(可选)
 - [ ] manifest 注入 `content/shared/draggable-ring.js`(在 ring-order 之后、ring 之前)
 - [ ] 每个 ring 调 `attach(trigger, panel, host, { defaultOrder, ringId })` 4 参
 - [ ] 第三个参数是 `wrapper`(host),**不是 trigger**
 - [ ] drag 只写 `host.style.setProperty('--ring-stack-anchor', ...)`,不写 inline `style.top`
+
+### Mode B：Free-Floating Entry 基础
+- [ ] manifest.json 中**独立** content_scripts block(与 ring block 并列,各 block 单独存在)
+- [ ] **不**注入 `content/shared/ring-order.js` 或 `draggable-ring.js`
+- [ ] **不**调用 `__tabboardRingOrder.register` 或 `__tabboardRingDrag.attach`
+- [ ] **不**进 Shadow DOM——单 host 无撞 CSS 风险,`<style>` 注入 `document.head`
+- [ ] WRAPPER_ID 用 `-ring` 后缀(不带 `-sidebar`),绕开 ring-stack 共享 mousemove 选择器
+- [ ] 圆环默认右下角(`bottom: 100px; right: 100px`),pointer 拖动用 6px 阈值区分 click
+- [ ] 拖动用 `host.setPointerCapture` + `getBoundingClientRect()` 算位移,clamp 到视口内
+- [ ] 点击外部收起(document click)
+- [ ] popup 中是**顶层** checkbox(不带 `.ring-sub`),不被 master 置灰
+- [ ] popup/modules/ringSettings.js 的 `updateSubToggles` ID 列表中**不**包含
+- [ ] `shouldHide` 只检查自己的开关(`showXxx`),**不查** `ringSidebarEnabled`
+- [ ] popup 有独立 `xxxSettings.js` 模块(参考 `gotoSettings.js` / `noteSettings.js`)
+- [ ] 开关状态通过 `updateSettings` action 保存（合并语义）
+- [ ] init.js 有 `showXxx: true` 默认值(**不**带 `Sidebar` 后缀)
+- [ ] 完整 11 项检查见 `references/free-floating-entry.md` 末尾
