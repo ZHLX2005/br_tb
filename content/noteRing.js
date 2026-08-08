@@ -28,7 +28,7 @@
   let panel = null;
   let isExpanded = false;
   let pages = [];
-  let activePageId = null;
+  let currentPageId = null;
   let currentTabUrl = '';
   let currentTabTitle = '';
   let currentTabFavicon = '';
@@ -445,10 +445,15 @@
 
   async function refreshFromStorage() {
     try {
-      const res = await chrome.runtime.sendMessage({ action: 'getNotes' });
-      pages = (res?.success && Array.isArray(res.notePages)) ? res.notePages : [];
+      const [notesRes, curRes] = await Promise.all([
+        chrome.runtime.sendMessage({ action: 'getNotes' }),
+        chrome.runtime.sendMessage({ action: 'getNoteCurrentPageId' })
+      ]);
+      pages = (notesRes?.success && Array.isArray(notesRes.notePages)) ? notesRes.notePages : [];
+      currentPageId = curRes?.success ? curRes.currentPageId : null;
     } catch (_) {
       pages = [];
+      currentPageId = null;
     }
     await detectCurrentTab();
     pickActivePage();
@@ -468,23 +473,10 @@
   }
 
   function pickActivePage() {
-    // activePageId 已存在且未失效 → 保持
-    if (activePageId && pages.find(p => p.id === activePageId)) return;
-    activePageId = null;
-    // 优先按当前 URL 精确匹配绑定页
-    if (currentTabUrl) {
-      const exact = pages.find(p => p.boundTabs?.some(t => t.url === currentTabUrl));
-      if (exact) { activePageId = exact.id; return; }
-      // origin 匹配（子页面共享同一绑定的站内笔记）
-      let origin = '';
-      try { origin = new URL(currentTabUrl).origin; } catch (_) {}
-      if (origin) {
-        const originMatch = pages.find(p => p.boundTabs?.some(t => {
-          try { return new URL(t.url).origin === origin; } catch (_) { return false; }
-        }));
-        if (originMatch) { activePageId = originMatch.id; return; }
-      }
-    }
+    // 已选(全局默认 page)且仍存在 → 保持(不切,即使用户在别的 tab 选了别的 page)
+    if (currentPageId && pages.find(p => p.id === currentPageId)) return;
+    // 未选:首次打开或当前 page 被删 → 回退到第一个 page
+    currentPageId = pages[0]?.id || null;
   }
 
   // ===================== 渲染 =====================
@@ -499,7 +491,7 @@
   }
 
   function renderHeader() {
-    const page = pages.find(p => p.id === activePageId);
+    const page = pages.find(p => p.id === currentPageId);
     const nameEl = panel.querySelector('.nr-page-name');
     if (page) {
       nameEl.textContent = page.name;
@@ -517,7 +509,7 @@
       hint.style.display = 'none';
       return;
     }
-    const page = pages.find(p => p.id === activePageId);
+    const page = pages.find(p => p.id === currentPageId);
     const alreadyBound = page && page.boundTabs?.some(t => t.url === currentTabUrl);
     hint.style.display = '';
     hint.innerHTML = `
@@ -534,7 +526,7 @@
   function renderBody() {
     const body = panel.querySelector('#' + WRAPPER_ID + '-body');
     if (!body) return;
-    const page = pages.find(p => p.id === activePageId);
+    const page = pages.find(p => p.id === currentPageId);
     if (!page) {
       const msg = pages.length === 0
         ? `<div class="nr-empty">
@@ -568,7 +560,7 @@
     if (!article || article._bound) return;
     article._bound = true;
     article.addEventListener('input', () => {
-      if (!activePageId) return;
+      if (!currentPageId) return;
       setStatus(`${article.value.length} 字符`, '保存中…', 'saving');
       scheduleContentSave(article.value);
     });
@@ -579,7 +571,7 @@
         const s = article.selectionStart, en = article.selectionEnd;
         article.value = article.value.slice(0, s) + '  ' + article.value.slice(en);
         article.selectionStart = article.selectionEnd = s + 2;
-        if (activePageId) scheduleContentSave(article.value);
+        if (currentPageId) scheduleContentSave(article.value);
       }
       e.stopPropagation();
     });
@@ -596,16 +588,16 @@
     clearTimeout(_contentSaveTimer);
     _contentSaveTimer = null;
     const article = panel?.querySelector('#' + WRAPPER_ID + '-article');
-    if (article && activePageId) {
+    if (article && currentPageId) {
       await doContentSave(article.value);
     }
   }
 
   async function doContentSave(content) {
-    if (!activePageId) return;
+    if (!currentPageId) return;
     await chrome.runtime.sendMessage({
       action: 'updateNoteContent',
-      id: activePageId,
+      id: currentPageId,
       content: content || ''
     });
     setStatus(`${content.length} 字符`, '已保存', 'saved');
@@ -639,7 +631,7 @@
       const chars = p.content?.length || 0;
       const tabs = p.boundTabs?.length || 0;
       return `
-        <div class="nr-picker-item ${p.id === activePageId ? 'active' : ''}" data-page-id="${escAttr(p.id)}">
+        <div class="nr-picker-item ${p.id === currentPageId ? 'active' : ''}" data-page-id="${escAttr(p.id)}">
           <div class="nr-picker-item-main" data-note-action="select-page">
             <div class="nr-picker-item-name">${escHtml(p.name)}</div>
             <div class="nr-picker-item-meta">${chars} 字符${tabs ? ` · ${tabs} 标签页` : ''}</div>
@@ -699,13 +691,15 @@
   async function selectPage(actionEl) {
     const id = actionEl.closest('[data-page-id]')?.getAttribute('data-page-id');
     if (!id) return;
-    if (id === activePageId) {
+    if (id === currentPageId) {
       document.querySelector('[data-note-picker]')?.classList.remove('open');
       return;
     }
     // 切换前 flush 待保存内容
     await flushContentSave();
-    activePageId = id;
+    currentPageId = id;
+    // 持久化:记住这个选择,下次开面板自动用
+    chrome.runtime.sendMessage({ action: 'setNoteCurrentPageId', id });
     document.querySelector('[data-note-picker]')?.classList.remove('open');
     render();
   }
@@ -725,7 +719,8 @@
         favicon: currentTabFavicon
       });
     }
-    activePageId = r.page.id;
+    currentPageId = r.page.id;
+    chrome.runtime.sendMessage({ action: 'setNoteCurrentPageId', id: r.page.id });
     document.querySelector('[data-note-picker]')?.classList.remove('open');
     await refreshFromStorage();
   }
@@ -742,36 +737,36 @@
   }
 
   async function deleteCurrentPage() {
-    if (!activePageId) return;
-    const page = pages.find(p => p.id === activePageId);
+    if (!currentPageId) return;
+    const page = pages.find(p => p.id === currentPageId);
     if (!page) return;
     if (!confirm(`删除便签页「${page.name}」？文章内容将丢失。`)) return;
     await flushContentSave();
-    const r = await chrome.runtime.sendMessage({ action: 'deleteNotePage', id: activePageId });
+    const r = await chrome.runtime.sendMessage({ action: 'deleteNotePage', id: currentPageId });
     if (r?.success) {
-      activePageId = null;
+      currentPageId = null;
       document.querySelector('[data-note-picker]')?.classList.remove('open');
       await refreshFromStorage();
     }
   }
 
   async function renameCurrentPage() {
-    if (!activePageId) return;
-    const page = pages.find(p => p.id === activePageId);
+    if (!currentPageId) return;
+    const page = pages.find(p => p.id === currentPageId);
     if (!page) return;
     const name = prompt('重命名', page.name);
     if (!name || name === page.name) return;
     await flushContentSave();
-    await chrome.runtime.sendMessage({ action: 'renameNotePage', id: activePageId, name });
+    await chrome.runtime.sendMessage({ action: 'renameNotePage', id: currentPageId, name });
     await refreshFromStorage();
   }
 
   async function bindCurrentTab() {
-    if (!activePageId) return;
+    if (!currentPageId) return;
     if (!/^https?:\/\//.test(currentTabUrl)) return;
     await chrome.runtime.sendMessage({
       action: 'bindTabToPage',
-      pageId: activePageId,
+      pageId: currentPageId,
       url: currentTabUrl, title: currentTabTitle, favicon: currentTabFavicon
     });
     await refreshFromStorage();
@@ -847,12 +842,12 @@
 
   function remove() {
     // 关闭前先保存未 flush 的防抖内容（fire-and-forget）
-    if (_contentSaveTimer && activePageId && panel) {
+    if (_contentSaveTimer && currentPageId && panel) {
       const article = panel.querySelector('#' + WRAPPER_ID + '-article');
       if (article && article.value) {
         chrome.runtime.sendMessage({
           action: 'updateNoteContent',
-          id: activePageId,
+          id: currentPageId,
           content: article.value
         });
       }
@@ -866,7 +861,7 @@
     panel = null;
     wrapper = null;
     pages = [];
-    activePageId = null;
+    currentPageId = null;
     isExpanded = false;
   }
 
@@ -915,7 +910,7 @@
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local' || !changes.notePages || !panel) return;
     const newPages = changes.notePages.newValue || [];
-    const activeStillExists = activePageId && newPages.find(p => p.id === activePageId);
+    const activeStillExists = currentPageId && newPages.find(p => p.id === currentPageId);
     // 比对页面列表(数量/名称/绑定),如果只是内容更新,不动 article
     const oldPages = pages;
     const oldSig = oldPages.map(p => `${p.id}:${p.name}:${p.boundTabs?.length || 0}`).join('|');
@@ -924,7 +919,7 @@
     pages = newPages;
     if (!activeStillExists) {
       // 当前页失效(被删) → 按 URL 重新自动选 / 回退第一个
-      activePageId = null;
+      currentPageId = null;
       pickActivePage();
       render();
       return;

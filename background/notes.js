@@ -27,6 +27,19 @@ async function savePages(notePages) {
   await chrome.storage.local.set({ notePages });
 }
 
+// 全局默认便签页 id：用户上次选中的 page,跨 tab 共享
+// 用户在面板里主动选择 page 时写入(覆盖),下次开面板默认就是它
+// 已选 page 时不再被覆盖(用户主动选了 a,即使面板里还有别的页面,保持 a)
+async function loadCurrentPageId() {
+  const r = await chrome.storage.local.get(['noteCurrentPageId']);
+  return r.noteCurrentPageId || null;
+}
+
+async function saveCurrentPageId(id) {
+  if (id) await chrome.storage.local.set({ noteCurrentPageId: id });
+  else await chrome.storage.local.remove('noteCurrentPageId');
+}
+
 function touch(page) {
   page.updatedAt = new Date().toISOString();
   return page;
@@ -42,7 +55,9 @@ const NOTE_ACTIONS = new Set([
   'createNotePage', 'renameNotePage', 'deleteNotePage',
   'updateNoteContent',
   'bindTabToPage', 'unbindTabFromPage',
-  'getPagesForTab'
+  'getPagesForTab',
+  // 全局默认 page id:用户上次选的 page,跨 tab 共享
+  'getNoteCurrentPageId', 'setNoteCurrentPageId'
 ]);
 
 export function setupNotesListeners() {
@@ -104,6 +119,11 @@ export function setupNotesListeners() {
             notePages = notePages.filter(p => p.id !== request.id);
             if (notePages.length === before) { result = { success: false, error: '页面不存在' }; break; }
             await savePages(notePages);
+            // 若全局默认指向被删页,清掉(下次开面板会取 pages[0])
+            const currentId = await loadCurrentPageId();
+            if (currentId === request.id) {
+              await saveCurrentPageId(null);
+            }
             result = { success: true };
             break;
           }
@@ -157,6 +177,26 @@ export function setupNotesListeners() {
               })()))
             );
             result = { success: true, pages: matched };
+            break;
+          }
+          case 'getNoteCurrentPageId': {
+            // 读全局默认 page id。语义：用户选过的 page,跨 tab 共享
+            const currentId = await loadCurrentPageId();
+            result = { success: true, currentPageId: currentId };
+            break;
+          }
+          case 'setNoteCurrentPageId': {
+            // 用户在面板里选了 page 时写入。已选 page 时不再被覆盖
+            const id = request.id || null;
+            if (id) {
+              const notePages = await loadPages();
+              if (!notePages.find(p => p.id === id)) {
+                result = { success: false, error: '页面不存在' };
+                break;
+              }
+            }
+            await saveCurrentPageId(id);
+            result = { success: true, currentPageId: id };
             break;
           }
           default:

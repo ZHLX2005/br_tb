@@ -153,6 +153,11 @@ export async function initializeDefaultData() {
     await chrome.storage.local.set({ notePages: [] });
   }
 
+  // 初始化便签全局默认 page id(用户在面板里选的 page,跨 tab 共享)
+  if (!('noteCurrentPageId' in result)) {
+    await chrome.storage.local.set({ noteCurrentPageId: null });
+  }
+
   // 初始化 goto 圆环：检查是否存在 goto=true 的 group，若无则创建"📄 面包"分组
   const finalGroups = (await chrome.storage.local.get(['groups'])).groups || result.groups || [];
   const hasGotoGroup = finalGroups.some(g => g.goto === true);
