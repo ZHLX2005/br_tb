@@ -7,9 +7,16 @@
  *   ├──────────────┬──────────────────────────────┤
  *   │  页面列表     │  当前页面文章编辑器          │
  *   │  + 新建       │   - 页面名 + 绑定 tab 列表   │
- *   │  □ page 1     │   - 大文本编辑器            │
+ *   │  □ page 1     │   - WYSIWYG contenteditable │
  *   │  □ page 2     │   - 自动保存                 │
  *   └──────────────┴──────────────────────────────┘
+ *
+ * 编辑器模型：contenteditable 混合编辑器（WYSIWYG）。
+ * [[URL]] 占位渲染为图片块（note-img-block）；光标进入图片块时临时显示 [[URL]] 源码可编辑。
+ * 与 content/noteRing.js 同源语义（各自维护一份，避免运行时依赖）。
+ *
+ * 注意：本模块（看板页 chrome-extension://）无视频宿主，无截帧按钮；
+ *       图床账号 <details> 面板是 canonical 登录入口，保留。
  */
 
 const STORAGE_KEYS = ['notePages'];
@@ -25,6 +32,9 @@ class NoteView {
     // 自动保存
     this._saveTimer = null;
     this._saveDirty = false;
+
+    // WYSIWYG: 当前激活为源码态的图片块
+    this._activeImgBlock = null;
 
     // 监听器引用
     this._listeners = [];
@@ -174,12 +184,29 @@ class NoteView {
           </div>
         </div>
         ${this._buildBoundTabs(page)}
+        <details class="note-editor-settings" open>
+          <summary class="note-editor-settings-toggle">图床账号（便签截屏授权）</summary>
+          <div class="note-editor-settings-body">
+            <div class="note-setting-status">
+              <span class="note-login-pill" id="noteLoginPill">…</span>
+              <button class="note-btn note-btn-secondary" id="noteLoginBtn">登录</button>
+            </div>
+            <div class="note-setting-row">
+              <label>邮箱</label>
+              <input type="text" id="noteUploadEmail" class="note-setting-input" placeholder="图床登录邮箱" autocomplete="off">
+            </div>
+            <div class="note-setting-row">
+              <label>密码</label>
+              <input type="password" id="noteUploadPassword" class="note-setting-input" placeholder="图床登录密码" autocomplete="off">
+            </div>
+            <div class="note-setting-row" style="justify-content:flex-end;">
+              <span class="note-setting-hint" id="noteUploadHint"></span>
+              <button class="note-btn note-btn-secondary" id="noteUploadSaveBtn">保存</button>
+            </div>
+          </div>
+        </details>
         <div class="note-editor-content-wrap">
-          <textarea
-            class="note-editor-content"
-            id="notePageContent"
-            placeholder="开始写…"
-            spellcheck="false">${this._escapeHtml(page.content || '')}</textarea>
+          <div class="note-editor-content" id="notePageContent" contenteditable="true" data-placeholder="开始写…" spellcheck="false"></div>
         </div>
       </section>
     `;
@@ -235,7 +262,6 @@ class NoteView {
       this._onStorageChange = (changes, area) => {
         if (area !== 'local' || !changes.notePages) return;
         const newPages = changes.notePages.newValue || [];
-        const prevActive = this.activePageId;
         const activeStillExists = newPages.find(p => p.id === this.activePageId);
         this.pages = newPages;
         this._updateStats();
@@ -265,15 +291,31 @@ class NoteView {
             // 绑定 tab 区:重建(委托在 container 上,点击仍冒泡,无需重绑)
             const boundEl = this.container.querySelector('.note-bound, .note-bound-empty');
             if (boundEl) boundEl.outerHTML = this._buildBoundTabs(page);
-            // 正文:远端改了且用户没在编辑时同步
-            const contentArea = this.container.querySelector('#notePageContent');
-            if (contentArea && document.activeElement !== contentArea && contentArea.value !== (page.content || '')) {
-              contentArea.value = page.content || '';
+            // 正文同步:若用户未在编辑,重新渲染 editor(避免打断编辑)
+            const editor = this.container.querySelector('#notePageContent');
+            if (editor && document.activeElement !== editor) {
+              this._renderContentToEditor(editor, page.content || '');
+              this._proxyEditorImages(editor);
             }
           }
         }
       };
       chrome.storage.onChanged.addListener(this._onStorageChange);
+    }
+    // 图床账号外部修改 → 同步面板
+    if (!this._uploadCredListener) {
+      this._uploadCredListener = (changes, area) => {
+        if (area !== 'local' || !changes.noteUpload || !this.container) return;
+        const cfg = changes.noteUpload.newValue || {};
+        const emailEl = this.container.querySelector('#noteUploadEmail');
+        const passEl = this.container.querySelector('#noteUploadPassword');
+        const hintEl = this.container.querySelector('#noteUploadHint');
+        if (emailEl && document.activeElement !== emailEl && cfg.email !== undefined) emailEl.value = cfg.email || '';
+        if (passEl && document.activeElement !== passEl && cfg.password !== undefined) passEl.value = cfg.password || '';
+        this._updateUploadHint(cfg, hintEl);
+        this._refreshLoginPill(this.container.querySelector('#noteLoginPill'));
+      };
+      chrome.storage.onChanged.addListener(this._uploadCredListener);
     }
   }
 
@@ -312,26 +354,431 @@ class NoteView {
       titleInput.addEventListener('input', () => this._scheduleRename(titleInput.value));
       titleInput.addEventListener('keydown', (e) => e.stopPropagation());
     }
-    // 内容输入 → 自动保存
-    const contentArea = this.container.querySelector('#notePageContent');
-    if (contentArea && !contentArea._bound) {
-      contentArea._bound = true;
-      contentArea.addEventListener('input', () => {
-        this._updateStatus(contentArea.value.length);
-        this._scheduleSave(contentArea.value);
-      });
-      contentArea.addEventListener('keydown', (e) => {
-        // Tab 缩进支持
-        if (e.key === 'Tab') {
-          e.preventDefault();
-          const start = contentArea.selectionStart, end = contentArea.selectionEnd;
-          contentArea.value = contentArea.value.slice(0, start) + '  ' + contentArea.value.slice(end);
-          contentArea.selectionStart = contentArea.selectionEnd = start + 2;
-          this._scheduleSave(contentArea.value);
+    // 图床账号面板：每次重渲染后重新挂载（container.innerHTML 重写会丢监听）
+    if (this.container.querySelector('#noteUploadSaveBtn')) {
+      this._wireUploadSettings();
+    }
+    // WYSIWYG 编辑器:渲染内容 + 绑定事件 + 代理 http 图片
+    const editor = this.container.querySelector('#notePageContent');
+    if (editor) {
+      const page = this.pages.find(p => p.id === this.activePageId);
+      this._renderContentToEditor(editor, page?.content || '');
+      this._bindEditorEvents(editor);
+      this._proxyEditorImages(editor);
+    }
+  }
+
+  /**
+   * 图床账号面板：读 storage 注到输入框,绑定保存事件
+   * 注意：每次 _rerender() 重写 innerHTML 都会丢监听,这里每次重新挂
+   */
+  _wireUploadSettings() {
+    const emailEl = this.container.querySelector('#noteUploadEmail');
+    const passEl = this.container.querySelector('#noteUploadPassword');
+    const hintEl = this.container.querySelector('#noteUploadHint');
+    const saveBtn = this.container.querySelector('#noteUploadSaveBtn');
+    const pillEl = this.container.querySelector('#noteLoginPill');
+    const loginBtn = this.container.querySelector('#noteLoginBtn');
+    if (!emailEl || !passEl || !saveBtn) return;
+    // 加载已存凭证（仅 input 为空时填,避免覆盖用户正在输入的值）
+    chrome.storage.local.get(['noteUpload']).then((r) => {
+      const cfg = r.noteUpload || {};
+      if (!emailEl.value && cfg.email) emailEl.value = cfg.email;
+      if (!passEl.value && cfg.password) passEl.value = cfg.password;
+      this._updateUploadHint(cfg, hintEl);
+    });
+    // 初始拉一次登录态(模块打开就显示)
+    this._refreshLoginPill(pillEl);
+    if (!saveBtn._bound) {
+      saveBtn._bound = true;
+      saveBtn.addEventListener('click', async () => {
+        const email = emailEl.value.trim();
+        const password = passEl.value;
+        try {
+          await chrome.storage.local.set({ noteUpload: { email, password } });
+        } catch (err) {
+          if (hintEl) hintEl.textContent = '保存失败: ' + err.message;
+          return;
         }
-        e.stopPropagation();
+        const cfg = { email, password };
+        this._updateUploadHint(cfg, hintEl);
+        if (hintEl) {
+          hintEl.textContent = email ? '✓ 已保存' : '✓ 已清空';
+          setTimeout(() => this._updateUploadHint(cfg, hintEl), 1500);
+        }
+        this._refreshLoginPill(pillEl);
       });
     }
+    if (loginBtn && !loginBtn._bound) {
+      loginBtn._bound = true;
+      loginBtn.addEventListener('click', async () => {
+        // 先保存输入,再触发登录(background ensureLogin 读 storage)
+        const email = emailEl.value.trim();
+        const password = passEl.value;
+        if (email && password) {
+          await chrome.storage.local.set({ noteUpload: { email, password } });
+        }
+        loginBtn.disabled = true;
+        const prev = loginBtn.textContent;
+        loginBtn.textContent = '登录中…';
+        try {
+          const r = await chrome.runtime.sendMessage({ action: 'ensureLogin' });
+          if (r?.success) {
+            if (hintEl) hintEl.textContent = '✓ 登录成功';
+            setTimeout(() => this._updateUploadHint({ email, password }, hintEl), 1500);
+          } else {
+            if (hintEl) hintEl.textContent = '登录失败: ' + (r?.error || '');
+          }
+        } catch (err) {
+          if (hintEl) hintEl.textContent = '登录错误: ' + err.message;
+        } finally {
+          loginBtn.disabled = false;
+          loginBtn.textContent = prev;
+          this._refreshLoginPill(pillEl);
+        }
+      });
+    }
+  }
+
+  _updateUploadHint(cfg, hintEl) {
+    if (!hintEl) return;
+    if (!cfg || !cfg.email) hintEl.textContent = '未配置（无法上传）';
+    else hintEl.textContent = `已配置: ${cfg.email}`;
+  }
+
+  /**
+   * 通过 background getLoginStatus 同步模块面板的登录状态徽章
+   * 状态:未配置 / 未登录(token 失效) / 已登录
+   */
+  async _refreshLoginPill(pillEl) {
+    if (!pillEl) return;
+    try {
+      const r = await chrome.runtime.sendMessage({ action: 'getLoginStatus' });
+      if (!r?.success) { pillEl.textContent = '?'; return; }
+      if (!r.hasCredentials) {
+        pillEl.textContent = '未配置';
+        pillEl.className = 'note-login-pill err';
+      } else if (r.tokenValid) {
+        pillEl.textContent = `✓ 已登录 ${r.email}`;
+        pillEl.className = 'note-login-pill ok';
+      } else {
+        pillEl.textContent = '未登录（点登录拿 token）';
+        pillEl.className = 'note-login-pill warn';
+      }
+    } catch (_) {
+      pillEl.textContent = '?';
+    }
+  }
+
+  // ===================== WYSIWYG 混合编辑器 =====================
+  // [[URL]] 渲染为图片块(note-img-block);光标进入图片块附近时临时显示 [[url]] 源码可编辑。
+  // 与 content/noteRing.js 同源语义,各自维护一份避免运行时依赖。
+
+  /**
+   * 把纯文本内容(含 [[URL]] 占位)渲染进 contenteditable editor
+   * [[URL]] → <span class="note-img-block" data-url=URL contenteditable=false><img></span>
+   * 其余文本按行分到 <div> 里(每行一个块,便于光标定位)
+   */
+  _renderContentToEditor(editor, content) {
+    editor.innerHTML = '';
+    if (!content) { editor.textContent = ''; return; }
+    // 按 [[URL]] 切分
+    const re = /(\[\[https?:\/\/[^\]]+\]\])/g;
+    const parts = content.split(re);
+    for (const part of parts) {
+      const m = part.match(/^\[\[(https?:\/\/[^\]]+)\]\]$/);
+      if (m) {
+        editor.appendChild(this._makeImageBlock(m[1]));
+      } else if (part) {
+        // 文本:按 \n 分行,每行一个 <div>(空行用 <div><br></div>)
+        const lines = part.split('\n');
+        lines.forEach((line) => {
+          const div = document.createElement('div');
+          if (line) div.textContent = line;
+          else div.appendChild(document.createElement('br'));
+          editor.appendChild(div);
+        });
+      }
+    }
+    if (!editor.childNodes.length) editor.textContent = '';
+  }
+
+  /**
+   * 把 contenteditable editor 序列化回 [[URL]] + 文本 格式
+   * 规则:<div> 之间换行;图片块 → [[url]];其它(如临时的源码 span)按 textContent
+   */
+  _serializeEditor(editor) {
+    let out = '';
+    const kids = Array.from(editor.childNodes);
+    kids.forEach((node, i) => {
+      if (node.nodeType === 3) {
+        // 纯文本节点
+        out += node.textContent;
+      } else if (node.nodeType === 1) {
+        const el = node;
+        if (el.classList && el.classList.contains('note-img-block')) {
+          const url = el.getAttribute('data-url');
+          out += url ? `[[${url}]]` : '';
+        } else if (el.classList && el.classList.contains('note-img-source')) {
+          // 临时源码显示:用户可能改了 URL,直接用 textContent
+          out += el.textContent;
+        } else {
+          // <div> / <br> 等
+          const tag = el.tagName;
+          if (tag === 'BR') {
+            out += '\n';
+          } else {
+            // div:内容 + 换行(除非是最后一个空块)
+            const t = el.textContent || '';
+            out += t;
+            if (i < kids.length - 1) out += '\n';
+          }
+        }
+      }
+    });
+    return out;
+  }
+
+  /**
+   * editor 事件绑定:input → 防抖保存;selectionchange → 光标感知;blur → 还原图片
+   */
+  _bindEditorEvents(editor) {
+    if (editor._bound) return;
+    editor._bound = true;
+    editor.addEventListener('input', () => {
+      this._updateStatus(this._serializeEditor(editor).length);
+      this._scheduleEditorSave(editor);
+    });
+    editor.addEventListener('keydown', (e) => {
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        document.execCommand('insertText', false, '  ');
+      }
+      e.stopPropagation();
+    });
+    // 粘贴图片 → 上传图床 → 插入 [[URL]] 图片块(与 noteRing 同链路)
+    editor.addEventListener('paste', (e) => this._onEditorPaste(e, editor));
+    editor.addEventListener('blur', () => this._deactivateAllImages(editor));
+    // document 级 selectionchange 只绑一次(实例级),handler 找当前 editor
+    if (!this._docSelectionHandler) {
+      this._docSelectionHandler = () => {
+        if (!this.container) return;
+        const ed = this.container.querySelector('#notePageContent');
+        if (!ed || document.activeElement !== ed) return;
+        this._syncImageActiveState(ed);
+      };
+      document.addEventListener('selectionchange', this._docSelectionHandler);
+    }
+  }
+
+  /**
+   * 光标感知:把光标所在的图片块临时显示为 [[url]] 源码(可编辑),其余保持图片
+   */
+  _syncImageActiveState(editor) {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) {
+      this._deactivateAllImages(editor);
+      return;
+    }
+    const node = sel.anchorNode;
+    // 向上找最近的图片块(或临时源码 span)
+    let target = null;
+    if (node) {
+      target = node.nodeType === 1 ? node.closest('.note-img-block, .note-img-source') : null;
+      if (!target && node.parentElement) {
+        target = node.parentElement.closest('.note-img-block, .note-img-source');
+      }
+    }
+    if (target && target.classList.contains('note-img-source')) {
+      // 已经在源码态,保持
+      return;
+    }
+    if (target && target.classList.contains('note-img-block')) {
+      // 光标在图片块上 → 激活为源码态
+      this._activateImageAsSource(editor, target);
+    } else {
+      this._deactivateAllImages(editor);
+    }
+  }
+
+  _activateImageAsSource(editor, block) {
+    if (this._activeImgBlock === block) return;
+    this._deactivateAllImages(editor);
+    this._activeImgBlock = block;
+    const url = block.getAttribute('data-url') || '';
+    const span = document.createElement('span');
+    span.className = 'note-img-source';
+    span.setAttribute('contenteditable', 'true');
+    span.textContent = `[[${url}]]`;
+    span.setAttribute('data-url', url);
+    block.replaceWith(span);
+    // 聚焦并把光标放末尾
+    span.focus();
+    const r = document.createRange();
+    r.selectNodeContents(span);
+    r.collapse(false);
+    const s = window.getSelection();
+    s.removeAllRanges();
+    s.addRange(r);
+  }
+
+  _deactivateAllImages(editor) {
+    if (!this._activeImgBlock) return;
+    // 当前激活的可能已被替换为 .note-img-source;若在,blur 时把它换回图片块
+    const src = editor.querySelector('.note-img-source');
+    if (src) {
+      const url = (src.textContent.match(/\[\[(https?:\/\/[^\]]+)\]\]/) || [])[1]
+        || src.getAttribute('data-url') || '';
+      const block = this._makeImageBlock(url);
+      src.replaceWith(block);
+      this._proxyEditorImages(editor); // 补新块的 src
+    }
+    this._activeImgBlock = null;
+  }
+
+  /**
+   * 删除图片块 click handler(绑在每个 × 按钮上)
+   */
+  _onDeleteImgClick(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const block = e.currentTarget.closest('.note-img-block');
+    if (!block) return;
+    // 删除图片块 + 它前面的零宽空格(若有)
+    const prev = block.previousSibling;
+    block.remove();
+    if (prev && prev.nodeType === 3 && prev.textContent === '​') prev.remove();
+    const editor = this.container.querySelector('#notePageContent');
+    if (editor) this._scheduleEditorSave(editor);
+  }
+
+  /**
+   * 构造一个图片块 span(图片 + × 按钮)
+   * http:// URL 放 data-pending-src(由 _proxyEditorImages 转 dataURL),避免 Mixed Content
+   */
+  _makeImageBlock(url) {
+    const span = document.createElement('span');
+    span.className = 'note-img-block';
+    span.setAttribute('contenteditable', 'false');
+    span.setAttribute('data-url', url);
+    const img = document.createElement('img');
+    img.alt = '图片';
+    if (url && url.startsWith('http://')) img.setAttribute('data-pending-src', url);
+    else if (url) img.src = url;
+    const x = document.createElement('button');
+    x.className = 'note-img-x';
+    x.type = 'button';
+    x.textContent = '×';
+    x.title = '删除这张图';
+    x.addEventListener('click', (e) => this._onDeleteImgClick(e));
+    span.appendChild(img);
+    span.appendChild(x);
+    return span;
+  }
+
+  /**
+   * 在编辑器当前光标位置插入图片块(光标不在 editor 内则追加到末尾)
+   */
+  _insertImageBlockAtCursor(editor, url) {
+    const sel = window.getSelection();
+    let inserted = false;
+    if (sel && sel.rangeCount && editor.contains(sel.anchorNode)) {
+      const range = sel.getRangeAt(0);
+      range.deleteContents();
+      const block = this._makeImageBlock(url);
+      range.insertNode(block);
+      range.setStartAfter(block);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+      inserted = true;
+    }
+    if (!inserted) {
+      editor.appendChild(this._makeImageBlock(url));
+    }
+  }
+
+  /**
+   * 粘贴图片 → 上传图床 → 插入 [[URL]] 图片块(与 noteRing 同链路)
+   * 来源:网页右键复制图 / 截图工具 / 本地文件
+   */
+  async _onEditorPaste(e, editor) {
+    if (!this.activePageId) return;
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    let imageItem = null;
+    for (const it of items) {
+      if (it.type && it.type.startsWith('image/')) { imageItem = it; break; }
+    }
+    if (!imageItem) return; // 没图片 → 走默认文本粘贴
+    e.preventDefault();
+    const blob = imageItem.getAsFile();
+    if (!blob) return;
+    const dataUrl = await new Promise((res) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result);
+      r.onerror = () => res(null);
+      r.readAsDataURL(blob);
+    });
+    if (!dataUrl) return;
+    // 凭证预检
+    const status = await new Promise((resolve) => {
+      chrome.runtime.sendMessage({ action: 'getLoginStatus' }, (r) => {
+        if (chrome.runtime.lastError) resolve({ hasCredentials: false });
+        else resolve(r || { hasCredentials: false });
+      });
+    });
+    if (!status.hasCredentials) {
+      alert('未配置图床账号,请在下方「图床账号」面板填写并登录');
+      return;
+    }
+    this._updateStatus(0);
+    let up;
+    try {
+      up = await this.dataManager.sendMessage('uploadNoteImage', { dataUrl });
+    } catch (err) {
+      alert('上传失败: ' + err.message);
+      return;
+    }
+    if (!up?.success) { alert('上传失败: ' + (up?.error || '')); return; }
+    this._deactivateAllImages(editor);
+    this._insertImageBlockAtCursor(editor, up.url);
+    this._proxyEditorImages(editor);
+    this._scheduleEditorSave(editor);
+  }
+
+  /**
+   * 代理编辑器里所有 data-pending-src 的 http 图片 → SW fetch 转 dataURL
+   * 模块页是 chrome-extension://,本无 Mixed Content 限制,但仍走 SW 统一通道
+   */
+  _proxyEditorImages(editor) {
+    const imgs = editor.querySelectorAll('img[data-pending-src]');
+    imgs.forEach((img) => {
+      const url = img.getAttribute('data-pending-src');
+      if (!url) return;
+      chrome.runtime.sendMessage({ action: 'fetchImageAsDataUrl', url }, (res) => {
+        if (chrome.runtime.lastError) return;
+        if (res?.success && res.dataUrl) {
+          img.src = res.dataUrl;
+          img.removeAttribute('data-pending-src');
+        } else {
+          img.alt = '图片加载失败';
+        }
+      });
+    });
+  }
+
+  /**
+   * 防抖保存:序列化 editor → updateNoteContent
+   */
+  _scheduleEditorSave(editor) {
+    this._saveDirty = true;
+    if (this._saveTimer) clearTimeout(this._saveTimer);
+    this._saveTimer = setTimeout(async () => {
+      if (!this.activePageId) return;
+      const content = this._serializeEditor(editor);
+      await this._doSave(content);
+    }, AUTOSAVE_DELAY);
   }
 
   _updateStatus(len) {
@@ -347,18 +794,12 @@ class NoteView {
     }, 500);
   }
 
-  _scheduleSave(content) {
-    this._saveDirty = true;
-    if (this._saveTimer) clearTimeout(this._saveTimer);
-    this._saveTimer = setTimeout(() => this._doSave(content), AUTOSAVE_DELAY);
-  }
-
   async _flushSave() {
     if (!this._saveDirty || !this.activePageId) return;
     if (this._saveTimer) { clearTimeout(this._saveTimer); this._saveTimer = null; }
-    const contentArea = this.container.querySelector('#notePageContent');
-    const text = contentArea ? contentArea.value : '';
-    await this._doSave(text);
+    const editor = this.container.querySelector('#notePageContent');
+    const content = editor ? this._serializeEditor(editor) : '';
+    await this._doSave(content);
   }
 
   async _doSave(content) {
@@ -369,7 +810,7 @@ class NoteView {
       content: content || ''
     });
     // 触发 storage change → 其他视图也会刷新
-    // 本本地不重渲染（避免打断编辑）
+    // 本地不重渲染（避免打断编辑）
   }
 
   // ========== 动作处理 ==========
@@ -466,9 +907,18 @@ class NoteView {
       chrome.storage.onChanged.removeListener(this._onStorageChange);
       this._onStorageChange = null;
     }
+    if (this._uploadCredListener) {
+      chrome.storage.onChanged.removeListener(this._uploadCredListener);
+      this._uploadCredListener = null;
+    }
+    if (this._docSelectionHandler) {
+      document.removeEventListener('selectionchange', this._docSelectionHandler);
+      this._docSelectionHandler = null;
+    }
     if (this._saveTimer) { clearTimeout(this._saveTimer); this._saveTimer = null; }
     if (this._renameTimer) { clearTimeout(this._renameTimer); this._renameTimer = null; }
     this._delegationBound = false;
+    this._activeImgBlock = null;
     // 不清 container.innerHTML — 见 module-extension-guide §7#11
   }
 }

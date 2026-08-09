@@ -57,8 +57,108 @@ const NOTE_ACTIONS = new Set([
   'bindTabToPage', 'unbindTabFromPage',
   'getPagesForTab',
   // 全局默认 page id:用户上次选的 page,跨 tab 共享
-  'getNoteCurrentPageId', 'setNoteCurrentPageId'
+  'getNoteCurrentPageId', 'setNoteCurrentPageId',
+  // 便签截图 → 图床
+  'uploadNoteImage',
+  // 图片代理:SW fetch http 图 → dataURL,绕开 HTTPS 页 Mixed Content
+  'fetchImageAsDataUrl',
+  // 登录状态查询:通用 service,module/noteRing 都可用
+  'getLoginStatus',
+  // 主动登录(无 token 时一次性登录拿 token,缓存 30 天)
+  'ensureLogin'
 ]);
+
+// ===================== 图床上传（便签截图） =====================
+// 后端:dev_ctr_hello GoFrame + Postgres 图床
+// 契约:POST /api/v1/user/login {email,password} → data.token(JWT 30 天)
+//       POST /api/v1/files multipart(file + accessLevel + expireSeconds + groupId) → data.url
+// 凭证存 chrome.storage.local.noteUpload { email, password, token, tokenExpiry }
+
+const UPLOAD_API_BASE = 'http://47.110.80.47:8988';
+const UPLOAD_CFG_KEY = 'noteUpload';
+const UPLOAD_TOKEN_TTL = 30 * 24 * 3600 * 1000; // JWT 30 天
+
+async function loadUploadConfig() {
+  const r = await chrome.storage.local.get([UPLOAD_CFG_KEY]);
+  return r[UPLOAD_CFG_KEY] || {};
+}
+
+async function saveUploadConfig(cfg) {
+  await chrome.storage.local.set({ [UPLOAD_CFG_KEY]: cfg });
+}
+
+/**
+ * 登录拿 token。token 未过期(预留 60s)直接复用;force=true 强制重新登录。
+ */
+async function loginAndGetToken(force = false) {
+  const cfg = await loadUploadConfig();
+  if (!cfg.email || !cfg.password) {
+    throw new Error('未配置图床账号，请到 popup「基础设置 → 图床账号」填写');
+  }
+  if (!force && cfg.token && cfg.tokenExpiry && Date.now() < cfg.tokenExpiry - 60000) {
+    return cfg.token;
+  }
+  let resp;
+  try {
+    resp = await fetch(`${UPLOAD_API_BASE}/api/v1/user/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: cfg.email, password: cfg.password })
+    });
+  } catch (err) {
+    throw new Error('无法连接图床服务: ' + err.message);
+  }
+  let body = {};
+  try { body = await resp.json(); } catch (_) {}
+  if (!resp.ok || body.code !== 0 || !body.data?.token) {
+    throw new Error('图床登录失败: ' + (body.message || ('HTTP ' + resp.status)));
+  }
+  const token = body.data.token;
+  cfg.token = token;
+  cfg.tokenExpiry = Date.now() + UPLOAD_TOKEN_TTL;
+  await saveUploadConfig(cfg);
+  return token;
+}
+
+async function postUploadForm(form, token) {
+  const resp = await fetch(`${UPLOAD_API_BASE}/api/v1/files`, {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + token },
+    body: form
+  });
+  let body = {};
+  try { body = await resp.json(); } catch (_) {}
+  return { status: resp.status, body };
+}
+
+/**
+ * dataUrl(PNG) → 上传图床 → 返回公开 URL(http://)。
+ * 401 时 token 失效 → 强制重登一次。
+ * 注:图床返回 http URL 在 HTTPS 页面(如 B 站)加载会被 Mixed Content 拦截。
+ * 浏览器扩展层面可解决:noteRing 渲染预览时通过扩展 fetch 转 blob URL 替换 img.src。
+ * 笔记正文仍存原 URL(http://...),只占几十字节、可分享、未来 HTTPS 化自动好。
+ */
+async function uploadNoteImage(dataUrl) {
+  const token = await loginAndGetToken();
+  const blob = await (await fetch(dataUrl)).blob();
+  const makeForm = () => {
+    const f = new FormData();
+    f.append('file', blob, 'frame.png');
+    f.append('accessLevel', 'public');
+    f.append('expireSeconds', '0');
+    f.append('groupId', '0');
+    return f;
+  };
+  let { status, body } = await postUploadForm(makeForm(), token);
+  if (status === 401) {
+    const token2 = await loginAndGetToken(true);
+    ({ status, body } = await postUploadForm(makeForm(), token2));
+  }
+  if (status !== 200 || body.code !== 0 || !body.data?.url) {
+    throw new Error('图床上传失败: ' + (body.message || ('HTTP ' + status)));
+  }
+  return body.data.url;
+}
 
 export function setupNotesListeners() {
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -197,6 +297,59 @@ export function setupNotesListeners() {
             }
             await saveCurrentPageId(id);
             result = { success: true, currentPageId: id };
+            break;
+          }
+          case 'uploadNoteImage': {
+            if (!request.dataUrl) { result = { success: false, error: '缺少图片数据' }; break; }
+            const url = await uploadNoteImage(request.dataUrl);
+            result = { success: true, url };
+            break;
+          }
+          case 'fetchImageAsDataUrl': {
+            // HTTPS 页面加载 http:// 图被 Mixed Content 拦截。
+            // 扩展 Service Worker 在独立的 background context 里 fetch,
+            // 不受页面 Mixed Content 规则约束 → 转 dataURL 回传,
+            // 任意页面都能显示。笔记正文始终存原 http URL(几十字节)。
+            if (!request.url) { result = { success: false, error: '缺少 url' }; break; }
+            try {
+              const r = await fetch(request.url);
+              if (!r.ok) throw new Error('HTTP ' + r.status);
+              const blob = await r.blob();
+              const dataUrl = await new Promise((res, rej) => {
+                const fr = new FileReader();
+                fr.onload = () => res(fr.result);
+                fr.onerror = () => rej(fr.error);
+                fr.readAsDataURL(blob);
+              });
+              result = { success: true, dataUrl };
+            } catch (err) {
+              result = { success: false, error: err.message };
+            }
+            break;
+          }
+          case 'getLoginStatus': {
+            // 通用登录态查询(不强制登录)
+            const cfg = await loadUploadConfig();
+            const hasCredentials = !!(cfg.email && cfg.password);
+            const tokenValid = !!(cfg.token && cfg.tokenExpiry && Date.now() < cfg.tokenExpiry - 60000);
+            result = {
+              success: true,
+              hasCredentials,
+              hasToken: !!cfg.token,
+              tokenValid,
+              email: cfg.email || null,
+              tokenExpiry: cfg.tokenExpiry || null
+            };
+            break;
+          }
+          case 'ensureLogin': {
+            // 主动登录(无 token / 过期时);已有效 token 直接返回
+            try {
+              await loginAndGetToken(false);
+              result = { success: true };
+            } catch (err) {
+              result = { success: false, error: err.message };
+            }
             break;
           }
           default:

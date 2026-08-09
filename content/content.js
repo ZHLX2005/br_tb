@@ -291,6 +291,10 @@ function trackPageVisit() {
  *
  * 消息格式:
  *   { action: 'showToast', type, title, message, duration, showOpenButton }
+ *   { action: 'detectVideos' }
+ *   { action: 'captureVideoFrame' }  ← 通过 window.__tabboardVideoFrameCapture 截帧
+ *
+ * 截帧逻辑独立在 content/videoFrameCapture.js(独立工具,可能被多端复用)
  *
  * @param {Object} request - 消息内容
  * @param {Object} sender  - 发送者信息 (unused)
@@ -321,6 +325,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     } else {
       sendResponse({ success: true, videos: [] });
     }
+    return true;
+  }
+
+  if (request.action === 'captureVideoFrame') {
+    const api = window.__tabboardVideoFrameCapture;
+    if (!api || typeof api.capture !== 'function') {
+      sendResponse({ success: false, error: 'videoFrameCapture 工具未加载' });
+      return true;
+    }
+    api.capture().then(dataUrl => {
+      sendResponse({ success: !!dataUrl, dataUrl });
+    });
     return true;
   }
 

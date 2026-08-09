@@ -226,12 +226,12 @@
   display: flex;
   overflow: hidden;
 }
+/* WYSIWYG contenteditable 编辑区（[[URL]] 渲染为图片块，光标进入临时显源码） */
 .note-editor-content {
   flex: 1;
   width: 100%;
   border: none;
   outline: none;
-  resize: none;
   padding: 16px 24px;
   font-size: 14px;
   line-height: 1.65;
@@ -242,8 +242,139 @@
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: #c0c0c0 transparent;
+  word-break: break-word;
 }
 .note-editor-content::-webkit-scrollbar { width: 6px; }
 .note-editor-content::-webkit-scrollbar-thumb { background: #c0c0c0; border-radius: 3px; }
 .note-editor-content::-webkit-scrollbar-track { background: transparent; }
-.note-editor-content::placeholder { color: #c0c0c0; }
+.note-editor-content:empty::before {
+  content: attr(data-placeholder);
+  color: #c0c0c0;
+  pointer-events: none;
+}
+
+/* 工具栏（截帧上传 + 预览） */
+.note-editor-toolbar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 18px;
+  border-bottom: 1px solid #e8e8e8;
+  background: #fafafa;
+  flex-shrink: 0;
+}
+.note-tool-btn.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+
+/* WYSIWYG 图片块(contenteditable=false): 默认显示图片;光标进入时内部换为 [[URL]] 源码文本 */
+.note-img-block {
+  display: inline-block;
+  vertical-align: middle;
+  position: relative;
+  margin: 4px 2px;
+  max-width: 100%;
+  border-radius: 6px;
+  line-height: 0;
+  transition: box-shadow 120ms;
+}
+.note-img-block img {
+  display: block;
+  max-width: 100%;
+  max-height: 300px;
+  border-radius: 6px;
+  border: 1px solid #e0e0e0;
+}
+.note-img-block::after {
+  content: '';
+  position: absolute; inset: 0;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  pointer-events: none;
+  transition: border-color 120ms;
+}
+.note-img-block.note-img-active::after { border-color: #1a1a1a; }
+/* 删除按钮(hover 出现) */
+.note-img-x {
+  position: absolute; top: 4px; right: 4px;
+  width: 18px; height: 18px;
+  border: none; background: rgba(0,0,0,0.6);
+  color: #fff; border-radius: 50%;
+  cursor: pointer; font-size: 12px; line-height: 1;
+  display: none; align-items: center; justify-content: center;
+  padding: 0;
+}
+.note-img-block:hover .note-img-x { display: flex; }
+.note-img-x:hover { background: #1a1a1a; }
+
+/* 图床账号面板（折叠 details） */
+.note-editor-settings {
+  border-bottom: 1px solid #e8e8e8;
+  background: #fafafa;
+  flex-shrink: 0;
+}
+.note-editor-settings-toggle {
+  padding: 6px 18px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.note-editor-settings-toggle::-webkit-details-marker { display: none; }
+.note-editor-settings-toggle::before {
+  content: '▶ ';
+  font-size: 8px;
+  color: #999;
+  transition: transform 120ms;
+  display: inline-block;
+  margin-right: 4px;
+}
+.note-editor-settings[open] .note-editor-settings-toggle::before { transform: rotate(90deg); }
+.note-editor-settings-body {
+  padding: 8px 18px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.note-setting-row {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px;
+  color: #444;
+}
+.note-setting-row label { min-width: 40px; color: #666; }
+.note-setting-input {
+  flex: 1;
+  padding: 5px 9px;
+  font-size: 12px;
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+  outline: none;
+  background: #fff;
+  font-family: inherit;
+}
+.note-setting-input:focus { border-color: #1a1a1a; }
+.note-setting-hint {
+  font-size: 11px;
+  color: #888;
+  margin-right: 8px;
+}
+
+/* 登录状态徽章(与 noteRing 的 nr-status-pill 风格对齐) */
+.note-setting-status {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 0 2px;
+  border-bottom: 1px dashed #e8e8e8;
+  margin-bottom: 2px;
+}
+.note-login-pill {
+  flex: 1;
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: #f0f0f0;
+  color: #888;
+}
+.note-login-pill.ok { background: #e8f5e9; color: #2e7d32; }
+.note-login-pill.warn { background: #fff8e1; color: #f57c00; }
+.note-login-pill.err { background: #ffebee; color: #c62828; }
+#noteLoginBtn { padding: 4px 12px; font-size: 11px; }

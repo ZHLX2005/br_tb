@@ -18,7 +18,7 @@
   'use strict';
 
   const WRAPPER_ID = 'tabboard-note-ring';
-  const ACCENT = '#333';
+  const ACCENT = '#1a1a1a'; // 黑白灰主题(用户明确要求去红)
 
   if (window.__tabboardNoteRingInjected) return;
   window.__tabboardNoteRingInjected = true;
@@ -27,6 +27,7 @@
   let wrapper = null;
   let panel = null;
   let isExpanded = false;
+  // 所见即所得编辑器: [[URL]] 渲染为图片块;光标进入时临时显示源码
   let pages = [];
   let currentPageId = null;
   let currentTabUrl = '';
@@ -51,17 +52,14 @@
     #${WRAPPER_ID}-circle {
       width: 48px; height: 48px; border-radius: 50%;
       background: #1a1a1a;
+      color: #fff; /* svg currentColor: 收起时白 */
       box-shadow: 0 4px 14px rgba(0,0,0,0.28);
       display: flex; align-items: center; justify-content: center;
-      transition: transform 180ms ease, box-shadow 180ms;
+      transition: transform 180ms ease, box-shadow 180ms, color 180ms;
       position: relative;
     }
     #${WRAPPER_ID}-circle:hover { transform: scale(1.08); box-shadow: 0 6px 20px rgba(0,0,0,0.4); }
-    #${WRAPPER_ID}-circle.expanded { background: #fff; box-shadow: 0 6px 22px rgba(0,0,0,0.3); }
-    #${WRAPPER_ID}-circle svg path,
-    #${WRAPPER_ID}-circle svg line { stroke: #fff; transition: stroke 180ms; }
-    #${WRAPPER_ID}-circle.expanded svg path,
-    #${WRAPPER_ID}-circle.expanded svg line { stroke: #1a1a1a; }
+    #${WRAPPER_ID}-circle.expanded { background: #fff; color: #1a1a1a; box-shadow: 0 6px 22px rgba(0,0,0,0.3); }
 
     /* ========== 面板 ========== */
     #${WRAPPER_ID}-panel {
@@ -230,31 +228,6 @@
     }
     .nr-empty-cta:hover { background: #000; }
 
-    .nr-article-wrap {
-      flex: 1; min-height: 0;
-      display: flex;
-      overflow: hidden;
-    }
-    .nr-article {
-      flex: 1; width: 100%;
-      border: none; outline: none;
-      resize: none;
-      padding: 14px 16px;
-      font-size: 13px;
-      line-height: 1.6;
-      color: #1a1a1a;
-      background: #fff;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-      tab-size: 2;
-      overflow-y: auto;
-      scrollbar-width: thin;
-      scrollbar-color: #c0c0c0 transparent;
-    }
-    .nr-article::-webkit-scrollbar { width: 5px; }
-    .nr-article::-webkit-scrollbar-thumb { background: #c0c0c0; border-radius: 3px; }
-    .nr-article::-webkit-scrollbar-track { background: transparent; }
-    .nr-article::placeholder { color: #c0c0c0; }
-
     /* 底部状态条 */
     .nr-status-bar {
       display: flex; align-items: center; justify-content: space-between;
@@ -268,6 +241,164 @@
     }
     .nr-status-bar .saved { color: #43a047; }
     .nr-status-bar .saving { color: #888; }
+
+    /* 图床账号配置（默认收起） */
+    .nr-settings {
+      border-top: 1px solid #e8e8e8;
+      background: #fafafa;
+      padding: 6px 10px 8px;
+      display: flex; flex-direction: column; gap: 5px;
+      flex-shrink: 0;
+    }
+    .nr-settings-title {
+      font-size: 10.5px;
+      font-weight: 600;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .nr-settings-row {
+      display: flex; align-items: center; gap: 6px;
+    }
+    .nr-settings input {
+      flex: 1;
+      padding: 4px 7px;
+      font-size: 11px;
+      border: 1px solid #d0d0d0;
+      border-radius: 3px;
+      outline: none;
+      background: #fff;
+      font-family: inherit;
+      min-width: 0;
+    }
+    .nr-settings input:focus { border-color: #1a1a1a; }
+    .nr-settings-hint {
+      font-size: 10.5px;
+      color: #888;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* 文章工具栏（截帧上传 + 预览） */
+    .nr-toolbar {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 10px;
+      border-bottom: 1px solid #e8e8e8;
+      background: #fafafa;
+      flex-shrink: 0;
+    }
+    .nr-tool-btn {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 4px 8px;
+      font-size: 11px;
+      border: 1px solid #d0d0d0;
+      background: #fff; color: #1a1a1a;
+      border-radius: 4px; cursor: pointer;
+      font-family: inherit;
+      transition: background 120ms, color 120ms;
+    }
+    .nr-tool-btn:hover { background: #f0f0f0; }
+    .nr-tool-btn.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+    .nr-tool-spacer { flex: 1; }
+
+    /* 截帧快门按钮(签名色) */
+    .nr-tool-shutter {
+      background: ${ACCENT}; color: #fff;
+      border-color: ${ACCENT};
+      font-weight: 600;
+    }
+    .nr-tool-shutter:hover { background: #000; border-color: #000; }
+    .nr-tool-shutter:active { transform: scale(0.97); }
+    .nr-tool-shutter .nr-shutter-dot {
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #fff;
+      margin-right: 2px;
+      box-shadow: 0 0 0 2px rgba(255,255,255,0.3);
+    }
+
+    /* 登录状态徽章(同步 background getLoginStatus) */
+    .nr-status-pill {
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: #f0f0f0;
+      color: #888;
+      cursor: pointer;
+      transition: background 120ms;
+      white-space: nowrap;
+    }
+    .nr-status-pill:hover { background: #e8e8e8; }
+    .nr-status-pill.ok { background: #e8f5e9; color: #2e7d32; }
+    .nr-status-pill.warn { background: #fff8e1; color: #f57c00; }
+    .nr-status-pill.err { background: #ffebee; color: #c62828; }
+
+    /* WYSIWYG 编辑器(contenteditable) */
+    .nr-editor {
+      flex: 1; min-height: 0;
+      overflow-y: auto;
+      padding: 12px 14px;
+      font-size: 13px;
+      line-height: 1.65;
+      color: #1a1a1a;
+      background: #fff;
+      outline: none;
+      tab-size: 2;
+      scrollbar-width: thin;
+      scrollbar-color: #c0c0c0 transparent;
+      word-break: break-word;
+    }
+    .nr-editor::-webkit-scrollbar { width: 5px; }
+    .nr-editor::-webkit-scrollbar-thumb { background: #c0c0c0; border-radius: 3px; }
+    .nr-editor::-webkit-scrollbar-track { background: transparent; }
+    .nr-editor:empty::before {
+      content: attr(data-placeholder);
+      color: #c0c0c0;
+      pointer-events: none;
+    }
+
+    /* 图片块(contenteditable=false): 默认显示图片;光标进入时内部换为 [[URL]] 源码文本 */
+    .nr-img-block {
+      display: inline-block;
+      vertical-align: middle;
+      position: relative;
+      margin: 4px 2px;
+      max-width: 100%;
+      border-radius: 6px;
+      line-height: 0;
+      transition: box-shadow 120ms;
+    }
+    .nr-img-block img {
+      display: block;
+      max-width: 100%;
+      max-height: 300px;
+      border-radius: 6px;
+      border: 1px solid #e0e0e0;
+    }
+    .nr-img-block::after {
+      content: '';
+      position: absolute; inset: 0;
+      border: 2px solid transparent;
+      border-radius: 6px;
+      pointer-events: none;
+      transition: border-color 120ms;
+    }
+    .nr-img-block.nr-img-active::after { border-color: ${ACCENT}; }
+    /* 删除按钮(hover 出现) */
+    .nr-img-x {
+      position: absolute; top: 4px; right: 4px;
+      width: 18px; height: 18px;
+      border: none; background: rgba(0,0,0,0.6);
+      color: #fff; border-radius: 50%;
+      cursor: pointer; font-size: 12px; line-height: 1;
+      display: none; align-items: center; justify-content: center;
+      padding: 0;
+    }
+    .nr-img-block:hover .nr-img-x { display: flex; }
+    .nr-img-x:hover { background: ${ACCENT}; }
   `;
 
   // ===================== 构建 =====================
@@ -287,10 +418,8 @@
     wrapper.innerHTML = `
       <div id="${WRAPPER_ID}-circle">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-          <path d="M5 4h11l3 3v13a1 1 0 01-1 1H5a1 1 0 01-1-1V5a1 1 0 011-1z" stroke="${ACCENT}" stroke-width="1.8"/>
-          <path d="M16 4v3h3" stroke="${ACCENT}" stroke-width="1.8"/>
-          <line x1="7" y1="12" x2="15" y2="12" stroke="${ACCENT}" stroke-width="1.4" stroke-linecap="round"/>
-          <line x1="7" y1="15" x2="13" y2="15" stroke="${ACCENT}" stroke-width="1.4" stroke-linecap="round"/>
+          <rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" stroke-width="1.8" fill="none"/>
+          <circle cx="12" cy="12" r="4" fill="currentColor"/>
         </svg>
       </div>
     `;
@@ -307,6 +436,13 @@
           </svg>
         </div>
         <div class="nr-header-actions">
+          <button class="nr-icon-btn" data-note-action="open-in-board" title="在便签模块打开（登录与账号配置在此）">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/>
+              <polyline points="15 3 21 3 21 9"/>
+              <line x1="10" y1="14" x2="21" y2="3"/>
+            </svg>
+          </button>
           <button class="nr-icon-btn" data-note-action="rename-current-page" title="重命名当前页">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
               <path d="M17 3a2.85 2.85 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
@@ -316,6 +452,7 @@
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
               <polyline points="3 6 5 6 21 6"/>
               <path d="M19 6l-1 14H6L5 6"/>
+              <path d="M10 11v6M14 11v6"/>
             </svg>
           </button>
           <button class="nr-icon-btn" data-note-action="close-panel" title="收起">
@@ -544,63 +681,350 @@
       setStatus('', '');
       return;
     }
-    // 一页 = 一篇可编辑文章
+    // WYSIWYG 编辑器: [[URL]] 渲染为图片块;光标进入图片块附近时临时显示 [[url]] 源码
     body.innerHTML = `
-      <div class="nr-article-wrap">
-        <textarea class="nr-article" id="${WRAPPER_ID}-article" placeholder="开始写…" spellcheck="false">${escHtml(page.content || '')}</textarea>
+      <div class="nr-toolbar">
+        <button class="nr-tool-btn nr-tool-shutter" data-note-action="capture-frame" title="截取当前视频帧 · Ctrl+B">
+          <span class="nr-shutter-dot"></span> 截帧
+        </button>
+        <span class="nr-status-pill" id="${WRAPPER_ID}-loginPill" data-note-action="open-login" title="点击打开便签模块">…</span>
       </div>
+      <div class="nr-editor" id="${WRAPPER_ID}-editor" contenteditable="true" data-placeholder="开始写…截帧后自动插入图片" spellcheck="false"></div>
     `;
-    bindArticleEditor();
-    setStatus(`${page.content?.length || 0} 字符`, '已加载');
+    const editor = panel.querySelector('#' + WRAPPER_ID + '-editor');
+    if (editor) {
+      renderContentToEditor(editor, page.content || '');
+      bindEditorEvents(editor);
+      proxyEditorImages(editor);
+    }
+    setStatus(`${page.content?.length || 0} 字符`, '就绪');
+    refreshLoginPill();
   }
 
-  // 文章编辑器：input → 自动保存
-  function bindArticleEditor() {
-    const article = panel.querySelector('#' + WRAPPER_ID + '-article');
-    if (!article || article._bound) return;
-    article._bound = true;
-    article.addEventListener('input', () => {
-      if (!currentPageId) return;
-      setStatus(`${article.value.length} 字符`, '保存中…', 'saving');
-      scheduleContentSave(article.value);
-    });
-    article.addEventListener('keydown', (e) => {
-      // Tab 缩进支持
-      if (e.key === 'Tab') {
-        e.preventDefault();
-        const s = article.selectionStart, en = article.selectionEnd;
-        article.value = article.value.slice(0, s) + '  ' + article.value.slice(en);
-        article.selectionStart = article.selectionEnd = s + 2;
-        if (currentPageId) scheduleContentSave(article.value);
+  /**
+   * HTTPS 页面(如 B 站)加载 http:// 图片被 Mixed Content 拦截。
+   * 渲染时已把 http:// URL 放在 data-pending-src 上(不设 src,浏览器不发起请求)。
+   * 此函数遍历 data-pending-src 的 img,通过扩展 SW 抓图转 dataURL,
+   * 再写到 .src 上 → 无 Mixed Content 警告。
+   * 笔记正文始终存原 http URL(几十字节)。
+   */
+  // ====== WYSIWYG 混合编辑器: [[URL]] → 图片块,光标进入时临时显示源码 ======
+
+  /**
+   * 把纯文本内容(含 [[URL]] 占位)渲染进 contenteditable editor
+   * [[URL]] → <span class="nr-img-block" data-url=URL contenteditable=false><img data-pending-src=URL></span>
+   * 其余文本按行分到 <div> 里(每行一个块,便于光标定位)
+   */
+  function renderContentToEditor(editor, content) {
+    editor.innerHTML = "";
+    if (!content) { editor.textContent = ""; return; }
+    // 按 [[URL]] 切分
+    const re = /(\[\[https?:\/\/[^\]]+\]\])/g;
+    const parts = content.split(re);
+    for (const part of parts) {
+      const m = part.match(/^\[\[(https?:\/\/[^\]]+)\]\]$/);
+      if (m) {
+        const url = m[1];
+        const isHttp = url.startsWith("http://");
+        const span = document.createElement("span");
+        span.className = "nr-img-block";
+        span.setAttribute("contenteditable", "false");
+        span.setAttribute("data-url", url);
+        const img = document.createElement("img");
+        img.alt = "视频帧";
+        if (isHttp) {
+          img.setAttribute("data-pending-src", url); // 代理时再设 src,避免 Mixed Content 警告
+        } else {
+          img.src = url;
+        }
+        const x = document.createElement("button");
+        x.className = "nr-img-x";
+        x.type = "button";
+        x.textContent = "×";
+        x.title = "删除这张图";
+        x.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const block = e.currentTarget.closest(".nr-img-block");
+          if (!block) return;
+          // 删除图片块 + 它前面的零宽空格(若有)
+          const prev = block.previousSibling;
+          block.remove();
+          if (prev && prev.nodeType === 3 && prev.textContent === "\u200b") prev.remove();
+          scheduleEditorSave(editor);
+        });
+        span.appendChild(img);
+        span.appendChild(x);
+        editor.appendChild(span);
+      } else if (part) {
+        // 文本:按 \n 分行,每行一个 <div>(空行用 <div><br></div>)
+        const lines = part.split("\n");
+        lines.forEach((line, idx) => {
+          const div = document.createElement("div");
+          if (line) div.textContent = line;
+          else div.appendChild(document.createElement("br"));
+          editor.appendChild(div);
+        });
       }
-      e.stopPropagation();
+    }
+    if (!editor.childNodes.length) editor.textContent = "";
+  }
+
+  /**
+   * 把 contenteditable editor 序列化回 [[URL]] + 文本 格式
+   * 规则:<div> 之间换行;图片块 → [[url]];其它(如临时的源码 span)按 textContent
+   */
+  function serializeEditor(editor) {
+    let out = "";
+    const kids = Array.from(editor.childNodes);
+    kids.forEach((node, i) => {
+      if (node.nodeType === 3) {
+        // 纯文本节点
+        out += node.textContent;
+      } else if (node.nodeType === 1) {
+        const el = node;
+        if (el.classList && el.classList.contains("nr-img-block")) {
+          const url = el.getAttribute("data-url");
+          out += url ? `[[${url}]]` : "";
+        } else if (el.classList && el.classList.contains("nr-img-source")) {
+          // 临时源码显示:用户可能改了 URL,直接用 textContent
+          out += el.textContent;
+        } else {
+          // <div> / <br> 等
+          const tag = el.tagName;
+          if (tag === "BR") {
+            out += "\n";
+          } else {
+            // div:内容 + 换行(除非是最后一个空块)
+            const t = el.textContent || "";
+            out += t;
+            if (i < kids.length - 1) out += "\n";
+          }
+        }
+      }
     });
+    return out;
   }
 
-  let _contentSaveTimer = null;
-  function scheduleContentSave(content) {
-    if (_contentSaveTimer) clearTimeout(_contentSaveTimer);
-    _contentSaveTimer = setTimeout(() => doContentSave(content), 500);
-  }
-
-  async function flushContentSave() {
-    if (!_contentSaveTimer) return;
-    clearTimeout(_contentSaveTimer);
-    _contentSaveTimer = null;
-    const article = panel?.querySelector('#' + WRAPPER_ID + '-article');
-    if (article && currentPageId) {
-      await doContentSave(article.value);
+  /**
+   * 光标感知:把光标所在的图片块临时显示为 [[url]] 源码(可编辑),其余保持图片
+   */
+  let _activeImgBlock = null;
+  function syncImageActiveState(editor) {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) {
+      deactivateAllImages(editor);
+      return;
+    }
+    const node = sel.anchorNode;
+    // 向上找最近的图片块(或临时源码 span)
+    let target = null;
+    if (node) {
+      target = node.nodeType === 1 ? node.closest(".nr-img-block, .nr-img-source") : null;
+      if (!target && node.parentElement) {
+        target = node.parentElement.closest(".nr-img-block, .nr-img-source");
+      }
+    }
+    if (target && target.classList.contains("nr-img-source")) {
+      // 已经在源码态,保持
+      return;
+    }
+    if (target && target.classList.contains("nr-img-block")) {
+      // 光标在图片块上 → 激活为源码态
+      activateImageAsSource(editor, target);
+    } else {
+      deactivateAllImages(editor);
     }
   }
 
-  async function doContentSave(content) {
+  function activateImageAsSource(editor, block) {
+    if (_activeImgBlock === block) return;
+    deactivateAllImages(editor);
+    _activeImgBlock = block;
+    const url = block.getAttribute("data-url") || "";
+    const span = document.createElement("span");
+    span.className = "nr-img-source";
+    span.setAttribute("contenteditable", "true");
+    span.textContent = `[[${url}]]`;
+    span.setAttribute("data-url", url);
+    block.replaceWith(span);
+    // 聚焦并把光标放末尾
+    span.focus();
+    const r = document.createRange();
+    r.selectNodeContents(span);
+    r.collapse(false);
+    const s = window.getSelection();
+    s.removeAllRanges();
+    s.addRange(r);
+  }
+
+  function deactivateAllImages(editor) {
+    if (!_activeImgBlock) return;
+    // 当前激活的可能已被替换为 .nr-img-source;若在,blur 时把它换回图片块
+    const src = editor.querySelector(".nr-img-source");
+    if (src) {
+      const url = (src.textContent.match(/\[\[(https?:\/\/[^\]]+)\]\]/) || [])[1] || src.getAttribute("data-url");
+      const span = document.createElement("span");
+      span.className = "nr-img-block";
+      span.setAttribute("contenteditable", "false");
+      span.setAttribute("data-url", url);
+      const img = document.createElement("img");
+      img.alt = "视频帧";
+      if (url && url.startsWith("http://")) img.setAttribute("data-pending-src", url);
+      else if (url) img.src = url;
+      const x = document.createElement("button");
+      x.className = "nr-img-x"; x.type = "button"; x.textContent = "×"; x.title = "删除这张图";
+      x.addEventListener("click", onDeleteImgClick);
+      span.appendChild(img); span.appendChild(x);
+      src.replaceWith(span);
+      proxyEditorImages(editor); // 补新块的 src
+    }
+    _activeImgBlock = null;
+  }
+
+  function onDeleteImgClick(e) {
+    e.preventDefault(); e.stopPropagation();
+    const block = e.currentTarget.closest(".nr-img-block");
+    if (!block) return;
+    const prev = block.previousSibling;
+    block.remove();
+    if (prev && prev.nodeType === 3 && prev.textContent === "\u200b") prev.remove();
+    const editor = panel?.querySelector("#" + WRAPPER_ID + "-editor");
+    if (editor) scheduleEditorSave(editor);
+  }
+
+  /**
+   * editor 事件绑定:input → 防抖保存;selectionchange → 光标感知
+   */
+  function bindEditorEvents(editor) {
+    if (editor._bound) return;
+    editor._bound = true;
+    editor.addEventListener("input", () => {
+      setStatus(`${serializeEditor(editor).length} 字符`, "保存中…", "saving");
+      scheduleEditorSave(editor);
+    });
+    editor.addEventListener("keydown", (e) => {
+      if (e.key === "Tab") {
+        e.preventDefault();
+        document.execCommand("insertText", false, "  ");
+      }
+      e.stopPropagation();
+    });
+    // 粘贴图片 → 上传图床 → 插入 [[URL]] 图片块(与截帧同链路)
+    editor.addEventListener("paste", (e) => onEditorPaste(e, editor));
+    // 光标感知:监听 document selectionchange(只在 editor 内变化时处理)
+    // 具名引用,remove() 时清理,避免 destroy 重建后累积监听器
+    editor._selChange = () => {
+      if (!panel || document.activeElement !== editor) return;
+      syncImageActiveState(editor);
+    };
+    document.addEventListener("selectionchange", editor._selChange);
+    // blur 时把所有源码态换回图片
+    editor.addEventListener("blur", () => deactivateAllImages(editor));
+  }
+
+  /**
+   * 粘贴处理:剪贴板含图片 → 转 dataURL → 上传图床 → 在光标处插图片块
+   * 与 Ctrl+B 截帧共用 uploadNoteImage + insertImageBlockAtCursor
+   * 来源:网页右键复制图 / 截图工具 / 本地文件拖入后复制
+   */
+  async function onEditorPaste(e, editor) {
     if (!currentPageId) return;
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    let imageItem = null;
+    for (const it of items) {
+      if (it.type && it.type.startsWith("image/")) { imageItem = it; break; }
+    }
+    if (!imageItem) return; // 没图片 → 走默认文本粘贴
+    e.preventDefault();
+    const blob = imageItem.getAsFile();
+    if (!blob) return;
+    // blob → dataURL
+    const dataUrl = await new Promise((res) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result);
+      r.onerror = () => res(null);
+      r.readAsDataURL(blob);
+    });
+    if (!dataUrl) return;
+    // 凭证预检
+    const status = await new Promise((resolve) => {
+      chrome.runtime.sendMessage({ action: "getLoginStatus" }, (r) => {
+        if (chrome.runtime.lastError) resolve({ hasCredentials: false });
+        else resolve(r || { hasCredentials: false });
+      });
+    });
+    if (!status.hasCredentials) {
+      if (confirm("未配置图床账号,打开便签模块填写吗?")) {
+        chrome.runtime.sendMessage({ action: "openTabboard" });
+      }
+      return;
+    }
+    setStatus("", "上传粘贴图…", "saving");
+    let res;
+    try {
+      res = await chrome.runtime.sendMessage({ action: "uploadNoteImage", dataUrl });
+    } catch (err) {
+      setStatus("", "上传失败", "saved");
+      alert("上传失败: " + err.message);
+      return;
+    }
+    if (!res?.success) {
+      setStatus("", "上传失败", "saved");
+      alert("上传失败: " + (res?.error || ""));
+      return;
+    }
+    deactivateAllImages(editor);
+    insertImageBlockAtCursor(editor, res.url);
+    proxyEditorImages(editor);
+    scheduleEditorSave(editor);
+    setStatus("", "已粘贴上传 ✓", "saved");
+  }
+
+  let _saveTimer = null;
+  function scheduleEditorSave(editor) {
+    if (_saveTimer) clearTimeout(_saveTimer);
+    _saveTimer = setTimeout(async () => {
+      if (!currentPageId) return;
+      const content = serializeEditor(editor);
+      await chrome.runtime.sendMessage({ action: "updateNoteContent", id: currentPageId, content });
+      setStatus(`${content.length} 字符`, "已保存", "saved");
+    }, 500);
+  }
+
+  /**
+   * 代理编辑器里所有 data-pending-src 的 http 图片 → SW fetch 转 dataURL
+   */
+  function proxyEditorImages(editor) {
+    const imgs = editor.querySelectorAll("img[data-pending-src]");
+    imgs.forEach((img) => {
+      const url = img.getAttribute("data-pending-src");
+      if (!url) return;
+      chrome.runtime.sendMessage({ action: "fetchImageAsDataUrl", url }, (res) => {
+        if (res?.success && res.dataUrl) {
+          img.src = res.dataUrl;
+          img.removeAttribute("data-pending-src");
+        } else {
+          img.alt = "图片加载失败";
+        }
+      });
+    });
+  }
+
+
+  // 兼容旧调用(selectPage/newPage 等仍调 flushContentSave):
+  // 切页/新建前,把当前 editor 的待保存内容立即落盘
+  async function flushContentSave() {
+    const editor = panel?.querySelector('#' + WRAPPER_ID + '-editor');
+    if (!editor || !currentPageId) return;
+    if (_saveTimer) { clearTimeout(_saveTimer); _saveTimer = null; }
+    const content = serializeEditor(editor);
     await chrome.runtime.sendMessage({
       action: 'updateNoteContent',
       id: currentPageId,
       content: content || ''
     });
-    setStatus(`${content.length} 字符`, '已保存', 'saved');
   }
 
   function setStatus(left, right, rightCls) {
@@ -778,19 +1202,213 @@
     panel.classList.toggle('open', expanded);
     updateCircleAccent();
     if (expanded) {
-      // 聚焦文章编辑器(不是不存在的 input)
+      // 聚焦编辑器
       setTimeout(() => {
-        const article = panel.querySelector('#' + WRAPPER_ID + '-article');
-        if (article) article.focus();
+        const editor = panel.querySelector('#' + WRAPPER_ID + '-editor');
+        if (editor) editor.focus();
       }, 80);
     } else {
       document.querySelector('[data-note-picker]')?.classList.remove('open');
     }
   }
 
+  // ===================== 截帧上传 =====================
+
+  /**
+   * 截取当前页面一个视频的当前帧 → 缩放到 MAX_FRAME_W 以内 → PNG dataURL
+   * 与 content/content.js 中的同名逻辑一致（noteRing 在视频页可直接截帧，免一次 IPC）
+   */
+  function capturePageFrame() {
+    const MAX_FRAME_W = 1920;
+    return new Promise((resolve) => {
+      const videos = Array.from(document.querySelectorAll('video'));
+      if (!videos.length) { resolve(null); return; }
+      const inViewport = (v) => {
+        const r = v.getBoundingClientRect();
+        return r.bottom > 0 && r.right > 0 &&
+               r.top < window.innerHeight && r.left < window.innerWidth &&
+               r.width > 50 && r.height > 50;
+      };
+      const video =
+        videos.find(v => !v.paused && v.readyState >= 2) ||
+        videos.filter(inViewport).sort((a, b) => {
+          const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+          return rb.width * rb.height - ra.width * ra.height;
+        })[0] ||
+        videos[0];
+      const draw = () => {
+        const w = video.videoWidth, h = video.videoHeight;
+        if (!w || !h) { resolve(null); return; }
+        const scale = Math.min(1, MAX_FRAME_W / w);
+        const cw = Math.round(w * scale), ch = Math.round(h * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = cw; canvas.height = ch;
+        try {
+          canvas.getContext('2d').drawImage(video, 0, 0, cw, ch);
+          resolve(canvas.toDataURL('image/png'));
+        } catch (_) { resolve(null); }
+      };
+      if (video.readyState >= 2) draw();
+      else {
+        let done = false;
+        const finish = () => { if (!done) { done = true; draw(); } };
+        video.addEventListener('loadeddata', finish, { once: true });
+        setTimeout(finish, 2500);
+      }
+    });
+  }
+
+  /**
+   * 截当前页视频帧 → 上传图床 → 把 [[URL]] 插入正文
+   * 编辑模式：插入到 textarea 光标处
+   * 预览模式：追加到正文末尾并重渲染预览
+   */
+  async function captureFrameAndInsert() {
+    if (!currentPageId) { alert('请先选择一个便签页'); return; }
+    // 凭证预检(优先用 background getLoginStatus,模块里有账号配置入口)
+    const status = await new Promise((resolve) => {
+      chrome.runtime.sendMessage({ action: 'getLoginStatus' }, (r) => {
+        if (chrome.runtime.lastError) resolve({ hasCredentials: false });
+        else resolve(r || { hasCredentials: false });
+      });
+    });
+    if (!status.hasCredentials) {
+      if (confirm('未配置图床账号,打开便签模块填写吗?')) {
+        chrome.runtime.sendMessage({ action: 'openTabboard' });
+      }
+      return;
+    }
+    setStatus('', '截取视频帧…', 'saving');
+    const dataUrl = await capturePageFrame();
+    if (!dataUrl) { setStatus('', '未找到视频', 'saved'); alert('当前页面未检测到可截取的视频'); return; }
+    setStatus('', '上传到图床…', 'saving');
+    let res;
+    try {
+      res = await chrome.runtime.sendMessage({ action: 'uploadNoteImage', dataUrl });
+    } catch (err) {
+      setStatus('', '上传失败', 'saved');
+      alert('上传失败: ' + err.message);
+      return;
+    }
+    if (!res?.success) { setStatus('', '上传失败', 'saved'); alert('上传失败: ' + (res?.error || '')); return; }
+    // 笔记正文存原 http:// URL(几十字节,可分享);
+    // 编辑器里 [[URL]] 渲染为图片块,http:// 通过 SW 代理转 dataURL 显示(无 Mixed Content)
+    const url = res.url;
+    const editor = panel.querySelector('#' + WRAPPER_ID + '-editor');
+    if (editor) {
+      // 先把当前可能处于源码态的图片块换回图片(避免序列化错乱)
+      deactivateAllImages(editor);
+      insertImageBlockAtCursor(editor, url);
+      proxyEditorImages(editor);
+      scheduleEditorSave(editor);
+    } else {
+      // editor 不存在(无选中页)→ 直接追加到 content 存储
+      const page = pages.find(p => p.id === currentPageId);
+      const prev = (page?.content || '');
+      const content = prev + (prev && !prev.endsWith('\n') ? '\n' : '') + `[[${url}]]`;
+      await chrome.runtime.sendMessage({ action: 'updateNoteContent', id: currentPageId, content });
+    }
+    setStatus(`${url.length + 4} 字节图`, '已上传 ✓', 'saved');
+  }
+
+  /**
+   * 在编辑器当前光标位置插入一个图片块(若光标不在 editor 内则追加到末尾)
+   */
+  function insertImageBlockAtCursor(editor, url) {
+    const sel = window.getSelection();
+    let inserted = false;
+    if (sel && sel.rangeCount && editor.contains(sel.anchorNode)) {
+      const range = sel.getRangeAt(0);
+      range.deleteContents();
+      const block = makeImageBlock(url);
+      range.insertNode(block);
+      // 光标移到块后
+      range.setStartAfter(block);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+      inserted = true;
+    }
+    if (!inserted) {
+      editor.appendChild(makeImageBlock(url));
+    }
+  }
+
+  function makeImageBlock(url) {
+    const span = document.createElement('span');
+    span.className = 'nr-img-block';
+    span.setAttribute('contenteditable', 'false');
+    span.setAttribute('data-url', url);
+    const img = document.createElement('img');
+    img.alt = '视频帧';
+    if (url.startsWith('http://')) img.setAttribute('data-pending-src', url);
+    else img.src = url;
+    const x = document.createElement('button');
+    x.className = 'nr-img-x';
+    x.type = 'button';
+    x.textContent = '×';
+    x.title = '删除这张图';
+    x.addEventListener('click', onDeleteImgClick);
+    span.appendChild(img);
+    span.appendChild(x);
+    return span;
+  }
+
+  // ===================== 登录状态徽章(同步 background getLoginStatus) =====================
+
+  async function refreshLoginPill() {
+    if (!panel) return;
+    const pill = panel.querySelector('#' + WRAPPER_ID + '-loginPill');
+    if (!pill) return;
+    try {
+      const r = await chrome.runtime.sendMessage({ action: 'getLoginStatus' });
+      if (!r?.success) { pill.textContent = '?'; return; }
+      if (!r.hasCredentials) {
+        pill.textContent = '未配置账号';
+        pill.className = 'nr-status-pill err';
+        pill.title = '点击打开便签模块配置账号';
+      } else if (r.tokenValid) {
+        pill.textContent = '已登录';
+        pill.className = 'nr-status-pill ok';
+        pill.title = r.email;
+      } else {
+        pill.textContent = '未登录';
+        pill.className = 'nr-status-pill warn';
+        pill.title = '点击打开便签模块';
+      }
+    } catch (_) {
+      pill.textContent = '?';
+    }
+  }
+
+  function openInBoard() {
+    // 通过 background 转调 tabboard,避免 content script 自己 chrome.tabs.create 的权限成本
+    chrome.runtime.sendMessage({ action: 'openTabboard' });
+  }
+
+  // 状态徽章点击 → 打开模块
+  // (委托到 panel 上,click 时找最近 [data-pill-action] 或 #loginPill)
+
+  // ===================== 快捷键 Ctrl+B(截帧) =====================
+
+  function onHotkey(e) {
+    // Ctrl+B: Chrome 不占用,便签编辑器不支持加粗,抢占用作截帧无副作用。
+    // 关键:用户通常在编辑便签(焦点在 contenteditable editor)时截帧,
+    //       所以 editor 内也必须生效;只在邮箱/密码/标题等 INPUT 时让出。
+    const k = e.key?.toLowerCase();
+    if (!(e.ctrlKey && !e.altKey && !e.shiftKey && k === 'b')) return;
+    if (!panel || !isExpanded) return;
+    // 让出:焦点在 INPUT(邮箱/密码/标题输入框)时,避免误触
+    const t = e.target;
+    if (t && t.tagName === 'INPUT' && t.id !== WRAPPER_ID + '-editor') return;
+    // editor 是 contenteditable div(tagName=DIV, isContentEditable=true),允许
+    e.preventDefault();
+    captureFrameAndInsert();
+  }
+
   // ===================== 事件委托 =====================
 
-  function bindPanelDelegation() {
+function bindPanelDelegation() {
     if (panel._delegationBound) return;
     panel._delegationBound = true;
     panel.addEventListener('click', (e) => {
@@ -805,6 +1423,9 @@
           case 'rename-page': return renamePage(actionEl);
           case 'bind-tab': return bindCurrentTab();
           case 'rename-current-page': return renameCurrentPage();
+          case 'capture-frame': return captureFrameAndInsert();
+          case 'open-in-board': return openInBoard();
+          case 'open-login': return openInBoard();
         }
       } catch (err) {
         console.error('[noteRing] action', a, 'failed:', err);
@@ -842,17 +1463,25 @@
 
   function remove() {
     // 关闭前先保存未 flush 的防抖内容（fire-and-forget）
-    if (_contentSaveTimer && currentPageId && panel) {
-      const article = panel.querySelector('#' + WRAPPER_ID + '-article');
-      if (article && article.value) {
-        chrome.runtime.sendMessage({
-          action: 'updateNoteContent',
-          id: currentPageId,
-          content: article.value
-        });
+    if (_saveTimer && currentPageId && panel) {
+      const editor = panel.querySelector('#' + WRAPPER_ID + '-editor');
+      if (editor) {
+        const content = serializeEditor(editor);
+        if (content) {
+          chrome.runtime.sendMessage({
+            action: 'updateNoteContent',
+            id: currentPageId,
+            content
+          });
+        }
       }
-      clearTimeout(_contentSaveTimer);
-      _contentSaveTimer = null;
+      clearTimeout(_saveTimer);
+      _saveTimer = null;
+    }
+    // 清理 document 级 selectionchange 监听
+    const editor = panel?.querySelector('#' + WRAPPER_ID + '-editor');
+    if (editor && editor._selChange) {
+      document.removeEventListener('selectionchange', editor._selChange);
     }
     document.getElementById(WRAPPER_ID)?.remove();
     panel?.remove();
@@ -875,19 +1504,21 @@
     } catch (_) {}
   }
 
-  // ESC 收起（先关 picker,再收面板）
+  // ESC 收起 + 截帧快捷键(capture 阶段,确保先于宿主页收到 Ctrl+B)
   document.addEventListener('keydown', (e) => {
+    // 截帧快捷键(只展开面板时生效)
+    onHotkey(e);
     if (e.key === 'Escape' && isExpanded && panel) {
       const picker = document.querySelector('[data-note-picker]');
       if (picker?.classList.contains('open')) {
         picker.classList.remove('open');
         return;
       }
-      const article = panel.querySelector('#' + WRAPPER_ID + '-article');
-      if (document.activeElement === article) return;
+      const editor = panel.querySelector('#' + WRAPPER_ID + '-editor');
+      if (document.activeElement === editor) return;
       setExpanded(false);
     }
-  });
+  }, true);
 
   // 顶层一次性 document 级监听（幂等）:
   //   点击外部只关闭 picker 下拉框;面板保持 pin 行为(不随外部点击收起,
@@ -930,7 +1561,15 @@
       renderPicker();
       renderTabHint();
     }
-    // 内容变化不打断编辑器
+    // 内容变化不打断编辑器;但若用户未在编辑,同步外部改动
+    if (currentPageId) {
+      const page = newPages.find(p => p.id === currentPageId);
+      const editorEl = panel.querySelector('#' + WRAPPER_ID + '-editor');
+      if (editorEl && page && document.activeElement !== editorEl) {
+        renderContentToEditor(editorEl, page.content || '');
+        proxyEditorImages(editorEl);
+      }
+    }
   });
 
   // tab 激活广播 → 重新探测当前 tab 并自动选中绑定页
