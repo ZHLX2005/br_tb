@@ -488,46 +488,43 @@
     panel = document.createElement('div');
     panel.id = WRAPPER_ID + '-panel';
     panel.innerHTML = `
-      <div class="nr-header" data-note-drag-handle>
-        <div class="nr-switcher" data-note-action="toggle-picker">
-          <div class="nr-page-name placeholder">便签页</div>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-            <polyline points="6 9 12 15 18 9"/>
+      <div class="nr-toolbar" data-note-drag-handle>
+        <button class="nr-icon-btn" data-note-action="toggle-picker" title="切换便签页">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 7h6a2 2 0 012 2v0H5a2 2 0 01-2-2v0z"/>
+            <path d="M21 7h-6a2 2 0 00-2 2v0h6a2 2 0 002-2v0z"/>
+            <path d="M3 17h6a2 2 0 002-2v0H5a2 2 0 00-2 2v0z"/>
+            <path d="M21 17h-6a2 2 0 01-2-2v0h6a2 2 0 012 2v0z"/>
           </svg>
-        </div>
-        <div class="nr-header-actions">
-          <button class="nr-icon-btn" data-note-action="open-in-board" title="在便签模块打开（登录与账号配置在此）">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/>
-              <polyline points="15 3 21 3 21 9"/>
-              <line x1="10" y1="14" x2="21" y2="3"/>
-            </svg>
-          </button>
-          <button class="nr-icon-btn" data-note-action="rename-current-page" title="重命名当前页">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-              <path d="M17 3a2.85 2.85 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
-            </svg>
-          </button>
-          <button class="nr-icon-btn nr-icon-btn-danger" data-note-action="delete-page" title="删除当前页面">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-              <polyline points="3 6 5 6 21 6"/>
-              <path d="M19 6l-1 14H6L5 6"/>
-              <path d="M10 11v6M14 11v6"/>
-            </svg>
-          </button>
-          <button class="nr-icon-btn" data-note-action="close-panel" title="收起">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
-              <line x1="6" y1="6" x2="18" y2="18"/><line x1="6" y1="18" x2="18" y2="6"/>
-            </svg>
-          </button>
-        </div>
+        </button>
+        <div class="nr-toolbar-spacer"></div>
+        <button class="nr-icon-btn" data-note-action="bind-current-tab" title="绑定当前标签页">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/>
+            <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/>
+          </svg>
+        </button>
+        <button class="nr-icon-btn" data-note-action="capture-frame" title="截取视频帧">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="6" width="18" height="13" rx="2"/>
+            <circle cx="12" cy="12.5" r="3.5"/>
+            <path d="M8 6l1.5-2h5L16 6"/>
+          </svg>
+        </button>
+        <div class="nr-toolbar-spacer"></div>
+        <button class="nr-icon-btn" data-note-action="close-panel" title="收起">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+            <line x1="6" y1="6" x2="18" y2="18"/><line x1="6" y1="18" x2="18" y2="6"/>
+          </svg>
+        </button>
       </div>
-      <div class="nr-tab-hint" data-note-tab-hint></div>
       <div class="nr-body" id="${WRAPPER_ID}-body"></div>
       <div class="nr-status-bar">
         <span id="${WRAPPER_ID}-status-left">就绪</span>
         <span id="${WRAPPER_ID}-status-right"></span>
       </div>
+      <div class="nr-resize-handle" data-note-resize-handle></div>
+      <div class="nr-corner-pill" data-note-corner-pill title="打开便签模块"></div>
     `;
     panel.style.left = (window.innerWidth - 360) + 'px';
     panel.style.top = '80px';
