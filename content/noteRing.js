@@ -560,6 +560,15 @@
       setExpanded(false);
     });
 
+    // corner pill click → 打开便签模块
+    const cornerPill = panel.querySelector('[data-note-corner-pill]');
+    if (cornerPill && !cornerPill._bound) {
+      cornerPill._bound = true;
+      cornerPill.addEventListener('click', () => {
+        chrome.runtime.sendMessage({ action: 'openTabboard' });
+      });
+    }
+
     // 初次加载数据
     refreshFromStorage();
   }
@@ -1541,29 +1550,28 @@
 
   // ===================== 登录状态徽章(同步 background getLoginStatus) =====================
 
-  async function refreshLoginPill() {
+  function refreshLoginPill() {
     if (!panel) return;
-    const pill = panel.querySelector('#' + WRAPPER_ID + '-loginPill');
+    const pill = panel.querySelector('[data-note-corner-pill]');
     if (!pill) return;
-    try {
-      const r = await chrome.runtime.sendMessage({ action: 'getLoginStatus' });
-      if (!r?.success) { pill.textContent = '?'; return; }
-      if (!r.hasCredentials) {
-        pill.textContent = '未配置账号';
-        pill.className = 'nr-status-pill err';
-        pill.title = '点击打开便签模块配置账号';
-      } else if (r.tokenValid) {
-        pill.textContent = '已登录';
-        pill.className = 'nr-status-pill ok';
-        pill.title = r.email;
-      } else {
-        pill.textContent = '未登录';
-        pill.className = 'nr-status-pill warn';
-        pill.title = '点击打开便签模块';
+    chrome.runtime.sendMessage({ action: 'getLoginStatus' }, (r) => {
+      pill.classList.remove('logged-in', 'action');
+      if (!r || r.success === false) {
+        pill.classList.add('dot');
+        pill.textContent = '';
+        return;
       }
-    } catch (_) {
-      pill.textContent = '?';
-    }
+      if (r.hasCredentials && r.tokenValid) {
+        pill.classList.add('dot', 'logged-in');
+        pill.textContent = '';
+      } else if (r.hasCredentials) {
+        pill.classList.add('dot');
+        pill.textContent = '';
+      } else {
+        pill.textContent = '未配置';
+        pill.classList.add('action');
+      }
+    });
   }
 
   function openInBoard() {
