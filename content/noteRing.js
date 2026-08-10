@@ -399,6 +399,66 @@
     }
     .nr-img-block:hover .nr-img-x { display: flex; }
     .nr-img-x:hover { background: ${ACCENT}; }
+
+    /* Toolbar 行(取代老的 head title + page name + 当前 tab info) */
+    .nr-toolbar {
+      display: flex; align-items: center;
+      padding: 4px 6px;
+      border-bottom: 1px solid #e8e8e8;
+      background: #fafafa;
+      flex-shrink: 0;
+      cursor: grab;
+      user-select: none; -webkit-user-select: none;
+      touch-action: none;
+      gap: 4px;
+      min-height: 32px;
+    }
+    .nr-toolbar.dragging { cursor: grabbing; }
+    .nr-toolbar-spacer { flex: 1; }
+
+    /* 右下角手柄(resize) */
+    .nr-resize-handle {
+      position: absolute;
+      right: 0; bottom: 0;
+      width: 16px; height: 16px;
+      cursor: nwse-resize;
+      touch-action: none;
+      z-index: 2;
+    }
+    .nr-resize-handle::after {
+      content: '';
+      position: absolute; right: 3px; bottom: 3px;
+      width: 8px; height: 8px;
+      border-right: 2px solid #c0c0c0;
+      border-bottom: 2px solid #c0c0c0;
+      transition: border-color 120ms;
+    }
+    .nr-resize-handle:hover::after { border-color: ${ACCENT}; }
+
+    /* 右下角登录徽章(浮动,不挤 head) */
+    .nr-corner-pill {
+      position: absolute;
+      right: 8px; bottom: 8px;
+      display: inline-flex; align-items: center;
+      padding: 3px 8px;
+      font-size: 11px; line-height: 1.4;
+      border-radius: 11px;
+      background: rgba(0,0,0,0.04);
+      color: #666;
+      cursor: pointer;
+      user-select: none;
+      pointer-events: auto;
+      z-index: 3;
+      transition: background 120ms;
+    }
+    .nr-corner-pill:hover { background: rgba(0,0,0,0.08); }
+    .nr-corner-pill.dot { padding: 5px; }
+    .nr-corner-pill .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #aaa;
+    }
+    .nr-corner-pill.logged-in .dot { background: #2c8a3a; }
+    .nr-corner-pill.action { background: ${ACCENT}; color: #fff; }
   `;
 
   // ===================== 构建 =====================
