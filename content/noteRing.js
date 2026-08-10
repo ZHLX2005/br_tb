@@ -540,6 +540,7 @@
 
     bindRingDragAndClick(wrapper);
     bindPanelDrag(panel, panel.querySelector('[data-note-drag-handle]'));
+    bindPanelResize(panel, panel.querySelector('[data-note-resize-handle]'));
 
     // header actions
     panel.querySelector('[data-note-action="toggle-picker"]').addEventListener('click', (e) => {
@@ -626,6 +627,50 @@
   }
 
   function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+  /**
+   * 右下角 resize:pointer-based,沿用现有 bindPanelDrag 风格。
+   * 拖动期间实时改 panel.style.width/height;松手时持久化到
+   * chrome.storage.local.noteRingPanelDims。
+   * 尺寸下限 240×200(保证编辑器可读),上限视口 - 16。
+   */
+  function bindPanelResize(panelEl, handle) {
+    if (!handle) return;
+    const MIN_W = 240, MIN_H = 200;
+    const TH = 3;
+    let pid = null, sx = 0, sy = 0, sw = 0, sh = 0, moved = false;
+    handle.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      pid = e.pointerId;
+      try { handle.setPointerCapture(pid); } catch (_) {}
+      sx = e.clientX; sy = e.clientY;
+      sw = panelEl.offsetWidth; sh = panelEl.offsetHeight; moved = false;
+      e.preventDefault();
+    });
+    handle.addEventListener('pointermove', (e) => {
+      if (pid === null) return;
+      const dx = e.clientX - sx, dy = e.clientY - sy;
+      if (!moved && Math.hypot(dx, dy) > TH) moved = true;
+      if (!moved) return;
+      const maxW = Math.max(MIN_W, window.innerWidth - panelEl.offsetLeft - 16);
+      const maxH = Math.max(MIN_H, window.innerHeight - panelEl.offsetTop - 16);
+      const nw = Math.max(MIN_W, Math.min(maxW, sw + dx));
+      const nh = Math.max(MIN_H, Math.min(maxH, sh + dy));
+      panelEl.style.width = nw + 'px';
+      panelEl.style.height = nh + 'px';
+    });
+    const release = () => {
+      if (pid === null) return;
+      pid = null;
+      if (moved) {
+        moved = false;
+        const dims = { width: panelEl.offsetWidth, height: panelEl.offsetHeight };
+        chrome.storage.local.set({ noteRingPanelDims: dims }).catch(() => {});
+      }
+    };
+    handle.addEventListener('pointerup', release);
+    handle.addEventListener('pointercancel', release);
+  }
 
   // ===================== 数据 =====================
 
