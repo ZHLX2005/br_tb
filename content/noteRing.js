@@ -602,8 +602,8 @@
     let pid = null, sx = 0, sy = 0, sl = 0, st = 0, moved = false;
     handle.addEventListener('pointerdown', (e) => {
       if (e.button !== 0) return;
-      // 排除按钮/切换器——避免 drag 的 setPointerCapture 劫持 click
-      if (e.target.closest('button, .nr-switcher, .nr-icon-btn')) return;
+      // 排除按钮——避免 drag 的 setPointerCapture 劫持 click
+      if (e.target.closest('button, .nr-icon-btn')) return;
       pid = e.pointerId;
       try { handle.setPointerCapture(pid); } catch (_) {}
       sx = e.clientX; sy = e.clientY;
