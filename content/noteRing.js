@@ -528,6 +528,14 @@
     `;
     panel.style.left = (window.innerWidth - 360) + 'px';
     panel.style.top = '80px';
+    // 从 chrome.storage.local 还原上次尺寸(若有)
+    chrome.storage.local.get(['noteRingPanelDims']).then((r) => {
+      const d = r && r.noteRingPanelDims;
+      if (d && Number.isFinite(d.width) && Number.isFinite(d.height)) {
+        panel.style.width = d.width + 'px';
+        panel.style.height = d.height + 'px';
+      }
+    }).catch(() => {});
     document.body.appendChild(panel);
 
     // picker 挂在 body 层（不能放 panel 内,panel overflow:hidden 会裁剪）
