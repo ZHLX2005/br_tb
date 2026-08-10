@@ -281,45 +281,6 @@
       white-space: nowrap;
     }
 
-    /* 文章工具栏（截帧上传 + 预览） */
-    .nr-toolbar {
-      display: flex; align-items: center; gap: 6px;
-      padding: 6px 10px;
-      border-bottom: 1px solid #e8e8e8;
-      background: #fafafa;
-      flex-shrink: 0;
-    }
-    .nr-tool-btn {
-      display: inline-flex; align-items: center; gap: 4px;
-      padding: 4px 8px;
-      font-size: 11px;
-      border: 1px solid #d0d0d0;
-      background: #fff; color: #1a1a1a;
-      border-radius: 4px; cursor: pointer;
-      font-family: inherit;
-      transition: background 120ms, color 120ms;
-    }
-    .nr-tool-btn:hover { background: #f0f0f0; }
-    .nr-tool-btn.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
-    .nr-tool-spacer { flex: 1; }
-
-    /* 截帧快门按钮(签名色) */
-    .nr-tool-shutter {
-      background: ${ACCENT}; color: #fff;
-      border-color: ${ACCENT};
-      font-weight: 600;
-    }
-    .nr-tool-shutter:hover { background: #000; border-color: #000; }
-    .nr-tool-shutter:active { transform: scale(0.97); }
-    .nr-tool-shutter .nr-shutter-dot {
-      display: inline-block;
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: #fff;
-      margin-right: 2px;
-      box-shadow: 0 0 0 2px rgba(255,255,255,0.3);
-    }
-
     /* 登录状态徽章(同步 background getLoginStatus) */
     .nr-status-pill {
       font-size: 10px;
@@ -777,13 +738,10 @@
       return;
     }
     // WYSIWYG 编辑器: [[URL]] 渲染为图片块;光标进入图片块附近时临时显示 [[url]] 源码
+    // 截帧按钮已在顶部 compact toolbar(数据-action="capture-frame"),正文不再放,
+    // 用户 R2/R8 要求:小按钮一行 + 正文为视觉核心。
     body.innerHTML = `
-      <div class="nr-toolbar">
-        <button class="nr-tool-btn nr-tool-shutter" data-note-action="capture-frame" title="截取当前视频帧 · Ctrl+B">
-          <span class="nr-shutter-dot"></span> 截帧
-        </button>
-      </div>
-      <div class="nr-editor" id="${WRAPPER_ID}-editor" contenteditable="true" data-placeholder="开始写…截帧后自动插入图片" spellcheck="false"></div>
+      <div class="nr-editor" id="${WRAPPER_ID}-editor" contenteditable="true" data-placeholder="开始写…Ctrl+B 或工具栏截帧后自动插入图片" spellcheck="false"></div>
     `;
     const editor = panel.querySelector('#' + WRAPPER_ID + '-editor');
     if (editor) {
