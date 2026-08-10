@@ -732,10 +732,13 @@
         span.setAttribute("data-url", url);
         const img = document.createElement("img");
         img.alt = "视频帧";
-        if (isHttp) {
-          img.setAttribute("data-pending-src", url); // 代理时再设 src,避免 Mixed Content 警告
-        } else {
+        if (url) {
+          // 始终先设 src;代理通道(SW fetchImageAsDataUrl)只能在 HTTPS 页绕开
+          // Mixed Content 时成功。若代理失败/挂起,img.src 仍然是原始 URL,
+          // 浏览器会尝试直接加载(在 HTTP 页面/HTTPS 页面下行为不同,但 img
+          // 至少有 src,绝不会变成只有 × 按钮残留的"字母 x"假象)。
           img.src = url;
+          if (isHttp) img.setAttribute("data-pending-src", url);
         }
         const x = document.createElement("button");
         x.className = "nr-img-x";
@@ -774,6 +777,14 @@
    * 把 contenteditable editor 序列化回 [[URL]] + 文本 格式
    * 规则:<div> 之间换行;图片块 → [[url]];其它(如临时的源码 span)按 textContent
    */
+  /**
+   * 把 contenteditable editor 序列化回 [[URL]] + 文本 格式
+   * 规则:<div> 之间换行;图片块 → [[url]];其它(如临时的源码 span)按 textContent
+   *
+   * 防御:source 态 (nr-img-source) 可能在 contenteditable 里被用户/浏览器
+   * 改成任意文本(例如单个 ×)。存储必须以 data-url 兜底:只有 source textContent
+   * 是合法 [[URL]] 形式才用它,否则用 data-url 重建,绝不写入损坏的字符串。
+   */
   function serializeEditor(editor) {
     let out = "";
     const kids = Array.from(editor.childNodes);
@@ -785,18 +796,25 @@
         const el = node;
         if (el.classList && el.classList.contains("nr-img-block")) {
           const url = el.getAttribute("data-url");
-          out += url ? `[[${url}]]` : "";
+          if (url) out += `[[${url}]]`;
+          // 无 data-url 的孤儿:不写入任何字符(避免 × 按钮字符污染)
         } else if (el.classList && el.classList.contains("nr-img-source")) {
-          // 临时源码显示:用户可能改了 URL,直接用 textContent
-          out += el.textContent;
+          const txt = (el.textContent || "").trim();
+          const m = txt.match(/^\[\[(https?:\/\/[^\]]+)\]\]$/);
+          if (m) {
+            out += txt;
+          } else {
+            const fallback = el.getAttribute("data-url") || "";
+            if (fallback) out += `[[${fallback}]]`;
+          }
         } else {
           // <div> / <br> 等
           const tag = el.tagName;
           if (tag === "BR") {
             out += "\n";
           } else {
-            // div:内容 + 换行(除非是最后一个空块)
-            const t = el.textContent || "";
+            // div:用纯文本,但排除内嵌的图片块子树(其 × 按钮字符不应泄漏)
+            const t = pureTextContent(el);
             out += t;
             if (i < kids.length - 1) out += "\n";
           }
@@ -804,6 +822,18 @@
       }
     });
     return out;
+  }
+
+  /**
+   * 取元素纯文本内容,但排除任何内嵌的 nr-img-block / nr-img-source /
+   * nr-img-pending 子树。否则容器 div 的 textContent 会把 × 按钮字符或
+   * `[上传中…]` 占位文字当作普通文本写入存储。
+   */
+  function pureTextContent(el) {
+    const clone = el.cloneNode(true);
+    clone.querySelectorAll(".nr-img-block, .nr-img-source, .nr-img-pending")
+      .forEach((n) => n.remove());
+    return clone.textContent || "";
   }
 
   /**
@@ -924,9 +954,15 @@
   }
 
   /**
-   * 粘贴处理:剪贴板含图片 → 转 dataURL → 上传图床 → 在光标处插图片块
-   * 与 Ctrl+B 截帧共用 uploadNoteImage + insertImageBlockAtCursor
-   * 来源:网页右键复制图 / 截图工具 / 本地文件拖入后复制
+   * 粘贴处理:剪贴板含图片 → 转 dataURL → 上传图床 → 后端落盘 → 渲染回编辑器
+   *
+   * 设计原则:文本层与显示层解耦。
+   * - 上传返回 URL 后,直接 chrome.storage.local 写入 [[URL]],不经过 DOM 序列化。
+   *   后端是唯一真理来源,显示层只是渲染。
+   * - 期间用占位块 `[上传中…]` 提供视觉反馈,但 cancel 已有的 auto-save timer
+   *   防止它把占位块序列化进存储。
+   * - 这消除了 "DOM 已插入,文本层仍是原值" 的窗口期,以及 × 等脏数据
+   *   污染存储的路径(因为持久化路径完全绕开了 contenteditable DOM)。
    */
   async function onEditorPaste(e, editor) {
     if (!currentPageId) return;
@@ -961,25 +997,75 @@
       }
       return;
     }
+
+    // 1) 占位块 — 用户看到即时反馈。禁止已有的 auto-save,防止序列化中间态。
+    if (_saveTimer) { clearTimeout(_saveTimer); _saveTimer = null; }
+    deactivateAllImages(editor);
+    const placeholder = makePendingBlock();
+    insertNodeAtCursor(editor, placeholder);
     setStatus("", "上传粘贴图…", "saving");
+
     let res;
     try {
       res = await chrome.runtime.sendMessage({ action: "uploadNoteImage", dataUrl });
     } catch (err) {
+      placeholder.remove();
       setStatus("", "上传失败", "saved");
       alert("上传失败: " + err.message);
       return;
     }
-    if (!res?.success) {
+    if (!res?.success || !res.url) {
+      placeholder.remove();
       setStatus("", "上传失败", "saved");
       alert("上传失败: " + (res?.error || ""));
       return;
     }
-    deactivateAllImages(editor);
-    insertImageBlockAtCursor(editor, res.url);
+
+    // 2) 后端落盘 — 用 pages 里原 content 拼接,不经过 DOM 序列化
+    const page = pages.find((p) => p.id === currentPageId);
+    if (!page) { placeholder.remove(); return; }
+    const prev = page.content || "";
+    const sep = prev && !prev.endsWith("\n") ? "\n" : "";
+    const newContent = prev + sep + `[[${res.url}]]`;
+    await chrome.runtime.sendMessage({ action: "updateNoteContent", id: currentPageId, content: newContent });
+    page.content = newContent;
+
+    // 3) 占位块 → 真实图片块
+    const realBlock = makeImageBlock(res.url);
+    placeholder.replaceWith(realBlock);
     proxyEditorImages(editor);
-    scheduleEditorSave(editor);
     setStatus("", "已粘贴上传 ✓", "saved");
+  }
+
+  /**
+   * 上传期间的占位块:显示 "[上传中…]",完全不影响存盘文本(序列化时按
+   * 防御策略剥离)。绝不放进 storage,绝不依赖 DOM 序列化回填。
+   */
+  function makePendingBlock() {
+    const span = document.createElement("span");
+    span.className = "nr-img-pending";
+    span.setAttribute("contenteditable", "false");
+    span.textContent = "[上传中…]";
+    return span;
+  }
+
+  /**
+   * 通用光标位置插入
+   */
+  function insertNodeAtCursor(editor, node) {
+    const sel = window.getSelection();
+    let inserted = false;
+    if (sel && sel.rangeCount && editor.contains(sel.anchorNode)) {
+      const range = sel.getRangeAt(0);
+      range.deleteContents();
+      range.insertNode(node);
+      range.setStartAfter(node);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+      inserted = true;
+    }
+    if (!inserted) editor.appendChild(node);
   }
 
   let _saveTimer = null;
@@ -995,6 +1081,11 @@
 
   /**
    * 代理编辑器里所有 data-pending-src 的 http 图片 → SW fetch 转 dataURL
+   * Mixed Content 兜底优化。img.src 已由 _render/renderContentToEditor 写好
+   * 原始 URL;SW 失败时保留原 src,避免代理路径断时图片退化成只有 × 按钮
+   * (被误判成"字母 x")。
+   *
+   * 命中走 background 的 LRU 池(共享内存缓存),miss 才 fetch。
    */
   function proxyEditorImages(editor) {
     const imgs = editor.querySelectorAll("img[data-pending-src]");
@@ -1005,9 +1096,8 @@
         if (res?.success && res.dataUrl) {
           img.src = res.dataUrl;
           img.removeAttribute("data-pending-src");
-        } else {
-          img.alt = "图片加载失败";
         }
+        // 失败分支:不动 img.src,保留原始 URL。不再设 alt='图片加载失败'。
       });
     });
   }
@@ -1296,11 +1386,23 @@
     const url = res.url;
     const editor = panel.querySelector('#' + WRAPPER_ID + '-editor');
     if (editor) {
-      // 先把当前可能处于源码态的图片块换回图片(避免序列化错乱)
+      // 后端驱动:先 cancel auto-save,后端落盘,再渲染占位→真实块。
+      // 不依赖 DOM 序列化决定持久化(避免 × 按钮字符污染)。
+      if (_saveTimer) { clearTimeout(_saveTimer); _saveTimer = null; }
       deactivateAllImages(editor);
-      insertImageBlockAtCursor(editor, url);
+      const placeholder = makePendingBlock();
+      insertNodeAtCursor(editor, placeholder);
+
+      const page = pages.find((p) => p.id === currentPageId);
+      const prev = (page?.content || '');
+      const sep = prev && !prev.endsWith('\n') ? '\n' : '';
+      const newContent = prev + sep + `[[${url}]]`;
+      await chrome.runtime.sendMessage({ action: 'updateNoteContent', id: currentPageId, content: newContent });
+      if (page) page.content = newContent;
+
+      const realBlock = makeImageBlock(url);
+      placeholder.replaceWith(realBlock);
       proxyEditorImages(editor);
-      scheduleEditorSave(editor);
     } else {
       // editor 不存在(无选中页)→ 直接追加到 content 存储
       const page = pages.find(p => p.id === currentPageId);
@@ -1311,29 +1413,6 @@
     setStatus(`${url.length + 4} 字节图`, '已上传 ✓', 'saved');
   }
 
-  /**
-   * 在编辑器当前光标位置插入一个图片块(若光标不在 editor 内则追加到末尾)
-   */
-  function insertImageBlockAtCursor(editor, url) {
-    const sel = window.getSelection();
-    let inserted = false;
-    if (sel && sel.rangeCount && editor.contains(sel.anchorNode)) {
-      const range = sel.getRangeAt(0);
-      range.deleteContents();
-      const block = makeImageBlock(url);
-      range.insertNode(block);
-      // 光标移到块后
-      range.setStartAfter(block);
-      range.collapse(true);
-      sel.removeAllRanges();
-      sel.addRange(range);
-      inserted = true;
-    }
-    if (!inserted) {
-      editor.appendChild(makeImageBlock(url));
-    }
-  }
-
   function makeImageBlock(url) {
     const span = document.createElement('span');
     span.className = 'nr-img-block';
@@ -1341,8 +1420,12 @@
     span.setAttribute('data-url', url);
     const img = document.createElement('img');
     img.alt = '视频帧';
-    if (url.startsWith('http://')) img.setAttribute('data-pending-src', url);
-    else img.src = url;
+    if (url) {
+      // 始终先设 src(代理是优化,不是必需)。否则代理失败时只剩 × 按钮,
+      // 用户感知到的就是"字母 x"。
+      img.src = url;
+      if (url.startsWith('http://')) img.setAttribute('data-pending-src', url);
+    }
     const x = document.createElement('button');
     x.className = 'nr-img-x';
     x.type = 'button';

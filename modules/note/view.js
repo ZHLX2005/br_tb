@@ -506,6 +506,12 @@ class NoteView {
   /**
    * 把 contenteditable editor 序列化回 [[URL]] + 文本 格式
    * 规则:<div> 之间换行;图片块 → [[url]];其它(如临时的源码 span)按 textContent
+   *
+   * 防御:临时源码态 (note-img-source) 可能在 contenteditable 里被用户/浏览器
+   * 改成任意文本(包括单个 × 按钮的字符)。存储必须以 data-url 为准 —
+   * 如果 source 的 textContent 不是合法 [[URL]] 形式(被改动/损坏),
+   * 用 data-url 重建 [[url]]。否则只读 textContent 会产生 × 这种诡异单字符
+   * 污染存储 — 后续刷新会让所有图片引用丢失。
    */
   _serializeEditor(editor) {
     let out = '';
@@ -518,10 +524,22 @@ class NoteView {
         const el = node;
         if (el.classList && el.classList.contains('note-img-block')) {
           const url = el.getAttribute('data-url');
-          out += url ? `[[${url}]]` : '';
+          if (url) out += `[[${url}]]`;
+          // 没有 data-url 的孤儿图片块:不写入任何字符,绝不写入其 textContent
+          // (textContent 会包含 × 按钮的字符,造成存储污染)
         } else if (el.classList && el.classList.contains('note-img-source')) {
-          // 临时源码显示:用户可能改了 URL,直接用 textContent
-          out += el.textContent;
+          // 用户可能修改过 URL 文本:做合法性校验
+          const txt = (el.textContent || '').trim();
+          const m = txt.match(/^\[\[(https?:\/\/[^\]]+)\]\]$/);
+          if (m) {
+            // 用户改成了合法的 [[URL]] 形式:以新 URL 为准
+            out += txt;
+          } else {
+            // 文本不合法(被删空/改成 × / 粘贴了无关内容) →
+            // 回退到 data-url,绝不写入污染字符串
+            const fallback = el.getAttribute('data-url') || '';
+            if (fallback) out += `[[${fallback}]]`;
+          }
         } else {
           // <div> / <br> 等
           const tag = el.tagName;
@@ -529,7 +547,9 @@ class NoteView {
             out += '\n';
           } else {
             // div:内容 + 换行(除非是最后一个空块)
-            const t = el.textContent || '';
+            // 排除图片块后代里的 × 按钮字符:用 querySelector 反向排除任何
+            // 包含图片相关 class 的元素子树,只取纯文本段落
+            const t = this._pureTextContent(el);
             out += t;
             if (i < kids.length - 1) out += '\n';
           }
@@ -537,6 +557,18 @@ class NoteView {
       }
     });
     return out;
+  }
+
+  /**
+   * 取元素的纯文本内容,但排除任何内嵌的 note-img-block / note-img-source /
+   * note-img-pending 子树。否则容器 div 的 textContent 会把 × 按钮字符或
+   * `[上传中…]` 占位文字当作普通文本写入存储。
+   */
+  _pureTextContent(el) {
+    const clone = el.cloneNode(true);
+    clone.querySelectorAll('.note-img-block, .note-img-source, .note-img-pending')
+      .forEach((n) => n.remove());
+    return clone.textContent || '';
   }
 
   /**
@@ -654,7 +686,10 @@ class NoteView {
 
   /**
    * 构造一个图片块 span(图片 + × 按钮)
-   * http:// URL 放 data-pending-src(由 _proxyEditorImages 转 dataURL),避免 Mixed Content
+   * 始终先设 img.src = url(浏览器直接加载),同时记 data-pending-src 给 SW 代理做
+   * Mixed Content 防护(HTTPS 页注入了 noteRing 时优化用)。代理成功时 src 会被
+   * dataURL 覆盖;代理失败时直接回退到原始 URL,避免 img 完全无 src 时只看到 × 按
+   * 钮被误判为 "字母 x"。
    */
   _makeImageBlock(url) {
     const span = document.createElement('span');
@@ -663,8 +698,10 @@ class NoteView {
     span.setAttribute('data-url', url);
     const img = document.createElement('img');
     img.alt = '图片';
-    if (url && url.startsWith('http://')) img.setAttribute('data-pending-src', url);
-    else if (url) img.src = url;
+    if (url) {
+      img.src = url;
+      if (url.startsWith('http://')) img.setAttribute('data-pending-src', url);
+    }
     const x = document.createElement('button');
     x.className = 'note-img-x';
     x.type = 'button';
@@ -699,8 +736,16 @@ class NoteView {
   }
 
   /**
-   * 粘贴图片 → 上传图床 → 插入 [[URL]] 图片块(与 noteRing 同链路)
-   * 来源:网页右键复制图 / 截图工具 / 本地文件
+   * 粘贴图片 → 上传图床 → 立即用后端返回 URL 落盘 → 再渲染回编辑器
+   *
+   * 设计原则:文本层与显示层解耦。
+   * - 上传成功后,直接把 [[URL]] 追加到 page.content(从 this.pages 读)并
+   *   chrome.storage.local.set — 文本层立刻与后端同步,绝对不让 DOM 序列化
+   *   决定持久化内容(那会因 contenteditable 中间态产生 × 等脏数据)。
+   * - 显示层先用占位块 (_makePendingBlock) 给用户即时反馈,上传完成后
+   *   替换占位块为正式图片块;整个过程不影响已落盘的文本。
+   * - 这消除了"DOM 已插入,文本层仍是原值"的窗口期,也杜绝了序列化
+   *   把 × 按钮字符写入存储的污染路径。
    */
   async _onEditorPaste(e, editor) {
     if (!this.activePageId) return;
@@ -732,39 +777,107 @@ class NoteView {
       alert('未配置图床账号,请在下方「图床账号」面板填写并登录');
       return;
     }
+
+    // 1) 先插占位块给用户视觉反馈(纯文字 "[上传中…]",不打存盘)。
+    //    取消已有的 auto-save 计时,避免它在 placeholder 期间序列化。
+    if (this._saveTimer) { clearTimeout(this._saveTimer); this._saveTimer = null; }
+    this._deactivateAllImages(editor);
+    const placeholder = this._makePendingBlock();
+    this._insertNodeAtCursor(editor, placeholder);
     this._updateStatus(0);
+
     let up;
     try {
       up = await this.dataManager.sendMessage('uploadNoteImage', { dataUrl });
     } catch (err) {
+      // 上传失败:撤回占位块,弹提示,保留之前落盘内容不变
+      placeholder.remove();
       alert('上传失败: ' + err.message);
       return;
     }
-    if (!up?.success) { alert('上传失败: ' + (up?.error || '')); return; }
-    this._deactivateAllImages(editor);
-    this._insertImageBlockAtCursor(editor, up.url);
+    if (!up?.success || !up.url) {
+      placeholder.remove();
+      alert('上传失败: ' + (up?.error || ''));
+      return;
+    }
+
+    // 2) 立即把 [[URL]] 写回后端(用 this.pages 里的原 content,而不是 DOM —
+    //    这是关键决策点)。append 一个换行避免粘连到前一文本。
+    const page = this.pages.find(p => p.id === this.activePageId);
+    if (!page) { placeholder.remove(); return; }
+    const prev = page.content || '';
+    const sep = prev && !prev.endsWith('\n') ? '\n' : '';
+    const newContent = prev + sep + `[[${up.url}]]`;
+    await this.dataManager.sendMessage('updateNoteContent', {
+      id: this.activePageId,
+      content: newContent
+    });
+    // 同步本地缓存,后续 auto-save 也用对的内容(虽然这次之后不依赖序列化)
+    page.content = newContent;
+    this._saveDirty = false;
+
+    // 3) 占位块 → 真正的图片块
+    const realBlock = this._makeImageBlock(up.url);
+    placeholder.replaceWith(realBlock);
     this._proxyEditorImages(editor);
-    this._scheduleEditorSave(editor);
+  }
+
+  /**
+   * 上传期间的占位块:普通 contenteditable=false span,
+   * 显示 "上传中…" 让用户感知;不影响任何存盘文本(完全不在序列化路径里)。
+   */
+  _makePendingBlock() {
+    const span = document.createElement('span');
+    span.className = 'note-img-pending';
+    span.setAttribute('contenteditable', 'false');
+    span.textContent = '[上传中…]';
+    return span;
+  }
+
+  /**
+   * 在光标位置插入节点(与 _insertImageBlockAtCursor 类似但更通用)
+   */
+  _insertNodeAtCursor(editor, node) {
+    const sel = window.getSelection();
+    let inserted = false;
+    if (sel && sel.rangeCount && editor.contains(sel.anchorNode)) {
+      const range = sel.getRangeAt(0);
+      range.deleteContents();
+      range.insertNode(node);
+      range.setStartAfter(node);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+      inserted = true;
+    }
+    if (!inserted) editor.appendChild(node);
   }
 
   /**
    * 代理编辑器里所有 data-pending-src 的 http 图片 → SW fetch 转 dataURL
-   * 模块页是 chrome-extension://,本无 Mixed Content 限制,但仍走 SW 统一通道
+   * 优化通道:只是 Mixed Content 兜底。_makeImageBlock 已经预先设了 img.src,
+   * 这里只在 SW 成功时用 dataURL 替换(SW 失败/挂起时保留原 src,
+   * 避免代理路径失败时图片完全消失 → 用户只看到 × 被误判为 "字母 x")。
+   *
+   * 命中走 background 的 LRU 池(共享内存缓存),miss 才 fetch。
    */
   _proxyEditorImages(editor) {
     const imgs = editor.querySelectorAll('img[data-pending-src]');
     imgs.forEach((img) => {
       const url = img.getAttribute('data-pending-src');
       if (!url) return;
-      chrome.runtime.sendMessage({ action: 'fetchImageAsDataUrl', url }, (res) => {
-        if (chrome.runtime.lastError) return;
-        if (res?.success && res.dataUrl) {
-          img.src = res.dataUrl;
-          img.removeAttribute('data-pending-src');
-        } else {
-          img.alt = '图片加载失败';
+      chrome.runtime.sendMessage(
+        { action: 'fetchImageAsDataUrl', url },
+        (res) => {
+          if (chrome.runtime.lastError) return;
+          if (res?.success && res.dataUrl) {
+            img.src = res.dataUrl;
+            img.removeAttribute('data-pending-src');
+          }
+          // 失败分支:不动 img.src,保留 _makeImageBlock 写好的直接 URL。
+          // 不再设 alt='图片加载失败',避免误导用户(实际图可能正常显示)。
         }
-      });
+      );
     });
   }
 

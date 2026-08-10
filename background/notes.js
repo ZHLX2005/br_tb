@@ -14,6 +14,21 @@
  * 适用：随手记/长文/草稿/教程笔记。
  */
 
+import { imagePool } from './lru-image-pool.js';
+
+/**
+ * 把 Blob 异步转 data URL —— fetchImageAsDataUrl 与池共享这个 helper
+ * 避免两处重复实现 FileReader + onload/onerror。
+ */
+function blobToDataUrl(blob) {
+  return new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onload = () => res(fr.result);
+    fr.onerror = () => rej(fr.error);
+    fr.readAsDataURL(blob);
+  });
+}
+
 function generateId(prefix = 'n') {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -61,6 +76,7 @@ const NOTE_ACTIONS = new Set([
   // 便签截图 → 图床
   'uploadNoteImage',
   // 图片代理:SW fetch http 图 → dataURL,绕开 HTTPS 页 Mixed Content
+  // 顺带走 LRU 池(background/lru-image-pool.js),命中不重复 fetch
   'fetchImageAsDataUrl',
   // 登录状态查询:通用 service,module/noteRing 都可用
   'getLoginStatus',
@@ -310,18 +326,33 @@ export function setupNotesListeners() {
             // 扩展 Service Worker 在独立的 background context 里 fetch,
             // 不受页面 Mixed Content 规则约束 → 转 dataURL 回传,
             // 任意页面都能显示。笔记正文始终存原 http URL(几十字节)。
+            //
+            // 缓存策略:无条件走 LRU 池
+            // - 命中 → 直接返回池里的 Blob 转 dataURL,不发起网络
+            // - 未命中 → fetch → 写入池 → 返回 dataURL
+            // 池上限(maxItems=50, maxTotalBytes=20MB)防内存撑爆,
+            // 共享 SW 生命周期:SW 被杀,池自动归零。
             if (!request.url) { result = { success: false, error: '缺少 url' }; break; }
             try {
+              // 1) 池查询
+              const cached = imagePool.get(request.url);
+              if (cached) {
+                const dataUrl = await blobToDataUrl(cached);
+                result = { success: true, dataUrl, fromCache: true };
+                break;
+              }
+
+              // 2) miss → 网络取
               const r = await fetch(request.url);
               if (!r.ok) throw new Error('HTTP ' + r.status);
               const blob = await r.blob();
-              const dataUrl = await new Promise((res, rej) => {
-                const fr = new FileReader();
-                fr.onload = () => res(fr.result);
-                fr.onerror = () => rej(fr.error);
-                fr.readAsDataURL(blob);
-              });
-              result = { success: true, dataUrl };
+
+              // 3) 单张 >2MB 自动不入池;池也有 maxItems/maxBytes 兜底
+              imagePool.set(request.url, blob);
+
+              // 4) 转为 dataURL 返回
+              const dataUrl = await blobToDataUrl(blob);
+              result = { success: true, dataUrl, fromCache: false };
             } catch (err) {
               result = { success: false, error: err.message };
             }
