@@ -559,6 +559,14 @@
       e.stopPropagation();
       setExpanded(false);
     });
+    panel.querySelector('[data-note-action="bind-current-tab"]')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      bindCurrentTab();
+    });
+    panel.querySelector('[data-note-action="capture-frame"]')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      captureFrameAndInsert();
+    });
 
     // corner pill click → 打开便签模块
     const cornerPill = panel.querySelector('[data-note-corner-pill]');
