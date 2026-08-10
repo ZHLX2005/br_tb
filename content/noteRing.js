@@ -401,7 +401,7 @@
     .nr-img-x:hover { background: ${ACCENT}; }
 
     /* Toolbar 行(取代老的 head title + page name + 当前 tab info) */
-    .nr-toolbar {
+    .nr-panel-toolbar {
       display: flex; align-items: center;
       padding: 4px 6px;
       border-bottom: 1px solid #e8e8e8;
@@ -413,7 +413,7 @@
       gap: 4px;
       min-height: 32px;
     }
-    .nr-toolbar.dragging { cursor: grabbing; }
+    .nr-panel-toolbar.dragging { cursor: grabbing; }
     .nr-toolbar-spacer { flex: 1; }
 
     /* 右下角手柄(resize) */
@@ -438,7 +438,7 @@
     /* 右下角登录徽章(浮动,不挤 head) */
     .nr-corner-pill {
       position: absolute;
-      right: 8px; bottom: 8px;
+      right: 28px; bottom: 4px;
       display: inline-flex; align-items: center;
       padding: 3px 8px;
       font-size: 11px; line-height: 1.4;
@@ -488,7 +488,7 @@
     panel = document.createElement('div');
     panel.id = WRAPPER_ID + '-panel';
     panel.innerHTML = `
-      <div class="nr-toolbar" data-note-drag-handle>
+      <div class="nr-panel-toolbar" data-note-drag-handle>
         <button class="nr-icon-btn" data-note-action="toggle-picker" title="切换便签页">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M3 7h6a2 2 0 012 2v0H5a2 2 0 01-2-2v0z"/>
@@ -739,22 +739,9 @@
 
   function render() {
     if (!panel) return;
-    renderHeader();
     renderBody();
     renderPicker();
     updateCircleAccent();
-  }
-
-  function renderHeader() {
-    const page = pages.find(p => p.id === currentPageId);
-    const nameEl = panel.querySelector('.nr-page-name');
-    if (page) {
-      nameEl.textContent = page.name;
-      nameEl.classList.remove('placeholder');
-    } else {
-      nameEl.textContent = '便签页';
-      nameEl.classList.add('placeholder');
-    }
   }
 
   function renderBody() {
@@ -990,18 +977,7 @@
     const src = editor.querySelector(".nr-img-source");
     if (src) {
       const url = (src.textContent.match(/\[\[(https?:\/\/[^\]]+)\]\]/) || [])[1] || src.getAttribute("data-url");
-      const span = document.createElement("span");
-      span.className = "nr-img-block";
-      span.setAttribute("contenteditable", "false");
-      span.setAttribute("data-url", url);
-      const img = document.createElement("img");
-      img.alt = "视频帧";
-      if (url && url.startsWith("http://")) img.setAttribute("data-pending-src", url);
-      else if (url) img.src = url;
-      const x = document.createElement("button");
-      x.className = "nr-img-x"; x.type = "button"; x.textContent = "×"; x.title = "删除这张图";
-      x.addEventListener("click", onDeleteImgClick);
-      span.appendChild(img); span.appendChild(x);
+      const span = makeImageBlock(url);
       src.replaceWith(span);
       proxyEditorImages(editor); // 补新块的 src
     }
@@ -1732,8 +1708,7 @@ function bindPanelDelegation() {
       return;
     }
     if (listChanged) {
-      // 页面列表变了(新建/重命名/绑定变化) → 只刷 picker + header
-      renderHeader();
+      // 页面列表变了(新建/重命名/绑定变化) → 只刷 picker
       renderPicker();
     }
     // 内容变化不打断编辑器;但若用户未在编辑,同步外部改动
