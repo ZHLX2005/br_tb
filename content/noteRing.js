@@ -546,14 +546,6 @@
       e.stopPropagation();
       togglePicker();
     });
-    panel.querySelector('[data-note-action="delete-page"]').addEventListener('click', (e) => {
-      e.stopPropagation();
-      deleteCurrentPage();
-    });
-    panel.querySelector('[data-note-action="rename-current-page"]')?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      renameCurrentPage();
-    });
     panel.querySelector('[data-note-action="close-panel"]').addEventListener('click', (e) => {
       e.stopPropagation();
       setExpanded(false);
