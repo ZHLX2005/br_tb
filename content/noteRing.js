@@ -512,6 +512,13 @@
           </svg>
         </button>
         <div class="nr-toolbar-spacer"></div>
+        <button class="nr-icon-btn" data-note-action="open-in-board" title="在便签模块打开（登录与账号配置在此）">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/>
+            <polyline points="15 3 21 3 21 9"/>
+            <line x1="10" y1="14" x2="21" y2="3"/>
+          </svg>
+        </button>
         <button class="nr-icon-btn" data-note-action="close-panel" title="收起">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
             <line x1="6" y1="6" x2="18" y2="18"/><line x1="6" y1="18" x2="18" y2="6"/>
@@ -566,6 +573,10 @@
     panel.querySelector('[data-note-action="capture-frame"]')?.addEventListener('click', (e) => {
       e.stopPropagation();
       captureFrameAndInsert();
+    });
+    panel.querySelector('[data-note-action="open-in-board"]')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openInBoard();
     });
 
     // corner pill click → 打开便签模块
@@ -1264,12 +1275,20 @@
       picker.classList.remove('open');
       return;
     }
-    // 定位:锚定在标题栏 switcher 下方
-    const switcher = panel?.querySelector('.nr-switcher');
-    if (switcher) {
-      const r = switcher.getBoundingClientRect();
-      picker.style.left = Math.max(8, r.left) + 'px';
+    // 定位:锚定在 toolbar 的「切换便签页」按钮下方。
+    // 注意:老的 .nr-switcher 锚点已随 head 精简删除,必须锚到工具栏按钮,
+    // 否则 position:fixed 的 picker 没有 left/top,会跑到视口左上角看不见。
+    const anchor = panel?.querySelector('[data-note-action="toggle-picker"]')
+      || panel?.querySelector('.nr-panel-toolbar');
+    if (anchor) {
+      const r = anchor.getBoundingClientRect();
+      picker.style.left = Math.max(8, Math.min(r.left, window.innerWidth - 308)) + 'px';
       picker.style.top = (r.bottom + 4) + 'px';
+    } else if (panel) {
+      // 兜底:锚到 panel 左上角,至少可见可点
+      const pr = panel.getBoundingClientRect();
+      picker.style.left = Math.max(8, pr.left) + 'px';
+      picker.style.top = (pr.top + 40) + 'px';
     }
     picker.classList.add('open');
   }
@@ -1578,6 +1597,7 @@ function bindPanelDelegation() {
           case 'bind-tab': return bindCurrentTab();
           case 'capture-frame': return captureFrameAndInsert();
           case 'open-login': return openInBoard();
+          case 'open-in-board': return openInBoard();
         }
       } catch (err) {
         console.error('[noteRing] action', a, 'failed:', err);
