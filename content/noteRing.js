@@ -798,7 +798,6 @@
         <button class="nr-tool-btn nr-tool-shutter" data-note-action="capture-frame" title="截取当前视频帧 · Ctrl+B">
           <span class="nr-shutter-dot"></span> 截帧
         </button>
-        <span class="nr-status-pill" id="${WRAPPER_ID}-loginPill" data-note-action="open-login" title="点击打开便签模块">…</span>
       </div>
       <div class="nr-editor" id="${WRAPPER_ID}-editor" contenteditable="true" data-placeholder="开始写…截帧后自动插入图片" spellcheck="false"></div>
     `;
