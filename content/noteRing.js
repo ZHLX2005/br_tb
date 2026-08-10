@@ -740,7 +740,6 @@
   function render() {
     if (!panel) return;
     renderHeader();
-    renderTabHint();
     renderBody();
     renderPicker();
     updateCircleAccent();
@@ -756,27 +755,6 @@
       nameEl.textContent = '便签页';
       nameEl.classList.add('placeholder');
     }
-  }
-
-  function renderTabHint() {
-    const hint = panel.querySelector('[data-note-tab-hint]');
-    if (!hint) return;
-    if (!currentTabUrl || !/^https?:\/\//.test(currentTabUrl)) {
-      hint.style.display = 'none';
-      return;
-    }
-    const page = pages.find(p => p.id === currentPageId);
-    const alreadyBound = page && page.boundTabs?.some(t => t.url === currentTabUrl);
-    hint.style.display = '';
-    hint.innerHTML = `
-      ${currentTabFavicon ? `<img src="${escAttr(currentTabFavicon)}" class="nr-fav" onerror="this.style.display='none'">` : ''}
-      <span class="nr-tab-hint-text" title="${escAttr(currentTabUrl)}">${escHtml(currentTabTitle || currentTabUrl)}</span>
-      ${page
-        ? (alreadyBound
-            ? '<span style="color:#999;">已绑定</span>'
-            : `<button class="nr-tab-bind-btn" data-note-action="bind-tab">绑定到本页面</button>`)
-        : '<span style="color:#bbb;">未选择便签页</span>'}
-    `;
   }
 
   function renderBody() {
@@ -1622,9 +1600,7 @@ function bindPanelDelegation() {
           case 'open-picker': return togglePicker();
           case 'rename-page': return renamePage(actionEl);
           case 'bind-tab': return bindCurrentTab();
-          case 'rename-current-page': return renameCurrentPage();
           case 'capture-frame': return captureFrameAndInsert();
-          case 'open-in-board': return openInBoard();
           case 'open-login': return openInBoard();
         }
       } catch (err) {
@@ -1759,7 +1735,6 @@ function bindPanelDelegation() {
       // 页面列表变了(新建/重命名/绑定变化) → 只刷 picker + header
       renderHeader();
       renderPicker();
-      renderTabHint();
     }
     // 内容变化不打断编辑器;但若用户未在编辑,同步外部改动
     if (currentPageId) {
