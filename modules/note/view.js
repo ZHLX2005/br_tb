@@ -16,8 +16,10 @@
  * 与 content/noteRing.js 同源语义（各自维护一份，避免运行时依赖）。
  *
  * 注意：本模块（看板页 chrome-extension://）无视频宿主，无截帧按钮；
- *       图床账号 <details> 面板是 canonical 登录入口，保留。
+ *       登录态是模块级全局配置，统一收进 header 右上 gear popover（见 _buildHeader）。
  */
+
+import { modal, toast } from '../../shared/ModalDialog.js';
 
 const STORAGE_KEYS = ['notePages'];
 const AUTOSAVE_DELAY = 600; // ms
@@ -93,14 +95,42 @@ class NoteView {
           <span class="note-header-sub">每页一篇独立文章</span>
         </div>
         <div class="note-header-actions">
-          <button class="note-btn note-btn-secondary" data-note-action="bind-current-tab" title="把当前标签页绑定到选中的页面">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/>
-              <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/>
+          <button class="note-icon-btn" id="noteLoginGear" title="图床账号" aria-haspopup="true" aria-expanded="false">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
             </svg>
-            绑定当前标签页
           </button>
+          <div class="note-login-popover" id="noteLoginPopover" hidden>
+            ${this._buildLoginPopoverBody()}
+          </div>
         </div>
+      </div>
+    `;
+  }
+
+  /**
+   * 图床账号 popover 内容（由 header gear 触发显示）。
+   * 登录态是模块级全局配置，与单篇便签无关，故收进 header 而非每个 page 编辑器。
+   * 元素 id 与原 <details> 方案保持一致，_wireUploadSettings/_uploadCredListener 无需改。
+   */
+  _buildLoginPopoverBody() {
+    return `
+      <div class="note-setting-status">
+        <span class="note-login-pill" id="noteLoginPill">…</span>
+        <button class="note-btn note-btn-secondary" id="noteLoginBtn">登录</button>
+      </div>
+      <div class="note-setting-row">
+        <label>邮箱</label>
+        <input type="text" id="noteUploadEmail" class="note-setting-input" placeholder="图床登录邮箱" autocomplete="off">
+      </div>
+      <div class="note-setting-row">
+        <label>密码</label>
+        <input type="password" id="noteUploadPassword" class="note-setting-input" placeholder="图床登录密码" autocomplete="off">
+      </div>
+      <div class="note-setting-row" style="justify-content:flex-end;">
+        <span class="note-setting-hint" id="noteUploadHint"></span>
+        <button class="note-btn note-btn-secondary" id="noteUploadSaveBtn">保存</button>
       </div>
     `;
   }
@@ -184,27 +214,6 @@ class NoteView {
           </div>
         </div>
         ${this._buildBoundTabs(page)}
-        <details class="note-editor-settings" open>
-          <summary class="note-editor-settings-toggle">图床账号（便签截屏授权）</summary>
-          <div class="note-editor-settings-body">
-            <div class="note-setting-status">
-              <span class="note-login-pill" id="noteLoginPill">…</span>
-              <button class="note-btn note-btn-secondary" id="noteLoginBtn">登录</button>
-            </div>
-            <div class="note-setting-row">
-              <label>邮箱</label>
-              <input type="text" id="noteUploadEmail" class="note-setting-input" placeholder="图床登录邮箱" autocomplete="off">
-            </div>
-            <div class="note-setting-row">
-              <label>密码</label>
-              <input type="password" id="noteUploadPassword" class="note-setting-input" placeholder="图床登录密码" autocomplete="off">
-            </div>
-            <div class="note-setting-row" style="justify-content:flex-end;">
-              <span class="note-setting-hint" id="noteUploadHint"></span>
-              <button class="note-btn note-btn-secondary" id="noteUploadSaveBtn">保存</button>
-            </div>
-          </div>
-        </details>
         <div class="note-editor-content-wrap">
           <div class="note-editor-content" id="notePageContent" contenteditable="true" data-placeholder="开始写…" spellcheck="false"></div>
         </div>
@@ -215,7 +224,7 @@ class NoteView {
   _buildBoundTabs(page) {
     const tabs = page.boundTabs || [];
     if (tabs.length === 0) {
-      return `<div class="note-bound-empty">未绑定任何标签页 — 点击顶部「绑定当前标签页」</div>`;
+      return `<div class="note-bound-empty">暂未关联标签页（关联由网页便签面板自动完成）</div>`;
     }
     return `
       <div class="note-bound">
@@ -354,10 +363,8 @@ class NoteView {
       titleInput.addEventListener('input', () => this._scheduleRename(titleInput.value));
       titleInput.addEventListener('keydown', (e) => e.stopPropagation());
     }
-    // 图床账号面板：每次重渲染后重新挂载（container.innerHTML 重写会丢监听）
-    if (this.container.querySelector('#noteUploadSaveBtn')) {
-      this._wireUploadSettings();
-    }
+    // header（gear popover + 图床账号）：每次重渲染后重新挂载
+    this._wireHeader();
     // WYSIWYG 编辑器:渲染内容 + 绑定事件 + 代理 http 图片
     const editor = this.container.querySelector('#notePageContent');
     if (editor) {
@@ -365,6 +372,47 @@ class NoteView {
       this._renderContentToEditor(editor, page?.content || '');
       this._bindEditorEvents(editor);
       this._proxyEditorImages(editor);
+    }
+  }
+
+  /**
+   * header gear popover：触发开关 + 外部点击/ESC 关闭 + 挂载图床账号面板。
+   * 容器级 click/keydown 监听只绑一次（_headerWired 守卫，与 _wireContainerDelegation
+   * 同样依赖 container 跨 _rerender 持久）；_wireUploadSettings 每次 render 重挂（fresh 节点）。
+   */
+  _wireHeader() {
+    if (!this._headerWired) {
+      this._headerWired = true;
+      this.container.addEventListener('click', (e) => {
+        const gear = e.target.closest('#noteLoginGear');
+        const pop = this.container.querySelector('#noteLoginPopover');
+        if (gear) {
+          e.stopPropagation();
+          if (pop) {
+            const willOpen = pop.hasAttribute('hidden');
+            pop.toggleAttribute('hidden', !willOpen);
+            gear.setAttribute('aria-expanded', String(willOpen));
+          }
+          return;
+        }
+        // 外部点击关闭（点 popover 内部不关）
+        if (pop && !pop.hasAttribute('hidden') && !e.target.closest('#noteLoginPopover')) {
+          pop.setAttribute('hidden', '');
+          this.container.querySelector('#noteLoginGear')?.setAttribute('aria-expanded', 'false');
+        }
+      });
+      this.container.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        const pop = this.container.querySelector('#noteLoginPopover');
+        if (pop && !pop.hasAttribute('hidden')) {
+          pop.setAttribute('hidden', '');
+          this.container.querySelector('#noteLoginGear')?.setAttribute('aria-expanded', 'false');
+        }
+      });
+    }
+    // 图床账号面板：每次重渲染后重新挂载（container.innerHTML 重写会丢监听）
+    if (this.container.querySelector('#noteUploadSaveBtn')) {
+      this._wireUploadSettings();
     }
   }
 
@@ -774,7 +822,7 @@ class NoteView {
       });
     });
     if (!status.hasCredentials) {
-      alert('未配置图床账号,请在下方「图床账号」面板填写并登录');
+      toast('未配置图床账号，请点右上角齿轮登录', 'error', 3500);
       return;
     }
 
@@ -792,12 +840,12 @@ class NoteView {
     } catch (err) {
       // 上传失败:撤回占位块,弹提示,保留之前落盘内容不变
       placeholder.remove();
-      alert('上传失败: ' + err.message);
+      toast('上传失败: ' + err.message, 'error', 3500);
       return;
     }
     if (!up?.success || !up.url) {
       placeholder.remove();
-      alert('上传失败: ' + (up?.error || ''));
+      toast('上传失败: ' + (up?.error || ''), 'error', 3500);
       return;
     }
 
@@ -933,7 +981,6 @@ class NoteView {
       case 'new-page': return this._newPage();
       case 'rename-page': return this._renamePage(ctx.pageId);
       case 'delete-page': return this._deletePage(ctx.pageId);
-      case 'bind-current-tab': return this._bindCurrentTab();
       case 'unbind-tab': return this._unbindTab(ctx.actionEl);
       case 'select-page':
         // 已由 _wireContainerDelegation 的卡片点击处理
@@ -942,9 +989,14 @@ class NoteView {
   }
 
   async _newPage() {
-    const name = prompt('便签页名称', '新便签页');
-    if (!name) return;
-    const r = await this.dataManager.sendMessage('createNotePage', { name });
+    const name = await modal.prompt('请输入便签页名称', {
+      title: '新建便签页',
+      defaultValue: '新便签页',
+      placeholder: '便签页名称',
+      confirmText: '创建'
+    });
+    if (!name || !name.trim()) return;
+    const r = await this.dataManager.sendMessage('createNotePage', { name: name.trim() });
     if (r?.success) {
       this._flushSave();
       this.activePageId = r.page.id;
@@ -955,40 +1007,30 @@ class NoteView {
   async _renamePage(pageId) {
     const page = this.pages.find(p => p.id === pageId);
     if (!page) return;
-    const name = prompt('重命名', page.name);
-    if (!name || name === page.name) return;
-    await this.dataManager.sendMessage('renameNotePage', { id: pageId, name });
+    const name = await modal.prompt('请输入新的名称', {
+      title: '重命名',
+      defaultValue: page.name,
+      placeholder: '便签页名称',
+      confirmText: '保存'
+    });
+    if (!name || !name.trim() || name === page.name) return;
+    await this.dataManager.sendMessage('renameNotePage', { id: pageId, name: name.trim() });
     // storage change 会刷新 UI
   }
 
   async _deletePage(pageId) {
     const page = this.pages.find(p => p.id === pageId);
     if (!page) return;
-    if (!confirm(`删除便签页「${page.name}」？文章内容将丢失。`)) return;
+    const ok = await modal.confirm(`删除便签页「${page.name}」？文章内容将丢失。`, {
+      title: '删除便签页',
+      type: 'danger',
+      confirmText: '删除'
+    });
+    if (!ok) return;
     const r = await this.dataManager.sendMessage('deleteNotePage', { id: pageId });
     if (r?.success) {
       if (this.activePageId === pageId) this.activePageId = null;
       this._rerender();
-    }
-  }
-
-  async _bindCurrentTab() {
-    if (!this.activePageId) {
-      alert('请先在左侧选中一个便签页');
-      return;
-    }
-    try {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (!tab || !tab.url) { alert('无法获取当前标签页 URL'); return; }
-      if (!/^https?:\/\//.test(tab.url)) { alert('当前页面 URL 不支持绑定（仅 http/https）'); return; }
-      await this.dataManager.sendMessage('bindTabToPage', {
-        pageId: this.activePageId,
-        url: tab.url,
-        title: tab.title || tab.url,
-        favicon: tab.favIconUrl || ''
-      });
-    } catch (e) {
-      console.error('[note] bind tab failed', e);
     }
   }
 

@@ -7,6 +7,7 @@
 }
 
 .note-header {
+  position: relative;
   display: flex; align-items: center; justify-content: space-between;
   padding: 14px 18px;
   border-bottom: 1px solid #e8e8e8;
@@ -49,11 +50,11 @@
   padding: 0; flex-shrink: 0;
 }
 .note-icon-btn:hover { background: #e8e8e8; color: #1a1a1a; }
-.note-icon-btn-danger:hover { background: #1a1a1a; color: #fff; }
+.note-icon-btn-danger:hover { background: var(--danger, #ef5350); color: #fff; }
 .note-icon-btn-primary {
-  background: #1a1a1a; color: #fff;
+  background: var(--primary, #42a5f5); color: #fff;
 }
-.note-icon-btn-primary:hover { background: #000; color: #fff; }
+.note-icon-btn-primary:hover { background: var(--primary-dark, #1976d2); color: #fff; }
 
 /* ---- 侧边栏 ---- */
 .note-sidebar {
@@ -98,17 +99,17 @@
   background: #f0f0f0;
   border-color: #e0e0e0;
 }
-.note-page-item:hover .note-page-item-actions { opacity: 1; }
+.note-page-item:hover .note-page-item-actions { opacity: 1; pointer-events: auto; }
 .note-page-item.active {
-  background: #1a1a1a;
-  color: #fff;
-  border-color: #1a1a1a;
+  background: var(--primary-light, #e3f2fd);
+  color: var(--primary-dark, #1976d2);
+  border-color: var(--primary, #42a5f5);
 }
-.note-page-item.active .note-page-item-preview { color: rgba(255,255,255,0.6); }
-.note-page-item.active .note-page-item-time { color: rgba(255,255,255,0.5); }
-.note-page-item.active .note-icon-btn { color: rgba(255,255,255,0.7); }
-.note-page-item.active .note-icon-btn:hover { background: rgba(255,255,255,0.15); color: #fff; }
-.note-page-item.active .note-icon-btn-danger:hover { background: #fff; color: #e53935; }
+.note-page-item.active .note-page-item-preview { color: var(--primary-dark, #1976d2); opacity: 0.75; }
+.note-page-item.active .note-page-item-time { color: var(--primary-dark, #1976d2); opacity: 0.6; }
+.note-page-item.active .note-icon-btn { color: var(--primary-dark, #1976d2); }
+.note-page-item.active .note-icon-btn:hover { background: rgba(66,165,245,0.18); color: var(--primary-dark, #1976d2); }
+.note-page-item.active .note-icon-btn-danger:hover { background: var(--danger, #ef5350); color: #fff; }
 
 .note-page-item-main {
   flex: 1; min-width: 0; cursor: pointer;
@@ -138,11 +139,14 @@
 }
 
 .note-page-item-actions {
-  display: flex; flex-direction: column; gap: 2px;
+  position: absolute; top: 6px; right: 6px;
+  display: flex; flex-direction: row; gap: 2px;
   opacity: 0;
+  pointer-events: none;
   transition: opacity 120ms;
-  flex-shrink: 0;
-  margin-left: 4px;
+  background: rgba(255,255,255,0.9);
+  border-radius: 4px;
+  padding: 2px;
 }
 
 /* ---- 编辑器 ---- */
@@ -218,7 +222,7 @@
   font-size: 12px; line-height: 1;
   display: flex; align-items: center; justify-content: center;
 }
-.note-bound-tab-remove:hover { background: #1a1a1a; color: #fff; }
+.note-bound-tab-remove:hover { background: var(--danger, #ef5350); color: #fff; }
 
 /* 文章内容编辑区 */
 .note-editor-content-wrap {
@@ -261,7 +265,7 @@
   background: #fafafa;
   flex-shrink: 0;
 }
-.note-tool-btn.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+.note-tool-btn.active { background: var(--primary, #42a5f5); color: #fff; border-color: var(--primary-dark, #1976d2); }
 
 /* WYSIWYG 图片块(contenteditable=false): 默认显示图片;光标进入时内部换为 [[URL]] 源码文本 */
 .note-img-block {
@@ -289,7 +293,7 @@
   pointer-events: none;
   transition: border-color 120ms;
 }
-.note-img-block.note-img-active::after { border-color: #1a1a1a; }
+.note-img-block.note-img-active::after { border-color: var(--primary, #42a5f5); }
 /* 删除按钮(hover 出现) */
 .note-img-x {
   position: absolute; top: 4px; right: 4px;
@@ -301,41 +305,26 @@
   padding: 0;
 }
 .note-img-block:hover .note-img-x { display: flex; }
-.note-img-x:hover { background: #1a1a1a; }
+.note-img-x:hover { background: var(--danger, #ef5350); }
 
-/* 图床账号面板（折叠 details） */
-.note-editor-settings {
-  border-bottom: 1px solid #e8e8e8;
-  background: #fafafa;
-  flex-shrink: 0;
-}
-.note-editor-settings-toggle {
-  padding: 6px 18px;
-  font-size: 11px;
-  font-weight: 600;
-  color: #666;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  cursor: pointer;
-  list-style: none;
-  user-select: none;
-}
-.note-editor-settings-toggle::-webkit-details-marker { display: none; }
-.note-editor-settings-toggle::before {
-  content: '▶ ';
-  font-size: 8px;
-  color: #999;
-  transition: transform 120ms;
-  display: inline-block;
-  margin-right: 4px;
-}
-.note-editor-settings[open] .note-editor-settings-toggle::before { transform: rotate(90deg); }
-.note-editor-settings-body {
-  padding: 8px 18px 14px;
+/* 图床账号 popover（header gear 触发，inline 定位） */
+.note-login-popover {
+  position: absolute;
+  top: 100%;
+  right: 12px;
+  margin-top: 6px;
+  width: 280px;
+  background: #fff;
+  border: 1px solid var(--border, #e0e0e0);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12), 0 0 1px rgba(0,0,0,0.08);
+  padding: 12px;
+  z-index: 50;
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
+.note-login-popover[hidden] { display: none; }
 .note-setting-row {
   display: flex; align-items: center; gap: 8px;
   font-size: 12px;
@@ -362,9 +351,9 @@
 /* 登录状态徽章(与 noteRing 的 nr-status-pill 风格对齐) */
 .note-setting-status {
   display: flex; align-items: center; gap: 8px;
-  padding: 4px 0 2px;
-  border-bottom: 1px dashed #e8e8e8;
-  margin-bottom: 2px;
+  padding: 2px 0 6px;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 4px;
 }
 .note-login-pill {
   flex: 1;
