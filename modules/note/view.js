@@ -24,6 +24,12 @@ import { modal, toast } from '../../shared/ModalDialog.js';
 const STORAGE_KEYS = ['notePages'];
 const AUTOSAVE_DELAY = 600; // ms
 
+// CAS 跟踪:pageId → 编辑器内容对应的 storage version。
+// - 在 _renderContentToEditor 末尾从 pages.find(...).version 设入
+// - 在 updateNoteContent 成功响应中 (response.page.version) 推进
+// - 页面删除/切换时移除该 pageId
+const editorVersion = new Map();
+
 class NoteView {
   constructor(dataManager) {
     this.dataManager = dataManager;
@@ -549,6 +555,7 @@ class NoteView {
       }
     }
     if (!editor.childNodes.length) editor.textContent = '';
+    if (this.activePageId) editorVersion.set(this.activePageId, this._getStoredVersion(this.activePageId));
   }
 
   /**
@@ -853,15 +860,12 @@ class NoteView {
     //    这是关键决策点)。append 一个换行避免粘连到前一文本。
     const page = this.pages.find(p => p.id === this.activePageId);
     if (!page) { placeholder.remove(); return; }
-    const prev = page.content || '';
-    const sep = prev && !prev.endsWith('\n') ? '\n' : '';
-    const newContent = prev + sep + `[[${up.url}]]`;
-    await this.dataManager.sendMessage('updateNoteContent', {
-      id: this.activePageId,
-      content: newContent
-    });
-    // 同步本地缓存,后续 auto-save 也用对的内容(虽然这次之后不依赖序列化)
-    page.content = newContent;
+    const appendRes = await this.appendSnippetCAS(`[[${up.url}]]`);
+    if (!appendRes?.success) {
+      alert('上传成功但写入失败: ' + (appendRes?.error || '并发冲突'));
+      placeholder.remove();
+      return;
+    }
     this._saveDirty = false;
 
     // 3) 占位块 → 真正的图片块
@@ -965,13 +969,78 @@ class NoteView {
 
   async _doSave(content) {
     if (!this.activePageId) return;
+    if (!this.preSaveGuard(this.activePageId)) return;
     this._saveDirty = false;
-    await this.dataManager.sendMessage('updateNoteContent', {
-      id: this.activePageId,
-      content: content || ''
+    const expectedVersion = editorVersion.get(this.activePageId) ?? 0;
+    const res = await new Promise((resolve) => {
+      chrome.runtime.sendMessage(
+        { action: 'updateNoteContent', id: this.activePageId, content: content || '', expectedVersion },
+        (r) => resolve(r || { success: false })
+      );
     });
-    // 触发 storage change → 其他视图也会刷新
-    // 本地不重渲染（避免打断编辑）
+    if (res?.success) {
+      editorVersion.set(this.activePageId, res.page?.version ?? expectedVersion + 1);
+    } else if (res?.conflict && res.page) {
+      const idx = this.pages.findIndex(p => p.id === this.activePageId);
+      if (idx >= 0) this.pages[idx] = res.page; else this.pages.push(res.page);
+      editorVersion.set(this.activePageId, res.page.version ?? 0);
+      const statusEl = this.container.querySelector('#noteEditorStatus');
+      if (statusEl) statusEl.textContent = '⚠️ 远端有改动 · 本页部分输入未保存';
+    } else {
+      const statusEl = this.container.querySelector('#noteEditorStatus');
+      if (statusEl) statusEl.textContent = '保存失败: ' + (res?.error || '');
+    }
+  }
+
+  // 读 storage 中 page 的 version(若未版本化返回 0)。
+  _getStoredVersion(pageId) {
+    const page = this.pages.find(p => p.id === pageId);
+    if (!page || page.version == null) return 0;
+    return page.version;
+  }
+
+  // snippet-append with CAS:读取当前 page.content,append snippet,写回;
+  // 冲突则用响应里的 fresh page 重试一次(最多 2 次)。
+  async appendSnippetCAS(snippet) {
+    if (!this.activePageId) return { success: false };
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const page = this.pages.find(p => p.id === this.activePageId);
+      const prev = (page?.content || '');
+      const sep = prev && !prev.endsWith('\n') ? '\n' : '';
+      const newContent = prev + sep + snippet;
+      const expectedVersion = page?.version ?? 0;
+      const res = await new Promise((resolve) => {
+        chrome.runtime.sendMessage(
+          { action: 'updateNoteContent', id: this.activePageId, content: newContent, expectedVersion },
+          (r) => resolve(r || { success: false })
+        );
+      });
+      if (res?.success) {
+        if (page && res.page) page.content = res.page.content;
+        editorVersion.set(this.activePageId, res.page?.version ?? expectedVersion + 1);
+        return res;
+      }
+      if (res?.conflict && res.page) {
+        const idx = this.pages.findIndex(p => p.id === this.activePageId);
+        if (idx >= 0) this.pages[idx] = res.page; else this.pages.push(res.page);
+        continue;
+      }
+      return res;
+    }
+    alert('并发冲突,请刷新便签页');
+    return { success: false };
+  }
+
+  // 预保存守卫:检测 pages.version 与 editorVersion 漂移,跳过写。
+  preSaveGuard(pageId) {
+    const stored = this._getStoredVersion(pageId);
+    const base = editorVersion.get(pageId) ?? 0;
+    if (stored !== 0 && base !== stored) {
+      const statusEl = this.container.querySelector('#noteEditorStatus');
+      if (statusEl) statusEl.textContent = '⚠️ 远端已更新本页,编辑未保存';
+      return false;
+    }
+    return true;
   }
 
   // ========== 动作处理 ==========
