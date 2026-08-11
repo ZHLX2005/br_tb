@@ -153,6 +153,16 @@ export async function initializeDefaultData() {
     await chrome.storage.local.set({ notePages: [] });
   }
 
+  // notePages CAS 迁移:为缺 version 的旧页补 version=1(关闭 R1 迁移窗口)
+  // 与 settings 字段迁移模式一致——惰性,每次 SW 启动跑一次,直到所有页都迁移完。
+  if (Array.isArray(result.notePages) && result.notePages.some(p => p.version == null)) {
+    let dirty = false;
+    for (const p of result.notePages) {
+      if (p.version == null) { p.version = 1; dirty = true; }
+    }
+    if (dirty) await chrome.storage.local.set({ notePages: result.notePages });
+  }
+
   // 初始化便签全局默认 page id(用户在面板里选的 page,跨 tab 共享)
   if (!('noteCurrentPageId' in result)) {
     await chrome.storage.local.set({ noteCurrentPageId: null });
