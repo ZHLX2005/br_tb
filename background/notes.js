@@ -64,6 +64,16 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+// 写锁:序列化所有写处理器的 loadPages→mutate→savePages 临界区,
+// 防御并发消息导致的 SW 内部交错(A load v1 → B load v1 → A save v2 → B 基于 v1 save v3)。
+// then(fn, fn) 让锁链在拒绝时也推进;catch 之后续链保持活跃。
+let _notesLock = Promise.resolve();
+function withNotesLock(fn) {
+  const next = _notesLock.then(() => fn(), () => fn());
+  _notesLock = next.catch(() => {});
+  return next;
+}
+
 const NOTE_ACTIONS = new Set([
   'getNotes',
   'getActiveTabInfo',
@@ -207,8 +217,7 @@ export function setupNotesListeners() {
               id: generateId('p'),
               name: (request.name || '未命名便签').trim().slice(0, 40) || '未命名便签',
               content: (request.content || '').toString(),
-              createdAt: nowIso(),
-              updatedAt: nowIso(),
+              createdAt: nowIso(), version: 1, updatedAt: nowIso(),
               boundTabs: []
             };
             notePages.push(page);
@@ -244,13 +253,24 @@ export function setupNotesListeners() {
             break;
           }
           case 'updateNoteContent': {
-            const notePages = await loadPages();
-            const page = notePages.find(p => p.id === request.id);
-            if (!page) { result = { success: false, error: '页面不存在' }; break; }
-            page.content = (request.content || '').toString();
-            touch(page);
-            await savePages(notePages);
-            result = { success: true, page };
+            await withNotesLock(async () => {
+              const notePages = await loadPages();
+              const page = notePages.find(p => p.id === request.id);
+              if (!page) { result = { success: false, error: '页面不存在' }; return; }
+              // 迁移:首次见到 page.version == null,按 0 处理(CAS 跳过,首次版本化写置为 1)
+              const currentVersion = page.version == null ? 0 : page.version;
+              if (currentVersion !== 0 &&
+                  request.expectedVersion != null &&
+                  currentVersion !== request.expectedVersion) {
+                result = { success: false, conflict: true, page };
+                return;
+              }
+              page.content = (request.content || '').toString();
+              page.version = currentVersion === 0 ? 1 : currentVersion + 1;
+              touch(page);
+              await savePages(notePages);
+              result = { success: true, page };
+            });
             break;
           }
           case 'bindTabToPage': {
