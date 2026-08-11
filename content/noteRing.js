@@ -30,6 +30,19 @@
   // 所见即所得编辑器: [[URL]] 渲染为图片块;光标进入时临时显示源码
   let pages = [];
   let currentPageId = null;
+  // CAS 跟踪:pageId → 编辑器内容对应的 storage version。
+  // - 在 renderContentToEditor 末尾从 pages.find(...).version 设入
+  // - 在 updateNoteContent 成功响应中 (response.page.version) 推进
+  // - 页面删除/切换时移除该 pageId
+  const editorVersion = new Map();
+
+  // 读 storage 中 page 的 version(若未版本化返回 0)。
+  function getStoredVersion(pageId) {
+    const page = pages.find(p => p.id === pageId);
+    if (!page || page.version == null) return 0;
+    return page.version;
+  }
+
   let currentTabUrl = '';
   let currentTabTitle = '';
   let currentTabFavicon = '';
@@ -769,8 +782,8 @@
    */
   function renderContentToEditor(editor, content) {
     editor.innerHTML = "";
-    if (!content) { editor.textContent = ""; return; }
-    // 按 [[URL]] 切分
+    if (!content) { editor.textContent = ""; }
+    else { // 按 [[URL]] 切分
     const re = /(\[\[https?:\/\/[^\]]+\]\])/g;
     const parts = content.split(re);
     for (const part of parts) {
@@ -823,6 +836,8 @@
       }
     }
     if (!editor.childNodes.length) editor.textContent = "";
+    }
+    if (currentPageId) editorVersion.set(currentPageId, getStoredVersion(currentPageId));
   }
 
   /**
@@ -1065,11 +1080,13 @@
     // 2) 后端落盘 — 用 pages 里原 content 拼接,不经过 DOM 序列化
     const page = pages.find((p) => p.id === currentPageId);
     if (!page) { placeholder.remove(); return; }
-    const prev = page.content || "";
-    const sep = prev && !prev.endsWith("\n") ? "\n" : "";
-    const newContent = prev + sep + `[[${res.url}]]`;
-    await chrome.runtime.sendMessage({ action: "updateNoteContent", id: currentPageId, content: newContent });
-    page.content = newContent;
+    const appendRes = await appendSnippetCAS(`[[${res.url}]]`);
+    if (!appendRes?.success) {
+      placeholder.remove();
+      setStatus("", "上传成功但写入失败", "saved");
+      alert('上传成功但写入失败: ' + (appendRes?.error || '并发冲突'));
+      return;
+    }
 
     // 3) 占位块 → 真实图片块
     const realBlock = makeImageBlock(res.url);
@@ -1114,10 +1131,78 @@
     if (_saveTimer) clearTimeout(_saveTimer);
     _saveTimer = setTimeout(async () => {
       if (!currentPageId) return;
+      if (!preSaveGuard(currentPageId)) return;
       const content = serializeEditor(editor);
-      await chrome.runtime.sendMessage({ action: "updateNoteContent", id: currentPageId, content });
-      setStatus(`${content.length} 字符`, "已保存", "saved");
+      const expectedVersion = editorVersion.get(currentPageId) ?? 0;
+      const res = await new Promise((resolve) => {
+        chrome.runtime.sendMessage(
+          { action: "updateNoteContent", id: currentPageId, content, expectedVersion },
+          (r) => resolve(r || { success: false })
+        );
+      });
+      if (res?.success) {
+        editorVersion.set(currentPageId, res.page?.version ?? expectedVersion + 1);
+        setStatus(`${content.length} 字符`, "已保存", "saved");
+      } else if (res?.conflict) {
+        // 跳过 + 同步 editorVersion 到 fresh(让下一次写基于新版本)
+        if (res.page) {
+          const idx = pages.findIndex(p => p.id === currentPageId);
+          if (idx >= 0) pages[idx] = res.page; else pages.push(res.page);
+          editorVersion.set(currentPageId, res.page.version ?? 0);
+        }
+        setStatus('⚠️ 远端有改动 · 本页部分输入未保存', '', 'warn');
+      } else {
+        setStatus('保存失败', res?.error || '', 'warn');
+      }
     }, 500);
+  }
+
+  // snippet-append with CAS:读取当前 page.content,append snippet,写回;
+  // 冲突则用响应里的 fresh page 重试一次(最多 2 次)。
+  async function appendSnippetCAS(snippet) {
+    if (!currentPageId) return;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const page = pages.find(p => p.id === currentPageId);
+      const prev = (page?.content || '');
+      const sep = prev && !prev.endsWith('\n') ? '\n' : '';
+      const newContent = prev + sep + snippet;
+      const expectedVersion = page?.version ?? 0;
+      const res = await new Promise((resolve) => {
+        chrome.runtime.sendMessage(
+          { action: 'updateNoteContent', id: currentPageId, content: newContent, expectedVersion },
+          (r) => resolve(r || { success: false })
+        );
+      });
+      if (res?.success) {
+        // 更新本地缓存与 editorVersion
+        if (page && res.page) page.content = res.page.content;
+        editorVersion.set(currentPageId, res.page?.version ?? expectedVersion + 1);
+        return res;
+      }
+      if (res?.conflict && res.page) {
+        // 用响应里的 fresh page 重试
+        const idx = pages.findIndex(p => p.id === currentPageId);
+        if (idx >= 0) pages[idx] = res.page; else pages.push(res.page);
+        continue;
+      }
+      // 真正的失败
+      return res;
+    }
+    // 两次都冲突(罕见):让用户知道
+    alert('并发冲突,请刷新便签页');
+    return { success: false };
+  }
+
+  // 预保存守卫:检测 pages.version 与 editorVersion 是否漂移,
+  // 若漂移 → onChanged 已更新 storage 但编辑器未重渲染(因聚焦守卫),跳过写。
+  function preSaveGuard(pageId) {
+    const stored = getStoredVersion(pageId);
+    const base = editorVersion.get(pageId) ?? 0;
+    if (stored !== 0 && base !== stored) {
+      setStatus('⚠️ 远端已更新本页,编辑未保存', '', 'warn');
+      return false; // skip
+    }
+    return true;
   }
 
   /**
@@ -1150,12 +1235,25 @@
     const editor = panel?.querySelector('#' + WRAPPER_ID + '-editor');
     if (!editor || !currentPageId) return;
     if (_saveTimer) { clearTimeout(_saveTimer); _saveTimer = null; }
+    if (!preSaveGuard(currentPageId)) return;
     const content = serializeEditor(editor);
-    await chrome.runtime.sendMessage({
-      action: 'updateNoteContent',
-      id: currentPageId,
-      content: content || ''
+    const expectedVersion = editorVersion.get(currentPageId) ?? 0;
+    const res = await new Promise((resolve) => {
+      chrome.runtime.sendMessage({
+        action: 'updateNoteContent',
+        id: currentPageId,
+        content: content || '',
+        expectedVersion
+      }, (r) => resolve(r || { success: false }));
     });
+    if (res?.success) {
+      editorVersion.set(currentPageId, res.page?.version ?? expectedVersion + 1);
+    } else if (res?.conflict && res.page) {
+      // 同步到 fresh,下次写基于新版本
+      const idx = pages.findIndex(p => p.id === currentPageId);
+      if (idx >= 0) pages[idx] = res.page; else pages.push(res.page);
+      editorVersion.set(currentPageId, res.page.version ?? 0);
+    }
   }
 
   function setStatus(left, right, rightCls) {
@@ -1442,22 +1540,20 @@
       const placeholder = makePendingBlock();
       insertNodeAtCursor(editor, placeholder);
 
-      const page = pages.find((p) => p.id === currentPageId);
-      const prev = (page?.content || '');
-      const sep = prev && !prev.endsWith('\n') ? '\n' : '';
-      const newContent = prev + sep + `[[${url}]]`;
-      await chrome.runtime.sendMessage({ action: 'updateNoteContent', id: currentPageId, content: newContent });
-      if (page) page.content = newContent;
+      const appendRes = await appendSnippetCAS(`[[${url}]]`);
+      if (!appendRes?.success) {
+        placeholder.remove();
+        setStatus('', '上传成功但写入失败', 'saved');
+        alert('上传成功但写入失败');
+        return;
+      }
 
       const realBlock = makeImageBlock(url);
       placeholder.replaceWith(realBlock);
       proxyEditorImages(editor);
     } else {
       // editor 不存在(无选中页)→ 直接追加到 content 存储
-      const page = pages.find(p => p.id === currentPageId);
-      const prev = (page?.content || '');
-      const content = prev + (prev && !prev.endsWith('\n') ? '\n' : '') + `[[${url}]]`;
-      await chrome.runtime.sendMessage({ action: 'updateNoteContent', id: currentPageId, content });
+      await appendSnippetCAS(`[[${url}]]`);
     }
     setStatus(`${url.length + 4} 字节图`, '已上传 ✓', 'saved');
   }
@@ -1598,10 +1694,17 @@ function bindPanelDelegation() {
       if (editor) {
         const content = serializeEditor(editor);
         if (content) {
+          const expectedVersion = editorVersion.get(currentPageId) ?? 0;
           chrome.runtime.sendMessage({
             action: 'updateNoteContent',
             id: currentPageId,
-            content
+            content,
+            expectedVersion
+          }, (res) => {
+            // 冲突时:放弃本次保存,下次 cold-start 同步会修正
+            if (res?.success) {
+              editorVersion.set(currentPageId, res.page?.version ?? expectedVersion + 1);
+            }
           });
         }
       }
