@@ -1553,7 +1553,12 @@
       proxyEditorImages(editor);
     } else {
       // editor 不存在(无选中页)→ 直接追加到 content 存储
-      await appendSnippetCAS(`[[${url}]]`);
+      const appendRes = await appendSnippetCAS(`[[${url}]]`);
+      if (!appendRes?.success) {
+        setStatus('', '上传失败', 'saved');
+        alert('上传成功但写入失败: ' + (appendRes?.error || '并发冲突'));
+        return;
+      }
     }
     setStatus(`${url.length + 4} 字节图`, '已上传 ✓', 'saved');
   }
