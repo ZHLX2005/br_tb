@@ -199,6 +199,71 @@
     return Math.round((completed / videos.length) * 100);
   }
 
+  // 未观看 = 观看进度未超过 50%（时长未知视为未观看），与 segment 完成判定的 50% 阈值同口径。
+  // 取课程顺序中第一个未观看的，即"继续观看"的位置。
+  function findNextUnwatchedIndex(videos) {
+    if (!videos) return -1;
+    return videos.findIndex(v => {
+      const duration = v.duration || 0;
+      if (duration <= 0) return true;
+      return (v.watched || 0) / duration <= 0.5;
+    });
+  }
+
+  function escapeHtmlText(text) {
+    const div = document.createElement('div');
+    div.textContent = String(text == null ? '' : text);
+    return div.innerHTML;
+  }
+
+  /**
+   * 右侧快捷胶囊的 tooltip：复用 TOOLTIP_ID 元素，
+   * 定位以胶囊为中心并整体夹在视口内（胶囊在最右侧，重点防右溢出）。
+   */
+  function showQuickOpenTooltip(anchor, group, video, index) {
+    showTooltipSeq++; // 使进行中的异步 showTooltip 过期，避免 await 后覆盖本次内容
+    let tooltip = document.getElementById(TOOLTIP_ID);
+    if (!tooltip) {
+      tooltip = document.createElement('div');
+      tooltip.id = TOOLTIP_ID;
+      document.body.appendChild(tooltip);
+    }
+
+    const duration = video.duration || 0;
+    const watched = video.watched || 0;
+    const percent = duration > 0 ? Math.round((watched / duration) * 100) : 0;
+
+    tooltip.innerHTML = `
+      <div style="font-weight:600;font-size:12px;margin-bottom:3px;color:#333;">▶ 继续观看 · ${escapeHtmlText(group.name)}</div>
+      <div style="font-size:11px;color:#666;">第 ${index + 1} 课 · 未观看 · ${percent}%</div>
+      <div style="font-size:11px;color:#999;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtmlText(video.title || '未命名视频')}</div>
+    `;
+
+    const rect = anchor.getBoundingClientRect();
+    tooltip.style.cssText = `
+      position: fixed;
+      z-index: 2147483647;
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      padding: 6px 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      pointer-events: none;
+      white-space: nowrap;
+      top: ${rect.bottom + 6}px;
+      left: 0px;
+      display: block;
+    `;
+
+    let left = rect.left + rect.width / 2 - tooltip.offsetWidth / 2;
+    if (left < 8) left = 8;
+    if (left + tooltip.offsetWidth > window.innerWidth - 8) {
+      left = window.innerWidth - tooltip.offsetWidth - 8;
+    }
+    tooltip.style.left = `${left}px`;
+  }
+
   function createProgressBar(group, currentIdx) {
     const bar = document.createElement('div');
     bar.id = `tabboard-course-progress-bar-${group.id}`;
@@ -327,6 +392,35 @@
     });
     trackWrap.appendChild(track);
     bar.appendChild(trackWrap);
+
+    // === 右侧快捷胶囊：点击打开最新的未观看视频（进度未超过 50%） ===
+    // 与左侧课程胶囊对称（20×8），蓝色 ▶ 与绿色课程色区分开。
+    const nextIdx = findNextUnwatchedIndex(group.videos);
+    if (nextIdx >= 0) {
+      const nextVideo = group.videos[nextIdx];
+      const quickPill = document.createElement('div');
+      quickPill.style.cssText = `
+        width: 20px;
+        height: 8px;
+        border-radius: 999px;
+        background: #42a5f5;
+        flex-shrink: 0;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-left: 6px;
+      `;
+      quickPill.addEventListener('mouseenter', () => {
+        showQuickOpenTooltip(quickPill, group, nextVideo, nextIdx);
+      });
+      quickPill.addEventListener('mouseleave', hideTooltip);
+      quickPill.addEventListener('click', (e) => {
+        e.stopPropagation();
+        window.open(nextVideo.url, '_blank');
+      });
+      bar.appendChild(quickPill);
+    }
 
     return bar;
   }

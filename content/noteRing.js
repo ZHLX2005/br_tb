@@ -1634,7 +1634,14 @@ function bindPanelDelegation() {
     } catch (_) {}
   }
 
-  // ESC 收起 + 截帧快捷键(capture 阶段,确保先于宿主页收到 Ctrl+B)
+  // ESC 光标 toggle + 截帧快捷键(capture 阶段,确保先于宿主页收到 Ctrl+B)
+  // ESC 语义(面板展开时,逐级):
+  //   1. picker 开着 → 先关 picker
+  //   2. 光标在 note 内(编辑器/图片源码态 span) → 退出 note:源码态还原 + blur,
+  //      焦点交还页面(视频播放器空格/方向键恢复可用)
+  //   3. 宿主页正在编辑其它输入框 → 不抢焦点,ESC 留给页面自己处理
+  //   4. 光标在 note 外 → 进入 note:聚焦编辑器,光标落正文末尾
+  //   空态(未选页,无编辑器) → ESC 仍收起面板;面板关闭走 ✕ 或圆环点击
   document.addEventListener('keydown', (e) => {
     // 截帧快捷键(只展开面板时生效)
     onHotkey(e);
@@ -1645,8 +1652,32 @@ function bindPanelDelegation() {
         return;
       }
       const editor = panel.querySelector('#' + WRAPPER_ID + '-editor');
-      if (document.activeElement === editor) return;
-      setExpanded(false);
+      if (!editor) { setExpanded(false); return; }
+      const ae = document.activeElement;
+      if (ae === editor || editor.contains(ae)) {
+        // === 退出 note ===
+        e.preventDefault();
+        deactivateAllImages(editor); // 图片源码态 → 还原图片块
+        if (document.activeElement && editor.contains(document.activeElement)) {
+          document.activeElement.blur(); // 源码态 span 被替换后焦点可能仍挂在面板内
+        }
+        editor.blur();
+      } else if (ae && !panel.contains(ae) &&
+                 (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable)) {
+        // 宿主页输入框正在编辑(搜索框/评论框等) → 不抢焦点
+        return;
+      } else {
+        // === 进入 note ===
+        e.preventDefault();
+        editor.focus();
+        const r = document.createRange();
+        r.selectNodeContents(editor);
+        r.collapse(false);
+        const s = window.getSelection();
+        s.removeAllRanges();
+        s.addRange(r);
+        editor.scrollTop = editor.scrollHeight; // 光标落末尾并滚到底
+      }
     }
   }, true);
 
