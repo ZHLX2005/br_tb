@@ -41,7 +41,6 @@
         "content/shared/draggable-ring.js",
         "content/lcSidebar.js",
         "content/vpSidebar.js",
-        "content/timerSidebar.js",
         "content/captureRing.js",
         "content/speedRing.js"
       ],
