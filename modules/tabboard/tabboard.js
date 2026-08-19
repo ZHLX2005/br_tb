@@ -8,7 +8,6 @@ import EventBus from '../shared/event-bus.js';
 import TimelineModule from '../timeline/index.js';
 import GroupModule from '../group/index.js';
 import LeetCodeModule from '../leetcode/index.js';
-import TimerModule from '../timer/index.js';
 import BilibiliHistoryModule from '../bilibili-history/index.js';
 import RecordingModule from '../recording/index.js';
 import VideoProgressModule from '../video-progress/index.js';
@@ -24,7 +23,6 @@ class AppShell {
     this.dropdownOpen = false;
     this.dropdownItems = [
       { viewName: 'leetcode',         label: 'LC',    desc: '150'  },
-      { viewName: 'timer',            label: 'Timer', desc: '日志' },
       { viewName: 'bilibili-history', label: 'Bili',  desc: '历史' },
       { viewName: 'note',            label: 'Note', desc: '便签' },
     ];
@@ -183,10 +181,6 @@ class AppShell {
         container = document.getElementById('leetcodePanel');
         ModuleClass = LeetCodeModule;
         break;
-      case 'timer':
-        container = document.getElementById('timerPanel');
-        ModuleClass = TimerModule;
-        break;
       case 'bilibili-history':
         container = document.getElementById('bilibiliHistoryPanel');
         ModuleClass = BilibiliHistoryModule;
@@ -230,7 +224,6 @@ class AppShell {
    * 不同模块的 setContainer 形态：
    *   - BilibiliHistoryModule.init() 调用 view.setContainer
    *   - LeetCodeModule.init()   调用 view.setContainer
-   *   - TimerModule.init()      调用 view.setContainer
    *   - TimelineModule.init()   仅初始化搜索输入（不依赖 container）
    *   - GroupModule.init()      no-op
    * 因此这里统一通过模块自身暴露的 _reattach(container) 钩子挂回；若不存在则直接调用 view.setContainer。
@@ -240,7 +233,6 @@ class AppShell {
       'timeline': 'timelineView',
       'group': 'groupView',
       'leetcode': 'leetcodePanel',
-      'timer': 'timerPanel',
       'bilibili-history': 'bilibiliHistoryPanel',
       'recording': 'recordingView',
       'videoProgress': 'videoProgressView',
@@ -266,7 +258,6 @@ class AppShell {
     document.getElementById('timelineView').style.display = viewName === 'timeline' ? 'block' : 'none';
     document.getElementById('groupView').style.display = viewName === 'group' ? 'block' : 'none';
     document.getElementById('leetcodeView').style.display = viewName === 'leetcode' ? 'block' : 'none';
-    document.getElementById('timerView').style.display = viewName === 'timer' ? 'block' : 'none';
     document.getElementById('bilibiliHistoryView').style.display = viewName === 'bilibili-history' ? 'block' : 'none';
     document.getElementById('recordingView').style.display = viewName === 'recording' ? 'block' : 'none';
     document.getElementById('videoProgressView').style.display = viewName === 'videoProgress' ? 'block' : 'none';
