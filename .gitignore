@@ -1,2 +1,4 @@
 .claude/prompts.log
 .tool/
+.idea/
+.omc/
