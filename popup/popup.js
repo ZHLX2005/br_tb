@@ -13,6 +13,7 @@ import { loadLcSidebarSetting, bindLcSidebarEvents } from './modules/lcSettings.
 import { loadGotoRingSetting, bindGotoRingEvents } from './modules/gotoSettings.js';
 import { loadRingSidebarSetting, bindRingSidebarEvents } from './modules/ringSettings.js';
 import { loadVpSidebarSetting, bindVpSidebarEvents } from './modules/vpSettings.js';
+import { loadTimerSidebarSetting, bindTimerSidebarEvents } from './modules/timerSettings.js';
 import { loadCaptureRingSetting, bindCaptureRingEvents } from './modules/captureSettings.js';
 import { loadSpeedRingSetting, bindSpeedRingEvents } from './modules/speedSettings.js';
 import { loadNoteRingSetting, bindNoteRingEvents } from './modules/noteSettings.js';
@@ -252,6 +253,10 @@ async function init() {
   // 绑定视频进度圆环设置
   await loadVpSidebarSetting();
   bindVpSidebarEvents();
+
+  // 绑定计时圆环设置
+  await loadTimerSidebarSetting();
+  bindTimerSidebarEvents();
 
   // 绑定捕获视频圆环设置
   await loadCaptureRingSetting();

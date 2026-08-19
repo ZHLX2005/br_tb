@@ -13,6 +13,8 @@ class DataManager {
       recordingState: {},
       videoGroups: [],
       leetcodeProgress: {},
+      timerSessions: [],
+      timerState: {},
       notePages: [],
       settings: {}
     };
@@ -25,7 +27,7 @@ class DataManager {
    */
   async loadData() {
     const data = await chrome.storage.local.get([
-      'groups', 'tabs', 'timelineSnapshots', 'recordings', 'recordingState', 'videoGroups', 'leetcodeProgress', 'notePages', 'settings'
+      'groups', 'tabs', 'timelineSnapshots', 'recordings', 'recordingState', 'videoGroups', 'leetcodeProgress', 'timerSessions', 'timerState', 'notePages', 'settings'
     ]);
 
     if ('groups' in data) {
@@ -49,6 +51,12 @@ class DataManager {
     if ('leetcodeProgress' in data) {
       this.data.leetcodeProgress = data.leetcodeProgress;
     }
+    if ('timerSessions' in data) {
+      this.data.timerSessions = data.timerSessions;
+    }
+    if ('timerState' in data) {
+      this.data.timerState = data.timerState;
+    }
     if ('notePages' in data) {
       this.data.notePages = data.notePages;
     }
@@ -70,6 +78,8 @@ class DataManager {
   get recordingState() { return this.data.recordingState; }
   get videoGroups() { return this.data.videoGroups; }
   get leetcodeProgress() { return this.data.leetcodeProgress; }
+  get timerSessions() { return this.data.timerSessions; }
+  get timerState() { return this.data.timerState; }
   get notePages() { return this.data.notePages; }
   get settings() { return this.data.settings; }
 

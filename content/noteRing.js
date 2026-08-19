@@ -34,6 +34,17 @@
   let currentTabTitle = '';
   let currentTabFavicon = '';
 
+  // 缩略图 LRU(本地物化层):持久化在 SW CacheStorage,此处仅持 objectUrl + 尺寸
+  // 60 条上限,逐出即 revokeObjectURL。跨会话复用靠 SW CacheStorage,不靠这里。
+  const THUMB_LRU_MAX = 60;
+  const thumbCache = new Map();
+
+  // 共享 IntersectionObserver(单例):editor 内的 .nr-img-block 进入视口触发 ensureThumb。
+  // rootMargin 让视口外稍远处预取。光标进出图片块导致 block 重建时,本地 thumbCache
+  // 命中即可同步填 src,光标 churn 场景 0 IPC。
+  let _thumbObserver = null;
+  const _observedBlocks = new WeakSet();
+
   // ===================== 样式 =====================
   const STYLES = `
     /* ========== 圆环 ========== */
@@ -339,6 +350,12 @@
       border-radius: 6px;
       border: 1px solid #e0e0e0;
     }
+    /* src 缺席时给灰色骨架占位(IntersectionObserver + ensureThumb 异步填 src) */
+    .nr-img-block img:not([src]) {
+      background: #f0f0f0;
+      min-height: 100px;
+      min-width: 160px;
+    }
     .nr-img-block::after {
       content: '';
       position: absolute; inset: 0;
@@ -360,6 +377,44 @@
     }
     .nr-img-block:hover .nr-img-x { display: flex; }
     .nr-img-x:hover { background: ${ACCENT}; }
+    /* 加载中:无 src 时中央转圈(纯 CSS 动画,不上 JS rAF) */
+    .nr-img-block.nr-img-loading::after {
+      content: '';
+      position: absolute; top: 50%; left: 50%;
+      width: 24px; height: 24px;
+      margin: -12px 0 0 -12px;
+      border: 3px solid #1a1a1a;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: nr-img-spin 0.8s linear infinite;
+      pointer-events: none;
+      z-index: 1;
+    }
+    @keyframes nr-img-spin { to { transform: rotate(360deg); } }
+    /* 重试按钮:img 没有 src 时永远显形(无需依赖 .nr-img-error),让用户
+       不管处于哪种状态(observer 未触发 / 加载失败 / 等待重连)都能手动补救 */
+    .nr-img-block.nr-img-error {
+      outline: 1px dashed #c62828;
+      outline-offset: 2px;
+    }
+    .nr-img-block .nr-img-retry {
+      display: flex;
+      position: absolute; top: 4px; left: 4px;
+      width: 20px; height: 20px;
+      border: none; background: rgba(0,0,0,0.6);
+      color: #fff; border-radius: 50%;
+      cursor: pointer; font-size: 13px; line-height: 1;
+      align-items: center; justify-content: center;
+      padding: 0; z-index: 2;
+      opacity: 0.6;
+      transition: opacity 120ms, background 120ms;
+    }
+    .nr-img-block:hover .nr-img-retry,
+    .nr-img-block.nr-img-loading .nr-img-retry,
+    .nr-img-block.nr-img-error .nr-img-retry { opacity: 1; }
+    .nr-img-retry:hover { background: ${ACCENT}; opacity: 1; }
+    /* img 已加载(src 存在) → 隐藏重试按钮,避免覆盖 × */
+    .nr-img-block img[src] ~ .nr-img-retry { display: none; }
 
     /* Toolbar 行(取代老的 head title + page name + 当前 tab info) */
     .nr-panel-toolbar {
@@ -747,7 +802,7 @@
     if (editor) {
       renderContentToEditor(editor, page.content || '');
       bindEditorEvents(editor);
-      proxyEditorImages(editor);
+      // observeAllImageBlocks 已在 renderContentToEditor 末尾调用,无需再 proxy
     }
     setStatus(`${page.content?.length || 0} 字符`, '就绪');
     refreshLoginPill();
@@ -768,6 +823,8 @@
    * 其余文本按行分到 <div> 里(每行一个块,便于光标定位)
    */
   function renderContentToEditor(editor, content) {
+    // 竞态诊断:任何 renderContentToEditor 调用都打印,看谁在 wipe 编辑器
+    console.debug(`[noteRing][RENDER] renderContentToEditor @${Date.now() % 100000} page=${currentPageId?.slice(-8)} contentLen=${content?.length || 0} contentHasUrl=${(content || '').includes('[[http')}`);
     editor.innerHTML = "";
     if (!content) { editor.textContent = ""; return; }
     // 按 [[URL]] 切分
@@ -777,21 +834,14 @@
       const m = part.match(/^\[\[(https?:\/\/[^\]]+)\]\]$/);
       if (m) {
         const url = m[1];
-        const isHttp = url.startsWith("http://");
         const span = document.createElement("span");
         span.className = "nr-img-block";
         span.setAttribute("contenteditable", "false");
         span.setAttribute("data-url", url);
         const img = document.createElement("img");
         img.alt = "视频帧";
-        if (url) {
-          // 始终先设 src;代理通道(SW fetchImageAsDataUrl)只能在 HTTPS 页绕开
-          // Mixed Content 时成功。若代理失败/挂起,img.src 仍然是原始 URL,
-          // 浏览器会尝试直接加载(在 HTTP 页面/HTTPS 页面下行为不同,但 img
-          // 至少有 src,绝不会变成只有 × 按钮残留的"字母 x"假象)。
-          img.src = url;
-          if (isHttp) img.setAttribute("data-pending-src", url);
-        }
+        // 1×1 透明 SVG 占位 src,防 contenteditable 在焦点切换时移除坏图(见 makeImageBlock)。
+        img.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>';
         const x = document.createElement("button");
         x.className = "nr-img-x";
         x.type = "button";
@@ -804,12 +854,28 @@
           if (!block) return;
           // 删除图片块 + 它前面的零宽空格(若有)
           const prev = block.previousSibling;
+          unobserveImageBlock(block);
           block.remove();
           if (prev && prev.nodeType === 3 && prev.textContent === "\u200b") prev.remove();
           scheduleEditorSave(editor);
         });
         span.appendChild(img);
         span.appendChild(x);
+        // 重试按钮:失败时显形,默认隐藏
+        const retry = document.createElement('button');
+        retry.className = 'nr-img-retry';
+        retry.type = 'button';
+        retry.textContent = '↻';
+        retry.title = '重试加载缩略图';
+        retry.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const u = span.getAttribute('data-url');
+          if (!u) return;
+          span.classList.remove('nr-img-error');
+          ensureThumb(span, u);
+        });
+        span.appendChild(retry);
         editor.appendChild(span);
       } else if (part) {
         // 文本:按 \n 分行,每行一个 <div>(空行用 <div><br></div>)
@@ -823,6 +889,8 @@
       }
     }
     if (!editor.childNodes.length) editor.textContent = "";
+    // 全部图片块挂观察 → 视口内触发 ensureThumb
+    observeAllImageBlocks(editor);
   }
 
   /**
@@ -865,7 +933,8 @@
           if (tag === "BR") {
             out += "\n";
           } else {
-            // div:用纯文本,但排除内嵌的图片块子树(其 × 按钮字符不应泄漏)
+            // div:递归到 pureTextContent — 它会把嵌套在 div 里的 nr-img-block 输出为 [[url]],
+            // 但不进入图片块子树(防 ×/↻ 字符污染)。nr-img-pending 占位会被跳过。
             const t = pureTextContent(el);
             out += t;
             if (i < kids.length - 1) out += "\n";
@@ -877,15 +946,48 @@
   }
 
   /**
-   * 取元素纯文本内容,但排除任何内嵌的 nr-img-block / nr-img-source /
-   * nr-img-pending 子树。否则容器 div 的 textContent 会把 × 按钮字符或
-   * `[上传中…]` 占位文字当作普通文本写入存储。
+   * 取元素纯文本内容。递归遍历:
+   * - nr-img-block → 输出 [[url]] (data-url),不递归(否则会带 × ↻ 按钮字符)
+   * - nr-img-source → 输出 [[url]](或 data-url 兜底),不递归(用户可能在编辑源码)
+   * - nr-img-pending → 跳过(占位文字 "[上传中…]" 不应入存储)
+   * - 其它元素(div 等)→ 递归
+   *
+   * 历史:曾用 clone + querySelectorAll(".nr-img-block, ...").remove() 实现,
+   * 把整个图片块子树删掉。导致 captureFrame 把图片块插到光标所在的 div 内部后,
+   * 嵌套在 div 里的图片块被 serializeEditor 漏掉 → flushContentSave (M2)
+   * 写入"旧内容"覆盖 storage → 切换便签后图片丢失。
+   * 修:改为递归保留 [[URL]],同时不进入图片块子树以避免 × ↻ 字符污染。
    */
   function pureTextContent(el) {
-    const clone = el.cloneNode(true);
-    clone.querySelectorAll(".nr-img-block, .nr-img-source, .nr-img-pending")
-      .forEach((n) => n.remove());
-    return clone.textContent || "";
+    let out = "";
+    for (const child of el.childNodes) {
+      if (child.nodeType === 3) {
+        out += child.textContent;
+      } else if (child.nodeType === 1) {
+        const c = child;
+        if (c.classList && c.classList.contains("nr-img-block")) {
+          const url = c.getAttribute("data-url");
+          if (url) out += `[[${url}]]`;
+          // 不递归进 nr-img-block(会含 × ↻ 按钮字符)
+        } else if (c.classList && c.classList.contains("nr-img-source")) {
+          const txt = (c.textContent || "").trim();
+          const m = txt.match(/^\[\[(https?:\/\/[^\]]+)\]\]$/);
+          if (m) {
+            out += txt;
+          } else {
+            const fallback = c.getAttribute("data-url") || "";
+            if (fallback) out += `[[${fallback}]]`;
+          }
+          // 不递归进 nr-img-source(用户可能正在编辑其中文字)
+        } else if (c.classList && c.classList.contains("nr-img-pending")) {
+          // 占位文字 "[上传中…]" 不应写入存储
+        } else {
+          // 其它元素(div 等)继续递归
+          out += pureTextContent(c);
+        }
+      }
+    }
+    return out;
   }
 
   /**
@@ -948,7 +1050,9 @@
       const url = (src.textContent.match(/\[\[(https?:\/\/[^\]]+)\]\]/) || [])[1] || src.getAttribute("data-url");
       const span = makeImageBlock(url);
       src.replaceWith(span);
-      proxyEditorImages(editor); // 补新块的 src
+      // 光标进出 churn 重建 → 本地 thumbCache 命中即同步填 src,零 IPC
+      observeImageBlock(span);
+      ensureThumb(span, url);
     }
     _activeImgBlock = null;
   }
@@ -958,6 +1062,7 @@
     const block = e.currentTarget.closest(".nr-img-block");
     if (!block) return;
     const prev = block.previousSibling;
+    unobserveImageBlock(block);
     block.remove();
     if (prev && prev.nodeType === 3 && prev.textContent === "\u200b") prev.remove();
     const editor = panel?.querySelector("#" + WRAPPER_ID + "-editor");
@@ -1046,6 +1151,22 @@
     insertNodeAtCursor(editor, placeholder);
     setStatus("", "上传粘贴图…", "saving");
 
+    // 同步生成缩略图(免费,本地 OffscreenCanvas downscale)。失败不阻塞上传,
+    // 显示路径仍可走 SW fetchNoteThumb 兜底。
+    let thumbBlob = null, tw = 0, th = 0;
+    try {
+      const bitmap = await createImageBitmap(blob);
+      try {
+        const scale = Math.min(640 / bitmap.width, 1);
+        tw = Math.round(bitmap.width * scale);
+        th = Math.round(bitmap.height * scale);
+        const canvas = new OffscreenCanvas(tw, th);
+        canvas.getContext('2d').drawImage(bitmap, 0, 0, tw, th);
+        try { thumbBlob = await canvas.convertToBlob({ type: 'image/webp', quality: 0.75 }); }
+        catch (_) { thumbBlob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.75 }); }
+      } finally { bitmap.close(); }
+    } catch (_) { /* 缩略图生成失败 → 仍可上传 */ }
+
     let res;
     try {
       res = await chrome.runtime.sendMessage({ action: "uploadNoteImage", dataUrl });
@@ -1062,19 +1183,41 @@
       return;
     }
 
-    // 2) 后端落盘 — 用 pages 里原 content 拼接,不经过 DOM 序列化
+    // 缩略图:本地立即物化 + 推 SW 持久(fire-and-forget)
+    if (thumbBlob) {
+      thumbCacheSet(res.url, thumbBlob, tw, th, thumbBlob.type);
+      (async () => {
+        try {
+          const td = await blobToDataUrl(thumbBlob);
+          if (td) chrome.runtime.sendMessage({ action: 'cacheNoteThumb', url: res.url, thumbDataUrl: td });
+        } catch (_) {}
+      })();
+    }
+
+    // 2) 后端落盘 — 用 pages 里原 content 拼接
     const page = pages.find((p) => p.id === currentPageId);
     if (!page) { placeholder.remove(); return; }
     const prev = page.content || "";
     const sep = prev && !prev.endsWith("\n") ? "\n" : "";
     const newContent = prev + sep + `[[${res.url}]]`;
-    await chrome.runtime.sendMessage({ action: "updateNoteContent", id: currentPageId, content: newContent });
-    page.content = newContent;
 
-    // 3) 占位块 → 真实图片块
+    // ⚠️ 同样:captureFrameAndInsert 的竞态修复 — realBlock 必须**先于**await 替换。
+    // 否则用户在 await 窗口切换便签,flushContentSave 序列化时看到 placeholder
+    // (被 pureTextContent 排除),拿不到 [[URL]],会发"旧内容"覆盖 M1。
+    // 提前替换,flushContentSave 发的 M2 也带 [[URL]],与 M1 一致。
     const realBlock = makeImageBlock(res.url);
     placeholder.replaceWith(realBlock);
-    proxyEditorImages(editor);
+    observeImageBlock(realBlock);
+    ensureThumb(realBlock, res.url);
+
+    const saved = await chrome.runtime.sendMessage({ action: "updateNoteContent", id: currentPageId, content: newContent });
+    console.debug(`[noteRing][M1-paste] paste send @${Date.now() % 100000} page=${currentPageId?.slice(-8)} prev=${page?.content?.length || 0} len=${newContent.length} hasUrl=${newContent.includes('[[http')}`);
+    if (!saved?.success) {
+      setStatus("", "保存失败 ✗", "saved");
+      alert("图片已上传到图床,但笔记保存失败: " + (saved?.error || "") + "\n请重试或重新粘贴(刷新页面会丢失当前图片)。");
+      return;
+    }
+    page.content = newContent;
     setStatus("", "已粘贴上传 ✓", "saved");
   }
 
@@ -1120,27 +1263,147 @@
     }, 500);
   }
 
+  // ===================== 缩略图懒加载 =====================
+
   /**
-   * 代理编辑器里所有 data-pending-src 的 http 图片 → SW fetch 转 dataURL
-   * Mixed Content 兜底优化。img.src 已由 _render/renderContentToEditor 写好
-   * 原始 URL;SW 失败时保留原 src,避免代理路径断时图片退化成只有 × 按钮
-   * (被误判成"字母 x")。
-   *
-   * 命中走 background 的 LRU 池(共享内存缓存),miss 才 fetch。
+   * blob 转 dataURL(IPC 限制只能走 dataURL;CS 内调用次数极少)。
+   * 失败返回 null(不抛)。
    */
-  function proxyEditorImages(editor) {
-    const imgs = editor.querySelectorAll("img[data-pending-src]");
-    imgs.forEach((img) => {
-      const url = img.getAttribute("data-pending-src");
-      if (!url) return;
-      chrome.runtime.sendMessage({ action: "fetchImageAsDataUrl", url }, (res) => {
-        if (res?.success && res.dataUrl) {
-          img.src = res.dataUrl;
-          img.removeAttribute("data-pending-src");
-        }
-        // 失败分支:不动 img.src,保留原始 URL。不再设 alt='图片加载失败'。
-      });
+  function blobToDataUrl(blob) {
+    return new Promise((res) => {
+      const fr = new FileReader();
+      fr.onload = () => res(fr.result);
+      fr.onerror = () => res(null);
+      fr.readAsDataURL(blob);
     });
+  }
+
+  function thumbCacheSet(url, blob, w = 0, h = 0, mime = blob?.type) {
+    if (!url || !blob) return;
+    const old = thumbCache.get(url);
+    if (old) { try { URL.revokeObjectURL(old.objectUrl); } catch (_) {} }
+    const objectUrl = URL.createObjectURL(blob);
+    thumbCache.set(url, { blob, objectUrl, w, h, mime, t: Date.now() });
+    evictThumbCacheIfNeeded();
+  }
+
+  function thumbCacheTouch(url) {
+    const e = thumbCache.get(url);
+    if (e) e.t = Date.now();
+    return e;
+  }
+
+  function evictThumbCacheIfNeeded() {
+    while (thumbCache.size > THUMB_LRU_MAX) {
+      let oldestKey = null, oldestT = Infinity;
+      for (const [k, v] of thumbCache) {
+        if (v.t < oldestT) { oldestT = v.t; oldestKey = k; }
+      }
+      if (!oldestKey) break;
+      const old = thumbCache.get(oldestKey);
+      if (old) { try { URL.revokeObjectURL(old.objectUrl); } catch (_) {} }
+      thumbCache.delete(oldestKey);
+    }
+  }
+
+  function thumbCacheRevokeAll() {
+    for (const [, v] of thumbCache) {
+      try { URL.revokeObjectURL(v.objectUrl); } catch (_) {}
+    }
+    thumbCache.clear();
+  }
+
+  function ensureObserver() {
+    if (_thumbObserver) return _thumbObserver;
+    _thumbObserver = new IntersectionObserver((entries) => {
+      for (const en of entries) {
+        if (!en.isIntersecting) continue;
+        const block = en.target;
+        _thumbObserver.unobserve(block);
+        const url = block.getAttribute('data-url');
+        if (url) ensureThumb(block, url);
+      }
+    }, {
+      // 用 viewport 根而非 editor 元素 — editor 作 root 在某些布局下
+      // (overflow:auto 子元素、root 不在视口内时)对已挂载元素不可靠地不回调。
+      // viewport 语义就是"在用户视野里就加载",更稳定。
+      root: null,
+      rootMargin: '120px 120px'
+    });
+    return _thumbObserver;
+  }
+
+  function observeImageBlock(block) {
+    if (!block || _observedBlocks.has(block)) return;
+    _observedBlocks.add(block);
+    ensureObserver().observe(block);
+  }
+
+  function unobserveImageBlock(block) {
+    if (!block) return;
+    _observedBlocks.delete(block);
+    if (_thumbObserver) _thumbObserver.unobserve(block);
+  }
+
+  /** 遍历 editor 内全部 .nr-img-block,挂上观察。renderContentToEditor 末尾调用。 */
+  function observeAllImageBlocks(editor) {
+    if (!editor) return;
+    editor.querySelectorAll('.nr-img-block').forEach(observeImageBlock);
+    // 兜底:200ms 后,observer 若因任何原因(初始化时序 / 跨域隔离 / 元素 0 尺寸)
+    // 没触发,这里强制触发一次可见块。代价小(可能的多余 IPC),收益大。
+    setTimeout(() => {
+      editor.querySelectorAll('.nr-img-block').forEach((b) => {
+        const img = b.querySelector('img');
+        const url = b.getAttribute('data-url');
+        if (img && url && !img.src && b.dataset.thumbInFlight !== '1') {
+          ensureThumb(b, url);
+        }
+      });
+    }, 200);
+  }
+
+  /**
+   * 给一个图片块填 src。本地 cache 命中即同步返回;否则走 SW fetchNoteThumb。
+   * 同 url/同 block 二次触发(observer + 主动调用)由 in-flight 标记去重。
+   */
+  async function ensureThumb(block, url) {
+    if (!block || !url) return;
+    const img = block.querySelector('img');
+    if (!img) return;
+    // 占位 src(data:image/svg)允许继续;真实 src(http/blob/objectURL)则跳过,避免重复加载
+    if (img.src && !img.src.startsWith('data:image/svg')) return;
+    if (block.dataset.thumbInFlight === '1') return;
+    block.dataset.thumbInFlight = '1';
+    block.classList.add('nr-img-loading');
+    console.debug('[noteRing] ensureThumb start:', url.slice(0, 60));
+    try {
+      // 非 Mixed Content 场景(http 页+http 图 / https 页+https 图)直接连,免代理
+      const isMixed = location.protocol === 'https:' && url.startsWith('http:');
+      if (!isMixed) { img.src = url; return; }
+
+      const hit = thumbCacheTouch(url);
+      if (hit) { img.src = hit.objectUrl; return; }
+
+      const res = await chrome.runtime.sendMessage({ action: 'fetchNoteThumb', url });
+      console.debug('[noteRing] ensureThumb res:', url.slice(0, 60), res?.success, res?.error);
+      if (res?.success && res.dataUrl) {
+        const blob = await (await fetch(res.dataUrl)).blob();
+        thumbCacheSet(url, blob, 0, 0, res.mime);
+        const fresh = thumbCacheTouch(url);
+        // 顶部早退保证进入此分支时 img.src 要么是 placeholder(data:image/svg)要么为空,
+        // 任何情况下都应该把 src 写到 objectUrl,展示真实缩略图。
+        // 历史 bug:`&& !img.src` 条件会让 placeholder 场景永远不写 src,
+        // 表现为"图片块停在 1x1 透明 SVG",reload 后或切回页面时命中此路径。
+        if (fresh && img) img.src = fresh.objectUrl;
+      }
+      if (!img.src) block.classList.add('nr-img-error');
+    } catch (err) {
+      console.warn('[noteRing] ensureThumb failed:', url.slice(0, 60), err?.message);
+      block.classList.add('nr-img-error');
+    } finally {
+      block.classList.remove('nr-img-loading');
+      block.dataset.thumbInFlight = '0';
+    }
   }
 
 
@@ -1151,6 +1414,28 @@
     if (!editor || !currentPageId) return;
     if (_saveTimer) { clearTimeout(_saveTimer); _saveTimer = null; }
     const content = serializeEditor(editor);
+    // 防御性 abort:编辑器序列化结果若远短于 pages[] 缓存(且缓存里有图),
+    // 说明编辑器被某种 contenteditable mutation revert 清空 / placeholder 未被替换。
+    // 此时不要写入,否则会覆盖存储里的真实内容 → 切回来图片全丢。
+    const cachedPage = pages.find(p => p.id === currentPageId);
+    const cachedLen = cachedPage?.content?.length || 0;
+    const cachedHasUrl = (cachedPage?.content || '').includes('[[http');
+    if (cachedHasUrl && cachedLen > content.length + 20 && content.length < 50) {
+      console.warn(`[noteRing][M2-ABORT] page=${currentPageId?.slice(-8)} editorLen=${content.length} cachedLen=${cachedLen} — 编辑器疑似被 wipe,跳过本次 flush 防止覆盖`);
+      return;
+    }
+    // 防御性 abort(更精确):editor 序列化后的 [[URL]] 数量不能少于 cache。
+    // 场景:captureFrame 把图片块插入到光标所在的 div 内,导致嵌套图片块被
+    // pureTextContent 漏掉 → editorUrls < cachedUrls。如果这种情况再发生
+    // (比如未来 contenteditable 又出别的怪事),绝不能写入,否则覆盖 storage。
+    // scheduleEditorSave 不走此守卫(删除图片走那里,数量变少是合理的)。
+    const cachedUrls = (cachedPage?.content || '').match(/\[\[https?:\/\/[^\]]+\]\]/g) || [];
+    const editorUrls = (content || '').match(/\[\[https?:\/\/[^\]]+\]\]/g) || [];
+    if (cachedUrls.length > editorUrls.length) {
+      console.warn(`[noteRing][M2-ABORT-URL] page=${currentPageId?.slice(-8)} editorUrls=${editorUrls.length} cachedUrls=${cachedUrls.length} — editor [[URL]] 少于 cache,跳过 flush 防止覆盖`);
+      return;
+    }
+    console.debug(`[noteRing][M2] flushContentSave @${Date.now() % 100000} page=${currentPageId?.slice(-8)} len=${content.length} hasUrl=${content.includes('[[http')}`);
     await chrome.runtime.sendMessage({
       action: 'updateNoteContent',
       id: currentPageId,
@@ -1358,7 +1643,16 @@
    * 与 content/content.js 中的同名逻辑一致（noteRing 在视频页可直接截帧，免一次 IPC）
    */
   function capturePageFrame() {
-    const MAX_FRAME_W = 1920;
+    const MAX_FRAME_W = 1920;        // 原图最长边(归档)
+    const THUMB_MAX_W = 640;          // 缩略图最长边
+    const UPLOAD_MIME = 'image/webp';
+    const UPLOAD_QUALITY = 0.92;
+    const THUMB_MIME = 'image/webp';
+    const THUMB_QUALITY = 0.75;
+    const toBlob = (canvas, type, q) => new Promise((resolve) => {
+      try { canvas.toBlob((b) => resolve(b), type, q); }
+      catch (_) { resolve(null); }
+    });
     return new Promise((resolve) => {
       const videos = Array.from(document.querySelectorAll('video'));
       if (!videos.length) { resolve(null); return; }
@@ -1375,17 +1669,30 @@
           return rb.width * rb.height - ra.width * ra.height;
         })[0] ||
         videos[0];
-      const draw = () => {
+      const draw = async () => {
         const w = video.videoWidth, h = video.videoHeight;
         if (!w || !h) { resolve(null); return; }
-        const scale = Math.min(1, MAX_FRAME_W / w);
-        const cw = Math.round(w * scale), ch = Math.round(h * scale);
-        const canvas = document.createElement('canvas');
-        canvas.width = cw; canvas.height = ch;
-        try {
-          canvas.getContext('2d').drawImage(video, 0, 0, cw, ch);
-          resolve(canvas.toDataURL('image/png'));
-        } catch (_) { resolve(null); }
+        const fullCanvas = document.createElement('canvas');
+        const fullScale = Math.min(1, MAX_FRAME_W / w);
+        fullCanvas.width = Math.round(w * fullScale);
+        fullCanvas.height = Math.round(h * fullScale);
+        fullCanvas.getContext('2d').drawImage(video, 0, 0, fullCanvas.width, fullCanvas.height);
+        const thumbCanvas = document.createElement('canvas');
+        const thumbScale = Math.min(1, THUMB_MAX_W / w);
+        thumbCanvas.width = Math.round(w * thumbScale);
+        thumbCanvas.height = Math.round(h * thumbScale);
+        thumbCanvas.getContext('2d').drawImage(video, 0, 0, thumbCanvas.width, thumbCanvas.height);
+        const [fullBlob, thumbBlob] = await Promise.all([
+          toBlob(fullCanvas, UPLOAD_MIME, UPLOAD_QUALITY),
+          toBlob(thumbCanvas, THUMB_MIME, THUMB_QUALITY)
+        ]);
+        if (!fullBlob) { resolve(null); return; }
+        resolve({
+          fullBlob,
+          thumbBlob,
+          w: fullCanvas.width, h: fullCanvas.height,
+          tw: thumbCanvas.width, th: thumbCanvas.height
+        });
       };
       if (video.readyState >= 2) draw();
       else {
@@ -1418,25 +1725,35 @@
       return;
     }
     setStatus('', '截取视频帧…', 'saving');
-    const dataUrl = await capturePageFrame();
-    if (!dataUrl) { setStatus('', '未找到视频', 'saved'); alert('当前页面未检测到可截取的视频'); return; }
+    const cap = await capturePageFrame();
+    if (!cap || !cap.fullBlob) { setStatus('', '未找到视频', 'saved'); alert('当前页面未检测到可截取的视频'); return; }
     setStatus('', '上传到图床…', 'saving');
+    const fullDataUrl = await blobToDataUrl(cap.fullBlob);
+    if (!fullDataUrl) { setStatus('', '编码失败', 'saved'); alert('图像编码失败'); return; }
     let res;
     try {
-      res = await chrome.runtime.sendMessage({ action: 'uploadNoteImage', dataUrl });
+      res = await chrome.runtime.sendMessage({ action: 'uploadNoteImage', dataUrl: fullDataUrl });
     } catch (err) {
       setStatus('', '上传失败', 'saved');
       alert('上传失败: ' + err.message);
       return;
     }
     if (!res?.success) { setStatus('', '上传失败', 'saved'); alert('上传失败: ' + (res?.error || '')); return; }
-    // 笔记正文存原 http:// URL(几十字节,可分享);
-    // 编辑器里 [[URL]] 渲染为图片块,http:// 通过 SW 代理转 dataURL 显示(无 Mixed Content)
+    // 笔记正文存原 http:// URL(几十字节,可分享)。
+    // 缩略图路径:本地 thumbCache 立即物化(光标 churn 也走这条) + 推 SW CacheStorage 持久。
     const url = res.url;
+    if (cap.thumbBlob) {
+      thumbCacheSet(url, cap.thumbBlob, cap.tw, cap.th, cap.thumbBlob.type);
+      // 推 SW 持久(后台 fire-and-forget;失败也不影响本次显示)
+      (async () => {
+        try {
+          const td = await blobToDataUrl(cap.thumbBlob);
+          if (td) chrome.runtime.sendMessage({ action: 'cacheNoteThumb', url, thumbDataUrl: td });
+        } catch (_) {}
+      })();
+    }
     const editor = panel.querySelector('#' + WRAPPER_ID + '-editor');
     if (editor) {
-      // 后端驱动:先 cancel auto-save,后端落盘,再渲染占位→真实块。
-      // 不依赖 DOM 序列化决定持久化(避免 × 按钮字符污染)。
       if (_saveTimer) { clearTimeout(_saveTimer); _saveTimer = null; }
       deactivateAllImages(editor);
       const placeholder = makePendingBlock();
@@ -1446,21 +1763,47 @@
       const prev = (page?.content || '');
       const sep = prev && !prev.endsWith('\n') ? '\n' : '';
       const newContent = prev + sep + `[[${url}]]`;
-      await chrome.runtime.sendMessage({ action: 'updateNoteContent', id: currentPageId, content: newContent });
-      if (page) page.content = newContent;
 
+      // ⚠️ 关键顺序:replaceWith 必须**先于**await sendMessage。
+      // 否则用户在这段 await 窗口内切换便签 → flushContentSave 序列化时
+      // 看到的还是 placeholder(nr-img-pending 被 pureTextContent 排除),
+      // 拿不到 [[URL]],会发送一个"旧内容"的 updateNoteContent 覆盖 M1,
+      // 最终 [[URL]] 丢失。提前插入,flushContentSave 发的 M2 也带 [[URL]],
+      // 与 M1 一致,竞态消除。
       const realBlock = makeImageBlock(url);
       placeholder.replaceWith(realBlock);
-      proxyEditorImages(editor);
+      observeImageBlock(realBlock);
+      ensureThumb(realBlock, url);  // 本地 cache 命中即同步填 src,无需 IPC
+
+      const saved = await chrome.runtime.sendMessage({ action: 'updateNoteContent', id: currentPageId, content: newContent });
+      // 诊断:M1 是给哪条 pageId 发的,长度 + 是否含 [[URL]]。prev 来自 pages[] 缓存。
+      console.debug(`[noteRing][M1] captureFrame send @${Date.now() % 100000} page=${currentPageId?.slice(-8)} prev=${page?.content?.length || 0} len=${newContent.length} hasUrl=${newContent.includes('[[http')}`);
+      // 落地校验:上传成功但 storage 写入失败(chrome.storage 配额 / 异常)时,
+      // 仍显示"已上传 ✓"会让用户误以为已持久化,刷新即丢图。
+      if (!saved?.success) {
+        setStatus('', '保存失败 ✗', 'saved');
+        alert('图片已上传到图床,但笔记保存失败: ' + (saved?.error || '') + '\n请重试或重新截帧(刷新页面会丢失当前图片)。');
+        return;
+      }
+      if (page) page.content = newContent;
     } else {
-      // editor 不存在(无选中页)→ 直接追加到 content 存储
       const page = pages.find(p => p.id === currentPageId);
       const prev = (page?.content || '');
       const content = prev + (prev && !prev.endsWith('\n') ? '\n' : '') + `[[${url}]]`;
-      await chrome.runtime.sendMessage({ action: 'updateNoteContent', id: currentPageId, content });
+      const saved = await chrome.runtime.sendMessage({ action: 'updateNoteContent', id: currentPageId, content });
+      if (!saved?.success) {
+        setStatus('', '保存失败 ✗', 'saved');
+        alert('图片已上传到图床,但笔记保存失败: ' + (saved?.error || '') + '\n刷新页面会丢失当前图片。');
+        return;
+      }
     }
     setStatus(`${url.length + 4} 字节图`, '已上传 ✓', 'saved');
   }
+
+  // 1×1 透明 SVG 占位 src。防止 contenteditable 在焦点切换时把 `<img 无 src>` 当成
+  // 坏图自动剔除整个 span(导致 selectPage flush 时编辑器被 wipe → 图片丢失)。
+  // ensureThumb 加载完真实缩略图后会用 objectURL 覆盖此 src。
+  const PLACEHOLDER_IMG_SRC = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>';
 
   function makeImageBlock(url) {
     const span = document.createElement('span');
@@ -1469,12 +1812,11 @@
     span.setAttribute('data-url', url);
     const img = document.createElement('img');
     img.alt = '视频帧';
-    if (url) {
-      // 始终先设 src(代理是优化,不是必需)。否则代理失败时只剩 × 按钮,
-      // 用户感知到的就是"字母 x"。
-      img.src = url;
-      if (url.startsWith('http://')) img.setAttribute('data-pending-src', url);
-    }
+    // 不再设 src(避免 https 页面触发注定失败的 Mixed Content 升级请求
+    // + 节省光标 churn 场景的重复网络/解码开销)。空 src → CSS 给灰色骨架
+    // 占位;IntersectionObserver + ensureThumb 异步填 src。
+    // 但 contenteditable 会在焦点切换时移除 `<img 无 src>`,所以用占位 dataURI。
+    img.src = PLACEHOLDER_IMG_SRC;
     const x = document.createElement('button');
     x.className = 'nr-img-x';
     x.type = 'button';
@@ -1483,7 +1825,26 @@
     x.addEventListener('click', onDeleteImgClick);
     span.appendChild(img);
     span.appendChild(x);
+    span.appendChild(makeRetryButton(span));
     return span;
+  }
+
+  /** 重试按钮:默认隐藏,block 进入 .nr-img-error 态时显示。 */
+  function makeRetryButton(span) {
+    const r = document.createElement('button');
+    r.className = 'nr-img-retry';
+    r.type = 'button';
+    r.textContent = '↻';
+    r.title = '重试加载缩略图';
+    r.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const url = span.getAttribute('data-url');
+      if (!url) return;
+      span.classList.remove('nr-img-error');
+      ensureThumb(span, url);
+    });
+    return r;
   }
 
   // ===================== 登录状态徽章(同步 background getLoginStatus) =====================
@@ -1613,6 +1974,9 @@ function bindPanelDelegation() {
     if (editor && editor._selChange) {
       document.removeEventListener('selectionchange', editor._selChange);
     }
+    // 释放缩略图缓存 + observer(防止 blob URL + observer 句柄泄漏)
+    if (_thumbObserver) { _thumbObserver.disconnect(); _thumbObserver = null; }
+    thumbCacheRevokeAll();
     document.getElementById(WRAPPER_ID)?.remove();
     panel?.remove();
     document.querySelector('[data-note-picker]')?.remove();
@@ -1724,9 +2088,11 @@ function bindPanelDelegation() {
     if (currentPageId) {
       const page = newPages.find(p => p.id === currentPageId);
       const editorEl = panel.querySelector('#' + WRAPPER_ID + '-editor');
+      // 竞态诊断:存储变更触发的强制 re-render。每次都打印,谁 wipe 编辑器一目了然。
+      console.debug(`[noteRing][STORAGE-ONCHANGED] @${Date.now() % 100000} page=${currentPageId?.slice(-8)} pageContentLen=${page?.content?.length || 0} pageContentHasUrl=${page?.content?.includes('[[http') || false} activeNotEditor=${document.activeElement !== editorEl}`);
       if (editorEl && page && document.activeElement !== editorEl) {
         renderContentToEditor(editorEl, page.content || '');
-        proxyEditorImages(editorEl);
+        // observeAllImageBlocks 已在 renderContentToEditor 末尾调用
       }
     }
   });

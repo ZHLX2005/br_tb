@@ -15,6 +15,7 @@
  */
 
 import { imagePool } from './lru-image-pool.js';
+import { getOrMakeThumb, putThumbFromDataUrl } from './thumb-service.js';
 
 /**
  * 把 Blob 异步转 data URL —— fetchImageAsDataUrl 与池共享这个 helper
@@ -27,6 +28,10 @@ function blobToDataUrl(blob) {
     fr.onerror = () => rej(fr.error);
     fr.readAsDataURL(blob);
   });
+}
+
+function dataUrlToBlob(dataUrl) {
+  return fetch(dataUrl).then((r) => r.blob());
 }
 
 function generateId(prefix = 'n') {
@@ -78,6 +83,11 @@ const NOTE_ACTIONS = new Set([
   // 图片代理:SW fetch http 图 → dataURL,绕开 HTTPS 页 Mixed Content
   // 顺带走 LRU 池(background/lru-image-pool.js),命中不重复 fetch
   'fetchImageAsDataUrl',
+  // 缩略图代理:SW 内 decode 全图 + OffscreenCanvas 缩到 640w → blob,
+  // 写入 CacheStorage 持久(content script 永不碰全图)。
+  // 热路径(截帧/粘贴)由 cacheNoteThumb 把本地 thumb dataUrl 推过来。
+  'fetchNoteThumb',
+  'cacheNoteThumb',
   // 登录状态查询:通用 service,module/noteRing 都可用
   'getLoginStatus',
   // 主动登录(无 token 时一次性登录拿 token,缓存 30 天)
@@ -159,7 +169,11 @@ async function uploadNoteImage(dataUrl) {
   const blob = await (await fetch(dataUrl)).blob();
   const makeForm = () => {
     const f = new FormData();
-    f.append('file', blob, 'frame.png');
+    // 文件名按实际 mime 推导,避免 WebP 内容被命名为 .png 影响 CDN/存储端类型识别
+    const ext = (blob.type === 'image/webp') ? 'webp'
+      : (blob.type === 'image/jpeg') ? 'jpg'
+      : 'png';
+    f.append('file', blob, `frame.${ext}`);
     f.append('accessLevel', 'public');
     f.append('expireSeconds', '0');
     f.append('groupId', '0');
@@ -244,6 +258,8 @@ export function setupNotesListeners() {
             break;
           }
           case 'updateNoteContent': {
+            // 诊断:每条 write 都打印 pageId + 长度 + 是否含 [[URL]] + 来源(M1/M2/SW 顺序)
+            console.debug(`[noteRing][SW-write] updateNoteContent @${Date.now() % 100000} page=${request.id} len=${(request.content || '').length} hasUrl=${(request.content || '').includes('[[http')}`);
             const notePages = await loadPages();
             const page = notePages.find(p => p.id === request.id);
             if (!page) { result = { success: false, error: '页面不存在' }; break; }
@@ -356,6 +372,32 @@ export function setupNotesListeners() {
             } catch (err) {
               result = { success: false, error: err.message };
             }
+            break;
+          }
+          case 'fetchNoteThumb': {
+            // content script 看不到的"小图管道":
+            // SW 内 fetch 全图 → createImageBitmap → OffscreenCanvas 缩 640w
+            // → convertToBlob(WebP) → 存 CacheStorage(持久) → 转 dataURL 回传。
+            // content script 渲染进程只看到 60-80KB 字符串,不解码 8.3MB 全图。
+            if (!request.url) { result = { success: false, error: '缺少 url' }; break; }
+            try {
+              const blob = await getOrMakeThumb(request.url);
+              if (!blob) { result = { success: false, error: '缩略图生成失败' }; break; }
+              const dataUrl = await blobToDataUrl(blob);
+              result = { success: true, dataUrl, mime: blob.type };
+            } catch (err) {
+              result = { success: false, error: err.message };
+            }
+            break;
+          }
+          case 'cacheNoteThumb': {
+            // 热路径(截帧/粘贴)用:CS canvas 生成 thumb dataUrl,推过来写 CacheStorage
+            if (!request.url || !request.thumbDataUrl) {
+              result = { success: false, error: '缺少参数' };
+              break;
+            }
+            const ok = await putThumbFromDataUrl(request.url, request.thumbDataUrl);
+            result = { success: ok };
             break;
           }
           case 'getLoginStatus': {
