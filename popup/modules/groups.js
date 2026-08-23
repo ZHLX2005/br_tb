@@ -1,6 +1,9 @@
 /**
  * Popup Groups Module
  * 分组管理功能（已合并专注搜索控制）
+ *
+ * 所有 group 数据读写走后台消息(→ background/group-model.js 领域层),
+ * 本模块不做 read-modify-write。
  */
 
 import { escapeHtml } from './utils.js';
@@ -20,28 +23,17 @@ let selectedColor = DEFAULT_COLORS[0];
  * @param {Function} options.onToggleFocus - 切换专注搜索回调 (groupId, enabled, prevChecked)
  */
 export async function loadGroups({ onDelete, onSetDefault, onToggleFocus } = {}) {
-  const groupsResponse = await chrome.runtime.sendMessage({ action: 'getGroups' });
-  if (!groupsResponse?.success) {
+  const dataResponse = await chrome.runtime.sendMessage({ action: 'getAllData' });
+  if (!dataResponse?.success) {
     document.getElementById('groupsList').innerHTML =
       '<div class="empty-state">加载分组失败</div>';
     return;
   }
 
-  const settingsResponse = await chrome.runtime.sendMessage({ action: 'getSettings' });
-  if (!settingsResponse?.success && !settingsResponse?.settings) {
-    console.warn('[TabBoard] getSettings failed:', settingsResponse?.error);
-  }
-  const settings = settingsResponse?.settings || {};
-  const focusSearchGroups = settings.focusSearchGroups || [];
-
-  const dataResponse = await chrome.runtime.sendMessage({ action: 'getAllData' });
-  if (!dataResponse?.success) {
-    console.warn('[TabBoard] getAllData failed:', dataResponse?.error);
-  }
-  const tabs = dataResponse?.tabs || {};
+  const groups = dataResponse.groups || [];
+  const tabs = dataResponse.tabs || {};
 
   const groupsList = document.getElementById('groupsList');
-  const groups = groupsResponse.groups || [];
 
   if (groups.length === 0) {
     groupsList.innerHTML = '<div class="empty-state">暂无分组,点击右上角新建</div>';
@@ -49,7 +41,7 @@ export async function loadGroups({ onDelete, onSetDefault, onToggleFocus } = {})
   }
 
   groupsList.innerHTML = groups.map(group => {
-    const isInFocus = focusSearchGroups.includes(group.id);
+    const isInFocus = group.inFocusSearch === true;
     const tabCount = (tabs[group.id] || []).length;
     return `<div class="group-item" style="border-left-color: ${group.color}">
       <div class="group-row">
@@ -128,27 +120,16 @@ export async function addGroup(name, color) {
 }
 
 /**
- * 切换分组的专注搜索状态
- * @param {string} groupId
- * @param {boolean} enabled
+ * 切换分组的专注搜索状态(走领域 API toggleGroupFocusSearch,不做本地 read-modify-write)
  */
 export async function toggleFocusSearchGroup(groupId, enabled) {
-  const settingsResponse = await chrome.runtime.sendMessage({ action: 'getSettings' });
-  const settings = settingsResponse?.settings || {};
-  let focusSearchGroups = settings.focusSearchGroups || [];
-
-  if (enabled) {
-    if (!focusSearchGroups.includes(groupId)) focusSearchGroups.push(groupId);
-  } else {
-    focusSearchGroups = focusSearchGroups.filter(id => id !== groupId);
-  }
-
   const response = await chrome.runtime.sendMessage({
-    action: 'updateSettings',
-    settings: { focusSearchGroups }
+    action: 'toggleGroupFocusSearch',
+    groupId,
+    value: enabled
   });
   if (!response?.success) {
-    throw new Error(response?.error || 'updateSettings failed');
+    throw new Error(response?.error || 'toggleGroupFocusSearch failed');
   }
 }
 

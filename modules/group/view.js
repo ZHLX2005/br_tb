@@ -22,23 +22,17 @@ class GroupView {
   updateData(data) {
     this.groups = data.groups || [];
     this.tabs = data.tabs || {};
-
-    // 初始化可见分组设置
-    this._initializeVisibleGroups(data.settings);
+    // 可见性已迁移为 group.visible 属性(原 settings.visibleGroups,见 background/group-model.js)
+    this._refreshVisibleGroups();
   }
 
   /**
-   * 初始化可见分组设置
+   * 从 group.visible 派生 Set 缓存(替代旧 settings.visibleGroups)
    */
-  _initializeVisibleGroups(settings) {
-    const savedVisibleGroups = settings?.visibleGroups;
-
-    if (savedVisibleGroups && Array.isArray(savedVisibleGroups)) {
-      this.visibleGroups = new Set(savedVisibleGroups);
-    } else {
-      // 默认显示所有分组
-      this.visibleGroups = new Set(this.groups.map(g => g.id));
-    }
+  _refreshVisibleGroups() {
+    this.visibleGroups = new Set(
+      this.groups.filter(g => g.visible !== false).map(g => g.id)
+    );
   }
 
   /**
@@ -988,7 +982,7 @@ class GroupView {
       dialog.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
     });
 
-    dialog.querySelector('.apply-filter-btn').addEventListener('click', () => {
+    dialog.querySelector('.apply-filter-btn').addEventListener('click', async () => {
       const selectedGroups = Array.from(dialog.querySelectorAll('input[type="checkbox"]:checked'))
         .map(cb => cb.value);
 
@@ -997,10 +991,18 @@ class GroupView {
         return;
       }
 
-      this.visibleGroups = new Set(selectedGroups);
-      this._saveVisibleGroups();
-      this.render();
-      closeDialog();
+      // 走领域 API setGroupsVisibility(替代旧 updateSettings 的 read-modify-write)
+      const result = await this.dataManager.sendMessage('setGroupsVisibility', {
+        visibleGroupIds: selectedGroups
+      });
+      if (result?.success) {
+        // 同步本地内存的 group.visible,避免依赖 storage 事件回流导致 UI 滞后
+        const visibleSet = new Set(selectedGroups);
+        for (const g of this.groups) g.visible = visibleSet.has(g.id);
+        this._refreshVisibleGroups();
+        this.render();
+        closeDialog();
+      }
     });
 
     // 点击遮罩关闭
@@ -1438,18 +1440,6 @@ class GroupView {
     // 重新加载数据并渲染
     await this.dataManager.loadData();
     this.render();
-  }
-
-  /**
-   * 保存可见分组设置
-   */
-  async _saveVisibleGroups() {
-    const visibleGroupsArray = Array.from(this.visibleGroups);
-    await this.dataManager.sendMessage('updateSettings', {
-      settings: {
-        visibleGroups: visibleGroupsArray
-      }
-    });
   }
 
   /**

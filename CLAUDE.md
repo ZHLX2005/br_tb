@@ -59,7 +59,17 @@ User Action → View Component → DataManager.sendMessage()
 ```javascript
 {
   groups: [
-    { id: string, name: string, color: string, isDefault: boolean }
+    {
+      id: string,
+      name: string,
+      color: string,
+      isDefault: boolean,
+      // 标记字段(goto / inFocusSearch / visible 是 group 的属性,
+      // 通过 background/group-model.js 统一读写,详见下方"Group 数据访问规约")
+      goto: boolean,
+      inFocusSearch: boolean,
+      visible: boolean
+    }
   ],
   tabs: {
     [groupId]: [
@@ -83,8 +93,9 @@ User Action → View Component → DataManager.sendMessage()
     closeAfterCollect: boolean,
     closeAfterRestore: boolean,
     excludeEdgeUrls: boolean,
-    lastView: 'timeline' | 'group',
-    visibleGroups: string[]
+    lastView: 'timeline' | 'group'
+    // 注:历史版本曾有 visibleGroups / focusSearchGroups,
+    // 已迁移为 group.visible / group.inFocusSearch(由 group-model.ensureGroupDefaults 一次性迁移)
   }
 }
 ```
@@ -95,13 +106,17 @@ All communication between frontend and background uses `chrome.runtime.sendMessa
 
 **Group Management:**
 - `getGroups` - Get all groups
-- `addGroup` - Create new group (name, color)
-- `deleteGroup` - Delete group and its tabs
+- `addGroup` - Create new group (name, color). 新 group 默认 visible: true、goto: false、inFocusSearch: false
+- `deleteGroup` - Delete group and its tabs. 标记属性随 group 对象一起删除,无需清理 settings
 - `setDefaultGroup` - Set default group for quick-add
 - `updateGroupName` - Rename a group
-- `clearAllGroups` - Empty all groups
+- `clearAllGroups` - Empty all groups (保留分组结构,清空 tabs)
 - `importGroupsAndTabs` - Replace all data
 - `updateBoardOrder` - Reorder groups
+- `setGroupAsGoto` - Toggle group.goto (影响 goto 圆环源)
+- `toggleGroupFocusSearch` - 设置 group.inFocusSearch (groupId, value)
+- `setGroupsVisibility` - 批量设置可见性 (visibleGroupIds: string[])
+- `getGotoMenuData` - 返回 goto=true 的 group + 各自前 6 个 tab 的结构化数据(给 content/inject/goto 用)
 
 **Tab Operations:**
 - `addTab` - Add tab to group (tab, groupId)
@@ -139,6 +154,22 @@ All communication between frontend and background uses `chrome.runtime.sendMessa
 - `Alt+Shift+C` - Collect all tabs in current window to timeline snapshot
 - `Alt+Shift+X` - Collect all tabs except current page (new feature)
 - `Alt+Shift+O` - Open TabBoard
+
+## Group Data Access Contract
+
+> **规约:** `groups` / `tabs` 是 group 域的底层数据结构。任何模块(background / popup / view / content script)对它们的读写,**必须**经过 `background/group-model.js` 导出的程序语言接口,不允许直接 `chrome.storage.local.get/set(['groups'|'tabs'])`。
+
+| 层 | 调用方式 | 入口 |
+|---|---|---|
+| background 内部(focus.js / goto.js / init.js) | 直接 `import { ... } from './group-model.js'` | 函数调用,无消息往返 |
+| 前端(popup / tabboard view / content script) | 发消息 → `background/groups.js` 适配层 → 调 model | `chrome.runtime.sendMessage({ action, ... })` |
+
+**违反情形自动失效:** 之前 goto content script 直接 `chrome.storage.local.get(['groups'])`、focus.js 自己建 History 分组直接 `chrome.storage.local.set({ groups })`、view.js 用通用 `updateSettings` 做 settings.read-modify-write —— 这些分散写法都已收敛到 model + 专用消息(`toggleGroupFocusSearch` / `setGroupsVisibility` / `getGotoMenuData`)。
+
+**新增 group 标记(如未来的 `pinned` / `archived`)** 应该:
+1. 加到 `group-model.createGroup` 默认值的字段列表
+2. 在 `ensureGroupDefaults` 的迁移循环里给老 group 补默认值
+3. 导出专用 setter(`setGroupPinned` 等),不要用 `updateSettings` 走通用 settings 路径
 
 ## Development Workflow
 

@@ -2,33 +2,21 @@
  * 初始化模块
  */
 
-import { generateId, DEFAULT_COLORS } from './utils.js';
+import { ensureGroupDefaults } from './group-model.js';
 
 // 初始化默认数据
 export async function initializeDefaultData() {
-  // 一次性获取所有需要初始化的数据
+  // group 域(groups/tabs 默认数据 + goto 面包 seed + 标记迁移)统一由 group-model 负责
+  await ensureGroupDefaults();
+
+  // 一次性获取其余需要初始化的数据
   const result = await chrome.storage.local.get([
-    'groups',
-    'tabs',
     'timelineSnapshots',
     'settings',
     'recordings',
     'recordingState',
     'notePages'
   ]);
-
-  if (!result.groups) {
-    const defaultGroups = [
-      { id: generateId(), name: '工作', color: DEFAULT_COLORS[0], isDefault: true, goto: false },
-      { id: generateId(), name: '学习', color: DEFAULT_COLORS[1], isDefault: false, goto: false },
-      { id: generateId(), name: '娱乐', color: DEFAULT_COLORS[2], isDefault: false, goto: false }
-    ];
-    await chrome.storage.local.set({ groups: defaultGroups });
-  }
-
-  if (!result.tabs) {
-    await chrome.storage.local.set({ tabs: {} });
-  }
 
   // Timeline 存储 - 快照列表
   if (!result.timelineSnapshots) {
@@ -42,7 +30,6 @@ export async function initializeDefaultData() {
         closeAfterRestore: false,
         excludeEdgeUrls: false,
         lastView: 'timeline',
-        visibleGroups: result.groups ? result.groups.map(g => g.id) : [],
         showCourseProgressBar: false,
         showCourseProgressBarOnUnrelatedTabs: false,
         showGotoRing: false,
@@ -92,6 +79,10 @@ export async function initializeDefaultData() {
       updatedSettings.showNoteRing = true;
       needUpdate = true;
     }
+    if (updatedSettings.showGotoManagerSidebar === undefined) {
+      updatedSettings.showGotoManagerSidebar = true;
+      needUpdate = true;
+    }
     if (updatedSettings.lastView === undefined) {
       updatedSettings.lastView = 'timeline';
       needUpdate = true;
@@ -100,10 +91,8 @@ export async function initializeDefaultData() {
       updatedSettings.theme = 'neo-brutalism';
       needUpdate = true;
     }
-    if (!updatedSettings.visibleGroups) {
-      updatedSettings.visibleGroups = result.groups ? result.groups.map(g => g.id) : [];
-      needUpdate = true;
-    }
+    // 注:visibleGroups / focusSearchGroups 已迁移为 group.visible / group.inFocusSearch
+    // (由 group-model.ensureGroupDefaults 负责),settings 不再持有这两个 key
     if (needUpdate) {
       await chrome.storage.local.set({ settings: updatedSettings });
     }
@@ -141,46 +130,6 @@ export async function initializeDefaultData() {
   // 初始化便签全局默认 page id(用户在面板里选的 page,跨 tab 共享)
   if (!('noteCurrentPageId' in result)) {
     await chrome.storage.local.set({ noteCurrentPageId: null });
-  }
-
-  // 初始化 goto 圆环：检查是否存在 goto=true 的 group，若无则创建"📄 面包"分组
-  const finalGroups = (await chrome.storage.local.get(['groups'])).groups || result.groups || [];
-  const hasGotoGroup = finalGroups.some(g => g.goto === true);
-
-  if (!hasGotoGroup) {
-    // 创建一个新的"面包"分组,并把 6 个示例 URL 作为初始 tabs
-    const breadGroup = {
-      id: generateId(),
-      name: '📄 面包',
-      color: '#f9ca24',
-      isDefault: false,
-      goto: true
-    };
-    finalGroups.push(breadGroup);
-
-    const finalTabs = (await chrome.storage.local.get(['tabs'])).tabs || result.tabs || {};
-    finalTabs[breadGroup.id] = [
-      { id: generateId(), title: '上海演唱会', url: 'https://www.bilibili.com/video/BV1L48qzsESK?spm_id_from=333.788.videopod.sections', favicon: '', timestamp: new Date().toISOString() },
-      { id: generateId(), title: '宁波演唱会', url: 'https://www.bilibili.com/video/BV1pca3zPECZ/?spm_id_from=333.337.search-card.all.click&vd_source=b00eb5ad0e31d2629f81cb48d7fab1f2', favicon: '', timestamp: new Date().toISOString() },
-      { id: generateId(), title: '北京演唱会', url: 'https://www.bilibili.com/video/BV13hSzYfEfD?spm_id_from=333.788.videopod.sections&vd_source=b00eb5ad0e31d2629f81cb48d7fab1f2', favicon: '', timestamp: new Date().toISOString() },
-      { id: generateId(), title: '广州演唱会', url: 'https://www.bilibili.com/video/BV1g2oiYqEiM?spm_id_from=333.788.videopod.sections&vd_source=b00eb5ad0e31d2629f81cb48d7fab1f2', favicon: '', timestamp: new Date().toISOString() },
-      { id: generateId(), title: '成都演唱会', url: 'https://www.bilibili.com/video/BV1dUjkzqEUj/?spm_id_from=333.788.videopod.sections&vd_source=b00eb5ad0e31d2629f81cb48d7fab1f2', favicon: '', timestamp: new Date().toISOString() },
-      { id: generateId(), title: '天津演唱会', url: 'https://www.bilibili.com/video/BV1hNq1BTEG8/?spm_id_from=333.337.search-card.all.click', favicon: '', timestamp: new Date().toISOString() },
-    ];
-
-    await chrome.storage.local.set({ groups: finalGroups, tabs: finalTabs });
-  } else {
-    // 为旧 group 补 goto 字段(迁移)
-    let needUpdate = false;
-    for (const g of finalGroups) {
-      if (g.goto === undefined) {
-        g.goto = false;
-        needUpdate = true;
-      }
-    }
-    if (needUpdate) {
-      await chrome.storage.local.set({ groups: finalGroups });
-    }
   }
 }
 

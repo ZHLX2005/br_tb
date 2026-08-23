@@ -5,6 +5,7 @@
 
 import { generateId, showToast, DEFAULT_COLORS } from './utils.js';
 import SearchHelper from '../modules/shared/search-helper.js';
+import { getGroups, createGroup, seedGroupTabs } from './group-model.js';
 
 // 计算所有快照中的总标签数
 function countTotalTabs(snapshots) {
@@ -375,38 +376,19 @@ function setupTimelineListeners() {
         case 'extractMarkedAsGroup': {
           // 将标记为重要的标签提取为新分组，并清空所有快照
           console.log('[Background] extractMarkedAsGroup request:', request);
-          const extractResult = await chrome.storage.local.get(['groups', 'tabs']);
-          const existingGroups = extractResult.groups || [];
-          const existingTabs = extractResult.tabs || {};
           const { markedTabs } = request;
 
-          // 生成新分组的颜色（使用默认颜色）
+          // groups / tabs 走 group-model(唯一存储入口),timeline 自身负责清空快照
+          const existingGroups = await getGroups();
           const newColor = DEFAULT_COLORS[existingGroups.length % DEFAULT_COLORS.length];
-          const newGroupId = generateId();
-
-          // 创建新分组
-          const newGroup = {
-            id: newGroupId,
+          const newGroup = await createGroup({
             name: `重要标签 ${new Date().toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}`,
-            color: newColor,
-            isDefault: false
-          };
-
-          existingGroups.push(newGroup);
-          existingTabs[newGroupId] = markedTabs.map(tab => ({
-            id: generateId(),
-            title: tab.title,
-            url: tab.url,
-            favicon: tab.favicon,
-            timestamp: new Date().toISOString()
-          }));
+            color: newColor
+          });
+          await seedGroupTabs(newGroup.id, markedTabs);
 
           // 清空所有快照
-          await chrome.storage.local.set({
-            groups: existingGroups,
-            tabs: existingTabs,
-            timelineSnapshots: []
-          });
+          await chrome.storage.local.set({ timelineSnapshots: [] });
 
           console.log('[Background] Extracted marked tabs to group:', newGroup.name);
           sendResponse({ success: true, groupName: newGroup.name });

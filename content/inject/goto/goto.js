@@ -423,18 +423,12 @@
 
   // ===================== 数据加载 =====================
   // 圆环菜单动态计算：从 groups 找到 goto=true 的 group,拉取该 group 的前 5 个 tab
-  async function loadMenuDataFromStorage() {
+  // 数据来源统一从 background/group-model.getGotoMenuData 走消息获取;
+  // chrome.storage.onChanged 仅作失效信号(groups/tabs 变化时触发重新拉取)。
+  async function loadMenuData() {
     try {
-      const [groupsRes, tabsRes] = await Promise.all([
-        chrome.storage.local.get(['groups']),
-        chrome.storage.local.get(['tabs'])
-      ]);
-
-      const groups = (groupsRes && groupsRes.groups) || [];
-      const allTabs = (tabsRes && tabsRes.tabs) || {};
-      const gotoGroups = groups.filter(g => g.goto === true);
-
-      if (gotoGroups.length === 0) {
+      const res = await chrome.runtime.sendMessage({ action: 'getGotoMenuData' });
+      if (!res || !res.success) {
         menuData = EMPTY_MENU;
         return;
       }
@@ -442,20 +436,14 @@
       // 标题截断到 7 字符(圆环 50px 圆点的可视范围)
       const truncate = (s, n = 7) => (s && s.length > n ? s.slice(0, n) : (s || ''));
 
-      const subGroups = gotoGroups.map(g => {
-        const groupTabs = (allTabs[g.id] || []).slice(0, 6);
-        const items = groupTabs
-          .filter(t => t && t.url)
-          .map(t => ({
-            name: truncate(t.title || t.url, 7),
-            url: t.url,
-            children: []
-          }));
-        return {
-          name: truncate(g.name || '📄 面包', 7),
-          children: items
-        };
-      }).filter(g => g.children.length > 0);
+      const subGroups = (res.menu || []).map(g => ({
+        name: truncate(g.name || '📄 面包', 7),
+        children: g.tabs.map(t => ({
+          name: truncate(t.title || t.url, 7),
+          url: t.url,
+          children: []
+        }))
+      })).filter(g => g.children.length > 0);
 
       menuData = {
         name: 'goto',
@@ -464,6 +452,7 @@
       };
     } catch (err) {
       // Extension context may be invalid; keep EMPTY_MENU
+      menuData = EMPTY_MENU;
     }
   }
 
@@ -478,7 +467,7 @@
         removeRing();
         return;
       }
-      await loadMenuDataFromStorage();
+      await loadMenuData();
       buildRing();
     } catch (err) {
       // Extension context may be invalid
@@ -499,14 +488,19 @@
     }
     if (changes.tabs || changes.groups) {
       // 源 group 的 tabs 或 groups 本身变化时,刷新内存中的数据
-      loadMenuDataFromStorage();
+      // (数据走消息拉,这里只当失效信号)
+      loadMenuData().then(() => {
+        if (isEnabled) buildRing();
+      });
     }
   });
 
   // ===================== 后端主动推送刷新 =====================
   chrome.runtime.onMessage.addListener((request) => {
     if (request && request.action === 'refreshGotoRing') {
-      loadMenuDataFromStorage();
+      loadMenuData().then(() => {
+        if (isEnabled) buildRing();
+      });
     }
     return false;
   });

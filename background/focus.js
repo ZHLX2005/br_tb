@@ -1,29 +1,25 @@
 /**
  * Focus Search 专注搜索模块
  * 处理 content/focus-search.js 使用的后台 API
+ * group 数据操作统一走 group-model.js(唯一存储入口)
  */
 
-import { generateId } from './utils.js';
+import { createGroup, addTabToGroup, getGroups, getTabsMap } from './group-model.js';
 
 const HISTORY_GROUP_NAME = 'History';
 const HISTORY_GROUP_COLOR = '#9e9e9e';
+const HISTORY_GROUP_MAX_TABS = 200;
 
 async function getOrCreateHistoryGroup() {
-  const result = await chrome.storage.local.get(['groups']);
-  const groups = result.groups || [];
-  let historyGroup = groups.find(g => g.name === HISTORY_GROUP_NAME);
-
-  if (!historyGroup) {
-    historyGroup = {
-      id: generateId(),
-      name: HISTORY_GROUP_NAME,
-      color: HISTORY_GROUP_COLOR,
-      isDefault: false
-    };
-    groups.push(historyGroup);
-    await chrome.storage.local.set({ groups });
-  }
-  return historyGroup;
+  const groups = await getGroups();
+  const existing = groups.find(g => g.name === HISTORY_GROUP_NAME);
+  if (existing) return existing;
+  // 统一走 createGroup;visible: false 保持历史行为(History 分组不在看板显示)
+  return createGroup({
+    name: HISTORY_GROUP_NAME,
+    color: HISTORY_GROUP_COLOR,
+    visible: false
+  });
 }
 
 async function addToHistoryGroup(tabInfo) {
@@ -35,46 +31,25 @@ async function addToHistoryGroup(tabInfo) {
   }
 
   const historyGroup = await getOrCreateHistoryGroup();
-  const result = await chrome.storage.local.get(['tabs']);
-  const tabs = result.tabs || {};
-
-  if (!tabs[historyGroup.id]) {
-    tabs[historyGroup.id] = [];
-  }
-
-  const exists = tabs[historyGroup.id].some(t => t.url === url);
-  if (!exists) {
-    tabs[historyGroup.id].unshift({
-      id: generateId(),
-      title: title,
-      url: url,
-      favicon: favicon || '',
-      timestamp: new Date().toISOString(),
-      visitCount: 1,
-      lastVisit: new Date().toISOString()
-    });
-
-    if (tabs[historyGroup.id].length > 200) {
-      tabs[historyGroup.id] = tabs[historyGroup.id].slice(0, 200);
-    }
-
-    await chrome.storage.local.set({ tabs });
-    return true;
-  }
-  return false;
+  return addTabToGroup(
+    { title, url, favicon },
+    historyGroup.id,
+    { maxTabs: HISTORY_GROUP_MAX_TABS, initVisitCount: true }
+  );
 }
 
 async function handleGetAllOpenTabs() {
-  const [browserTabsResult, settingsResult] = await Promise.all([
+  const [browserTabs, groups, storedTabs] = await Promise.all([
     chrome.tabs.query({}),
-    chrome.storage.local.get(['settings', 'tabs'])
+    getGroups(),
+    getTabsMap()
   ]);
 
-  const settings = settingsResult.settings || {};
-  const focusSearchGroupIds = settings.focusSearchGroups || [];
-  const storedTabs = settingsResult.tabs || {};
+  const focusGroupIds = groups
+    .filter(g => g.inFocusSearch === true)
+    .map(g => g.id);
 
-  const browserTabs = browserTabsResult
+  const openTabs = browserTabs
     .filter(t => t.id && t.url && !t.url.startsWith('chrome:') && !t.url.startsWith('chrome-extension:') && t.url !== 'edge://newtab')
     .map(t => ({
       id: 'browser_' + t.id,
@@ -88,8 +63,8 @@ async function handleGetAllOpenTabs() {
     }));
 
   let groupTabs = [];
-  if (focusSearchGroupIds.length > 0) {
-    for (const groupId of focusSearchGroupIds) {
+  if (focusGroupIds.length > 0) {
+    for (const groupId of focusGroupIds) {
       if (storedTabs[groupId] && Array.isArray(storedTabs[groupId])) {
         groupTabs = groupTabs.concat(storedTabs[groupId].map(t => ({
           id: 'group_' + t.id,
@@ -105,7 +80,7 @@ async function handleGetAllOpenTabs() {
     }
   }
 
-  const allTabs = [...browserTabs, ...groupTabs];
+  const allTabs = [...openTabs, ...groupTabs];
   const seen = new Set();
   const deduped = allTabs.filter(tab => {
     if (seen.has(tab.url)) return false;

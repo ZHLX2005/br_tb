@@ -1,91 +1,32 @@
 /**
- * 收藏分组模块
- * 处理分组的创建、删除、标签管理等功能
+ * 收藏分组模块 — 消息适配层
+ * 处理分组相关的 chrome.runtime 消息,数据操作全部委托 group-model.js(唯一存储入口)
  */
 
-import { generateId, showToast, getUrlBase } from './utils.js';
+import { showToast } from './utils.js';
 import { openTabboard } from './tabboard.js';
-
-// 获取默认分组ID
-async function getDefaultGroupId() {
-  const result = await chrome.storage.local.get(['groups']);
-  const defaultGroup = result.groups?.find(g => g.isDefault);
-  return defaultGroup?.id || result.groups?.[0]?.id;
-}
-
-// 添加标签页到分组
-async function addTabToGroup(tab, groupId) {
-  // 过滤无效标签
-  if (!tab.url || tab.url === 'about:blank' || tab.url.trim() === '') {
-    return false;
-  }
-  if (!tab.title || tab.title.trim() === '') {
-    return false;
-  }
-
-  const result = await chrome.storage.local.get(['tabs']);
-  const tabs = result.tabs || {};
-
-  if (!tabs[groupId]) {
-    tabs[groupId] = [];
-  }
-
-  // 检查是否已存在
-  const exists = tabs[groupId].some(t => t.url === tab.url);
-  if (!exists) {
-    tabs[groupId].unshift({
-      id: generateId(),
-      title: tab.title,
-      url: tab.url,
-      favicon: tab.favIconUrl || '',
-      timestamp: new Date().toISOString()
-    });
-
-    // 限制每个分组最多100个标签
-    if (tabs[groupId].length > 100) {
-      tabs[groupId] = tabs[groupId].slice(0, 100);
-    }
-
-    await chrome.storage.local.set({ tabs });
-    return true;
-  }
-  return false;
-}
-
-// 从分组移除标签(精确 URL 匹配)
-async function removeTabFromGroup(tab, groupId) {
-  if (!tab || !tab.url) return false;
-
-  const result = await chrome.storage.local.get(['tabs']);
-  const tabs = result.tabs || {};
-  const groupTabs = tabs[groupId];
-
-  if (!Array.isArray(groupTabs) || groupTabs.length === 0) {
-    return false;
-  }
-
-  const before = groupTabs.length;
-  tabs[groupId] = groupTabs.filter(t => t.url !== tab.url);
-
-  if (tabs[groupId].length === before) {
-    // 没有匹配项
-    return false;
-  }
-
-  await chrome.storage.local.set({ tabs });
-  return true;
-}
-
-// 切换标签在分组中的存在状态:不存在则添加,存在则移除
-async function toggleTabInGroup(tab, groupId) {
-  const added = await addTabToGroup(tab, groupId);
-  if (added) return 'added';
-
-  const removed = await removeTabFromGroup(tab, groupId);
-  if (removed) return 'removed';
-
-  return 'noop';
-}
+import {
+  getGroups,
+  getTabsMap,
+  getDefaultGroupId,
+  createGroup,
+  deleteGroup as modelDeleteGroup,
+  renameGroup,
+  setDefaultGroup as modelSetDefaultGroup,
+  updateBoardOrder as modelUpdateBoardOrder,
+  importGroupsAndTabs,
+  toggleGoto,
+  setGroupFocusSearch,
+  setGroupsVisibility,
+  toggleTabInGroup,
+  updateTab as modelUpdateTab,
+  moveTab as modelMoveTab,
+  deleteTab as modelDeleteTab,
+  clearGroupTabs,
+  clearAllGroupTabs,
+  incrementVisitCount,
+  sortAllTabsByVisitCount
+} from './group-model.js';
 
 // 添加当前标签页到默认分组
 async function addCurrentTabToDefaultGroup() {
@@ -137,14 +78,12 @@ async function addCurrentTabToDefaultGroup() {
   }
 
   // 获取分组名称用于显示
-  const groupsResult = await chrome.storage.local.get(['groups']);
-  const groups = groupsResult.groups || [];
-  const targetGroup = groups.find(g => g.id === defaultGroupId);
-  const groupName = targetGroup?.name || '目标分组';
+  const groups = await getGroups();
+  const groupName = groups.find(g => g.id === defaultGroupId)?.name || '目标分组';
 
-  const added = await toggleTabInGroup(tab, defaultGroupId);
+  const action = await toggleTabInGroup(tab, defaultGroupId);
 
-  if (added === 'added') {
+  if (action === 'added') {
     showToast(tab.id, {
       type: 'success',
       title: '已添加',
@@ -152,7 +91,7 @@ async function addCurrentTabToDefaultGroup() {
       duration: 2000,
       showOpenButton: true
     });
-  } else if (added === 'removed') {
+  } else if (action === 'removed') {
     showToast(tab.id, {
       type: 'info',
       title: '已移除',
@@ -170,17 +109,12 @@ async function addCurrentTabToDefaultGroup() {
   }
 }
 
-// 打开标签页管理看板（已抽到 ./tabboard.js，统一处理跨窗口焦点）
-
 // 导出函数供外部使用
 export {
   addCurrentTabToDefaultGroup,
-  addTabToGroup,
   getDefaultGroupId,
   openTabboard,
-  removeTabFromGroup,
-  setupGroupsListeners,
-  toggleTabInGroup
+  setupGroupsListeners
 };
 
 // 设置分组相关的消息监听器
@@ -190,29 +124,19 @@ function setupGroupsListeners() {
     try {
       switch (request.action) {
         case 'getGroups': {
-          const result = await chrome.storage.local.get(['groups']);
-          sendResponse({ success: true, groups: result.groups || [] });
+          sendResponse({ success: true, groups: await getGroups() });
           break;
         }
 
         case 'clearAllGroups': {
-          const clearResult = await chrome.storage.local.get(['tabs']);
-          const clearedTabs = clearResult.tabs || {};
-          // 清空所有分组的标签
-          for (const groupId in clearedTabs) {
-            clearedTabs[groupId] = [];
-          }
-          await chrome.storage.local.set({ tabs: clearedTabs });
+          await clearAllGroupTabs();
           sendResponse({ success: true });
           break;
         }
 
         case 'importGroupsAndTabs': {
           // 导入分组和标签数据（替换现有数据）
-          await chrome.storage.local.set({
-            groups: request.groups,
-            tabs: request.tabs
-          });
+          await importGroupsAndTabs(request.groups, request.tabs);
           sendResponse({ success: true });
           break;
         }
@@ -226,195 +150,67 @@ function setupGroupsListeners() {
         }
 
         case 'updateTab': {
-          const { tabId, groupId, updates } = request;
-          if (!tabId || !groupId || !updates) {
-            sendResponse({ success: false, error: '缺少参数' });
-            break;
-          }
-          const { tabs } = await chrome.storage.local.get(['tabs']);
-          const groupTabs = tabs[groupId];
-          if (!Array.isArray(groupTabs)) {
-            sendResponse({ success: false, error: '分组不存在' });
-            break;
-          }
-          const tab = groupTabs.find(t => t.id === tabId);
-          if (!tab) {
-            sendResponse({ success: false, error: '标签不存在' });
-            break;
-          }
-          // 仅允许更新 title/url/favicon 字段
-          if (typeof updates.title === 'string' && updates.title.trim()) {
-            tab.title = updates.title.trim();
-          }
-          if (typeof updates.url === 'string' && updates.url.trim()) {
-            try {
-              new URL(updates.url.trim());
-              tab.url = updates.url.trim();
-            } catch (e) {
-              sendResponse({ success: false, error: 'URL 格式无效' });
-              break;
-            }
-          }
-          if (typeof updates.favicon === 'string') {
-            tab.favicon = updates.favicon;
-          }
-          await chrome.storage.local.set({ tabs });
+          await modelUpdateTab(request);
           sendResponse({ success: true });
           break;
         }
 
         case 'moveTab': {
-          const moveResult = await chrome.storage.local.get(['tabs']);
-          const tabsData = moveResult.tabs || {};
-          const { fromGroup, toGroup, tabId, afterTabId } = request;
-
-          // 从原分组移除并找到要移动的标签
-          let tabToMove = tabsData[fromGroup]?.find(t => t.id === tabId);
-          if (tabsData[fromGroup]) {
-            tabsData[fromGroup] = tabsData[fromGroup].filter(t => t.id !== tabId);
-          }
-
-          // 如果原分组没找到，从所有分组中查找
-          if (!tabToMove) {
-            for (const gid in tabsData) {
-              const found = tabsData[gid].find(t => t.id === tabId);
-              if (found) {
-                tabToMove = found;
-                tabsData[gid] = tabsData[gid].filter(t => t.id !== tabId);
-                break;
-              }
-            }
-          }
-
-          if (tabToMove) {
-            if (!tabsData[toGroup]) tabsData[toGroup] = [];
-
-            // 根据 afterTabId 确定插入位置
-            if (afterTabId) {
-              const afterIndex = tabsData[toGroup].findIndex(t => t.id === afterTabId);
-              if (afterIndex !== -1) {
-                // 插入到 afterTabId 之后
-                tabsData[toGroup].splice(afterIndex + 1, 0, tabToMove);
-              } else {
-                // 没找到 afterTabId，添加到末尾
-                tabsData[toGroup].push(tabToMove);
-              }
-            } else {
-              // 没有指定 afterTabId，添加到开头
-              tabsData[toGroup].unshift(tabToMove);
-            }
-
-            await chrome.storage.local.set({ tabs: tabsData });
-          }
+          await modelMoveTab(request);
           sendResponse({ success: true });
           break;
         }
 
         case 'updateBoardOrder': {
-          const { groups: allGroups } = await chrome.storage.local.get(['groups']);
-          const { boardOrder } = request;
-
-          // 根据 boardOrder 重新排列 groups 数组
-          if (Array.isArray(boardOrder) && boardOrder.length > 0) {
-            const orderedGroups = [];
-            const groupMap = new Map(allGroups.map(g => [g.id, g]));
-
-            // 按照指定顺序添加分组
-            for (const groupId of boardOrder) {
-              if (groupMap.has(groupId)) {
-                orderedGroups.push(groupMap.get(groupId));
-                groupMap.delete(groupId);
-              }
-            }
-
-            // 添加任何未在 boardOrder 中的分组（新创建的等）
-            for (const group of groupMap.values()) {
-              orderedGroups.push(group);
-            }
-
-            await chrome.storage.local.set({ groups: orderedGroups });
-          }
+          await modelUpdateBoardOrder(request.boardOrder);
           sendResponse({ success: true });
           break;
         }
 
         case 'deleteTab': {
-          const { tabs: deleteTabs } = await chrome.storage.local.get(['tabs']);
-          if (deleteTabs[request.groupId]) {
-            deleteTabs[request.groupId] = deleteTabs[request.groupId].filter(t => t.id !== request.tabId);
-            await chrome.storage.local.set({ tabs: deleteTabs });
-          }
+          await modelDeleteTab(request);
           sendResponse({ success: true });
           break;
         }
 
         case 'addGroup': {
-          const addGroupResult = await chrome.storage.local.get(['groups', 'settings']);
-          const addGroups = addGroupResult.groups || [];
-          const addSettings = addGroupResult.settings || {};
-
-          const addedGroup = {
-            id: generateId(),
+          const addedGroup = await createGroup({
             name: request.name,
-            color: request.color,
-            isDefault: false
-          };
-
-          addGroups.push(addedGroup);
-
-          // 获取当前可见分组列表，确保新分组可见，同时保留其他分组的可见性设置
-          const currentVisible = addSettings.visibleGroups || [];
-          const visibleGroups = currentVisible.includes(addedGroup.id)
-            ? currentVisible
-            : [...currentVisible, addedGroup.id];
-          addSettings.visibleGroups = visibleGroups;
-
-          await chrome.storage.local.set({ groups: addGroups, settings: addSettings });
+            color: request.color || '#ff6b6b'
+          });
           sendResponse({ success: true, groupId: addedGroup.id });
           break;
         }
 
         case 'deleteGroup': {
-          const delGroupResult = await chrome.storage.local.get(['groups', 'tabs', 'settings']);
-          const delGroups = delGroupResult.groups || [];
-          const delTabs = delGroupResult.tabs || {};
-          const delSettings = delGroupResult.settings || {};
-
-          // 删除分组和对应的标签
-          const newGroups = delGroups.filter(g => g.id !== request.groupId);
-          delete delTabs[request.groupId];
-
-          // 同时清理 visibleGroups 中对该分组的引用
-          if (delSettings.visibleGroups) {
-            delSettings.visibleGroups = delSettings.visibleGroups.filter(id => id !== request.groupId);
-          }
-
-          await chrome.storage.local.set({ groups: newGroups, tabs: delTabs, settings: delSettings });
+          await modelDeleteGroup(request.groupId);
           sendResponse({ success: true });
           break;
         }
 
         case 'setDefaultGroup': {
-          const { groups } = await chrome.storage.local.get(['groups']);
-          if (groups) {
-            groups.forEach(g => g.isDefault = (g.id === request.groupId));
-            await chrome.storage.local.set({ groups });
-          }
+          await modelSetDefaultGroup(request.groupId);
           sendResponse({ success: true });
           break;
         }
 
         case 'setGroupAsGoto': {
-          const { groups } = await chrome.storage.local.get(['groups']);
-          const target = groups?.find(g => g.id === request.groupId);
-          if (!target) {
-            sendResponse({ success: false, error: 'Group not found' });
-            break;
-          }
-          target.goto = !target.goto;
-          await chrome.storage.local.set({ groups });
+          const isGoto = await toggleGoto(request.groupId);
           broadcastGotoRefresh();
-          sendResponse({ success: true, isGoto: target.goto });
+          sendResponse({ success: true, isGoto });
+          break;
+        }
+
+        case 'toggleGroupFocusSearch': {
+          const inFocusSearch = await setGroupFocusSearch(request.groupId, request.value);
+          sendResponse({ success: true, inFocusSearch });
+          break;
+        }
+
+        case 'setGroupsVisibility': {
+          // request.visibleGroupIds: 全量可见 ID 列表,不在其中的一律隐藏
+          await setGroupsVisibility(request.visibleGroupIds);
+          sendResponse({ success: true });
           break;
         }
 
@@ -457,8 +253,8 @@ function setupGroupsListeners() {
         }
 
         case 'openGroup': {
-          const { tabs: openTabs, settings } = await chrome.storage.local.get(['tabs', 'settings']);
-          const groupTabs = openTabs[request.groupId] || [];
+          const tabsMap = await getTabsMap();
+          const groupTabs = tabsMap[request.groupId] || [];
 
           // 单个 tab 创建失败不能让整个 group 后续 tab 都打不开。
           // 受限 URL（chrome://、edge://、file:// 等）在 MV3 下 create 会被拒，
@@ -477,9 +273,9 @@ function setupGroupsListeners() {
           }
 
           // 如果设置为打开后删除
+          const { settings } = await chrome.storage.local.get(['settings']);
           if (settings.closeAfterRestore) {
-            openTabs[request.groupId] = [];
-            await chrome.storage.local.set({ tabs: openTabs });
+            await clearGroupTabs(request.groupId);
           }
 
           sendResponse({ success: true, opened, failed: failed.length, failures: failed });
@@ -487,16 +283,8 @@ function setupGroupsListeners() {
         }
 
         case 'updateGroupName': {
-          const { groups } = await chrome.storage.local.get(['groups']);
-          const targetGroup = groups?.find(g => g.id === request.groupId);
-
-          if (targetGroup) {
-            targetGroup.name = request.newName;
-            await chrome.storage.local.set({ groups });
-            sendResponse({ success: true });
-          } else {
-            sendResponse({ success: false, error: 'Group not found' });
-          }
+          await renameGroup(request.groupId, request.newName);
+          sendResponse({ success: true });
           break;
         }
 
@@ -514,78 +302,26 @@ function setupGroupsListeners() {
 
         case 'incrementVisitCount': {
           // 增加标签页的访问次数
-          const visitResult = await chrome.storage.local.get(['tabs']);
-          const allTabs = visitResult.tabs || {};
-          let found = false;
-
-          // 遍历所有分组，查找匹配的 URL
-          for (const groupId in allTabs) {
-            const groupTabs = allTabs[groupId];
-            for (const tab of groupTabs) {
-              // 使用 URL 基础部分进行匹配（忽略查询参数和 hash）
-              const tabUrlBase = getUrlBase(tab.url);
-              const requestUrlBase = getUrlBase(request.url);
-
-              if (tabUrlBase === requestUrlBase) {
-                // 增加访问次数
-                if (!tab.visitCount) {
-                  tab.visitCount = 0;
-                }
-                tab.visitCount += 1;
-                tab.lastVisit = new Date().toISOString();
-                found = true;
-                break;
-              }
-            }
-            if (found) break;
-          }
-
-          // 如果找到匹配的标签，保存更新
-          if (found) {
-            await chrome.storage.local.set({ tabs: allTabs });
-          }
-
+          const found = await incrementVisitCount(request.url);
           sendResponse({ success: true, found });
           break;
         }
 
         case 'sortTabsByVisitCount': {
-          // 按点击次数对所有分组的标签进行排序并保存到存储
-          const sortResult = await chrome.storage.local.get(['tabs']);
-          const allTabs = sortResult.tabs || {};
-
-          // 遍历所有分组，对标签按 visitCount 降序排序
-          for (const groupId in allTabs) {
-            allTabs[groupId] = allTabs[groupId].sort((a, b) => {
-              const visitCountA = a.visitCount || 0;
-              const visitCountB = b.visitCount || 0;
-              return visitCountB - visitCountA; // 降序排列
-            });
-          }
-
-          // 保存排序后的数据
-          await chrome.storage.local.set({ tabs: allTabs });
+          await sortAllTabsByVisitCount();
           sendResponse({ success: true });
           break;
         }
 
         case 'getAllData': {
           // 获取所有数据（分组和标签）- 侧边栏使用
-          const allDataResult = await chrome.storage.local.get(['groups', 'tabs']);
-          sendResponse({
-            success: true,
-            groups: allDataResult.groups || [],
-            tabs: allDataResult.tabs || {}
-          });
+          const [groups, tabsMap] = await Promise.all([getGroups(), getTabsMap()]);
+          sendResponse({ success: true, groups, tabs: tabsMap });
           break;
         }
 
         case 'clearGroup': {
-          const { tabs: clearGroupTabs } = await chrome.storage.local.get(['tabs']);
-          if (clearGroupTabs[request.groupId]) {
-            clearGroupTabs[request.groupId] = [];
-            await chrome.storage.local.set({ tabs: clearGroupTabs });
-          }
+          await clearGroupTabs(request.groupId);
           sendResponse({ success: true });
           break;
         }
