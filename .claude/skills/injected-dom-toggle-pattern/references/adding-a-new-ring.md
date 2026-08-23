@@ -24,6 +24,7 @@
 ### Step 1：新建 `content/xxxSidebar.js`
 
 复制下面「最小模板」，改 4 处：
+
 1. `WRAPPER_ID`（唯一前缀，如 `'tabboard-pomodoro-sidebar'`）
 2. `top` 位置（见 Step 3，避免和现有圆环重叠）
 3. 圆环图标（trigger 的 innerHTML）
@@ -82,12 +83,12 @@
 
 **唯一需要你定的是 `defaultOrder`**:在 manifest 里 ring 出现的顺序,从 0 开始数。例如:
 
-| 序号(`defaultOrder`) | 圆环 | 备注 |
-|------|------|------|
-| 0 | LC | 第一位 |
-| 1 | VP | |
-| 2 | Timer | |
-| 3 | 下一个 | 你的新 ring |
+| 序号(`defaultOrder`) | 圆环   | 备注        |
+| ---------------------- | ------ | ----------- |
+| 0                      | LC     | 第一位      |
+| 1                      | VP     |             |
+| 2                      | Timer  |             |
+| 3                      | 下一个 | 你的新 ring |
 
 **trigger 和 panel 要用同一个 CSS**(都是 `calc(var(--ring-stack-anchor, 50%) + 52px * var(--ring-order, 0))`)。
 
@@ -137,6 +138,7 @@ if (s.showXxxSidebar === false) return;
 ```
 
 对应 CSS（已存在 `popup.css`）：
+
 - `.ring-master`：加粗、底部 1px 分隔线
 - `.ring-sub`：`padding-left: 20px`
 - `input:disabled` + `.setting-row:has(input:disabled)`：master 关时子开关整行置灰
@@ -333,11 +335,11 @@ content script 不会自动重新注入已打开的页面，**必须刷新页面
             syncPanelUI() 更新面板视图
 ```
 
-| 职责 | 由谁承担 |
-|------|---------|
-| 面板交互（滑块、预设、切换） | 新环（xxxSidebar.js） |
-| 业务逻辑（操作 <video>、写数据） | 已有 content script（如 videoSpeed.js） |
-| 持久化 | 业务 script 写 storage；环监听 storage.onChanged 同步 |
+| 职责                         | 由谁承担                                              |
+| ---------------------------- | ----------------------------------------------------- |
+| 面板交互（滑块、预设、切换） | 新环（xxxSidebar.js）                                 |
+| 业务逻辑（操作、写数据）     | 已有 content script（如 videoSpeed.js）               |
+| 持久化                       | 业务 script 写 storage；环监听 storage.onChanged 同步 |
 
 ### `syncPanelUI()` 模式（交互式环必做）
 
@@ -471,21 +473,26 @@ if (toggle) {
 ### 坑 1：每个圆环各建 hover-zone → 只显示一个
 
 **❌ 错误**（每个 content script 都这样写）：
+
 ```css
 #mybar-hover-zone { position: fixed; top:0; right:0; width:32px; height:100vh; z-index: 999998; }
 body:has(#mybar-hover-zone:hover) #mybar-trigger { right:8px; opacity:1; }
 ```
+
 ```js
 const hoverZone = document.createElement('div');
 hoverZone.id = WRAPPER_ID + '-hover-zone';
 document.body.appendChild(hoverZone);
 ```
+
 **后果**：两条 hover-zone 同 z-index 完全重叠，后建的盖住先建的。CSS `:hover` 只对鼠标下**最顶层**元素生效 → 被盖住的那个圆环**永不浮现**。症状：N 个圆环只能看到 1 个。
 
 **✅ 正确**：不建 hover-zone，共享 `body.tabboard-side-near`：
+
 ```css
 body.tabboard-side-near #mybar-trigger, #mybar-trigger:hover { right:8px; opacity:1; }
 ```
+
 ```js
 if (!window.__tabboardSideReveal) {
   window.__tabboardSideReveal = true;
@@ -510,19 +517,23 @@ if (!window.__tabboardSideReveal) {
 ### 坑 4：trigger 放在 `display:flex` 的 wrapper 里，wrapper 还有不可见但占位的 panel
 
 **❌ 错误**：
+
 ```css
 #mybar { display:flex; right:0; }  /* wrapper flex */
 #mybar-panel { width:240px; }      /* 不可见但占位 */
 ```
+
 **后果**：panel 占布局空间，把 trigger 从右边缘推到屏幕中间（~240px 偏移）。
 **✅ 正确**：trigger 和 panel 都 `position: fixed`，脱离 wrapper 布局流，各自独立相对视口定位。
 
 ### 坑 5：同步绑 document click → 打开即关
 
 **❌ 错误**：
+
 ```js
 document.addEventListener('click', (e) => { if(!wrapper.contains(e.target)) wrapper.classList.remove('expanded'); });
 ```
+
 **后果**：点击 trigger 展开的那次 click 冒泡到 document，立刻触发收起 → 面板一闪而过。
 **✅ 正确**：`setTimeout(() => document.addEventListener('click', onDocClick), 0)` 延一帧绑；同时 trigger 的 click 里 `e.stopPropagation()`。
 
@@ -626,6 +637,7 @@ window.setupSideReveal = function () {
 ## 检查清单
 
 ### 基础
+
 - [ ] 新建独立 `content/xxxSidebar.js`，没塞进别的圆环文件
 - [ ] `WRAPPER_ID` 唯一（host id，主文档可见）
 - [ ] trigger 和 panel 用**同一份** `top: calc(var(--ring-stack-anchor, 50%) + 52px * var(--ring-order, 0))`(双变量自动补位)
@@ -646,6 +658,7 @@ window.setupSideReveal = function () {
 - [ ] 刷新扩展 **且** 强刷测试页面
 
 ### 自动补位(必做,否则关闭其他 ring 后留下 52px 间隙)
+
 - [ ] manifest 把新 ring 加到 `content/shared/ring-order.js` + `content/shared/draggable-ring.js` 之后的列表里
 - [ ] `__tabboardRingOrder.register({ ringId, host: wrapper, defaultOrder, isAlive })` 在 `appendChild` 之后调
 - [ ] `isAlive` 先查 `document.getElementById(WRAPPER_ID)`,再读 `getLastSettings()` 缓存
@@ -653,7 +666,8 @@ window.setupSideReveal = function () {
 - [ ] `defaultOrder` 与 manifest 列表顺序一致(从 0 开始,不能跳号)
 
 ### 拖动(可选)
+
 - [ ] `__tabboardRingDrag.attach(trigger, panel, wrapper, { defaultOrder, ringId })` 4 参调用
 - [ ] 第三个参数是 host(`wrapper`),**不是 trigger**
 - [ ] 第二个参数 `opts.ringId` 与 register 的 ringId 一致(拖动查动态序号要用)
-提价
+  提价

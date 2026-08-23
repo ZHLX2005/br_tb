@@ -16,6 +16,7 @@ import { loadVpSidebarSetting, bindVpSidebarEvents } from './modules/vpSettings.
 import { loadCaptureRingSetting, bindCaptureRingEvents } from './modules/captureSettings.js';
 import { loadSpeedRingSetting, bindSpeedRingEvents } from './modules/speedSettings.js';
 import { loadNoteRingSetting, bindNoteRingEvents } from './modules/noteSettings.js';
+import { loadGotoManagerSetting, bindGotoManagerEvents } from './modules/gotoManagerSettings.js';
 import { renderColorPicker, resetColorPicker } from './modules/colorPicker.js';
 import { showToast } from './modules/utils.js';
 
@@ -268,6 +269,10 @@ async function init() {
   // 绑定 goto 圆环设置
   await loadGotoRingSetting();
   bindGotoRingEvents();
+
+  // 绑定 goto 管理圆环设置
+  await loadGotoManagerSetting();
+  bindGotoManagerEvents();
 
   // 绑定UI事件
   bindUIEvents();

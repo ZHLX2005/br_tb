@@ -42,7 +42,8 @@
         "content/lcSidebar.js",
         "content/vpSidebar.js",
         "content/captureRing.js",
-        "content/speedRing.js"
+        "content/speedRing.js",
+        "content/gotoManagerRing.js"
       ],
       "run_at": "document_end"
     },
