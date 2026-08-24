@@ -894,7 +894,7 @@
   }
 
   // ─── 圆环设置:悬浮 goto 圆环背景 ───
-  // 上传 → 5MB 前置检查 → 96x96 cover 压缩 → 200KB 上限 → 写 storage
+  // 上传 → 5MB 前置检查 → 96x96 cover 压缩 → 100KB 上限 → 写 storage
   // 写入后由 chrome.storage.onChanged 推送给所有 tab 的 goto.js,后者将 ☰ 图标隐藏(圆环本体仍显示)
   async function handleFloatingBgSelected(e) {
     const file = e.target.files && e.target.files[0];
@@ -909,8 +909,9 @@
     }
     try {
       const base64 = await compressTo96Cover(file);
-      if (base64.length > 250 * 1024) {
-        if (errEl) { errEl.textContent = '压缩后仍超过 200KB,请选择更小的图片'; errEl.hidden = false; }
+      // 前端前置拦截:与 background ring-settings.js 的 100KB 上限保持一致(96x96 PNG 实测 max ~40KB)
+      if (base64.length > 100 * 1024) {
+        if (errEl) { errEl.textContent = '压缩后仍超过 100KB,请选择更小的图片'; errEl.hidden = false; }
         e.target.value = '';
         return;
       }

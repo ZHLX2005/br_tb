@@ -52,14 +52,15 @@ async function updateGotoRingSize(size) {
 /**
  * 更新悬浮圆环背景图。
  * - bg = null → 恢复默认(圆环 ☰ 正常显示)
- * - bg = {type:'custom', data} → 背景图生效(+ ☰ 隐藏),data 为 base64 且 < 200KB
+ * - bg = {type:'custom', data} → 背景图生效(+ ☰ 隐藏),data 为 base64 且 < 100KB
+ *   (96x96 PNG 实测 15-26KB,100KB 是防御上限,收紧给 storage 留空间)
  */
 async function updateGotoRingBg(bg) {
   if (!isValidBg(bg)) {
     throw new Error('Invalid bg: must be null or {type:"custom", data:"data:image/..."}');
   }
-  if (bg && bg.type === 'custom' && bg.data.length > 200 * 1024) {
-    throw new Error(`Custom bg too large: ${bg.data.length} bytes (limit 200KB)`);
+  if (bg && bg.type === 'custom' && bg.data.length > 100 * 1024) {
+    throw new Error(`Custom bg too large: ${bg.data.length} bytes (limit 100KB)`);
   }
   const { settings } = await chrome.storage.local.get(['settings']);
   const next = { ...(settings || {}), gotoRingBg: bg };
