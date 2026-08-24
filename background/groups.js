@@ -6,6 +6,11 @@
 import { showToast } from './utils.js';
 import { openTabboard } from './tabboard.js';
 import {
+  getGotoRingSettings,
+  updateGotoRingSize,
+  updateGotoRingBg
+} from './ring-settings.js';
+import {
   getGroups,
   getTabsMap,
   getDefaultGroupId,
@@ -310,6 +315,32 @@ function setupGroupsListeners() {
         case 'sortTabsByVisitCount': {
           await sortAllTabsByVisitCount();
           sendResponse({ success: true });
+          break;
+        }
+
+        case 'getGotoRingSettings': {
+          const ringSettings = await getGotoRingSettings();
+          sendResponse({ success: true, ...ringSettings });
+          break;
+        }
+
+        case 'updateGotoRingSize': {
+          try {
+            const result = await updateGotoRingSize(request.size);
+            sendResponse({ success: true, ...result });
+          } catch (e) {
+            sendResponse({ success: false, error: e.message });
+          }
+          break;
+        }
+
+        case 'updateGotoRingBg': {
+          try {
+            const result = await updateGotoRingBg(request.bg);
+            sendResponse({ success: true, ...result });
+          } catch (e) {
+            sendResponse({ success: false, error: e.message });
+          }
           break;
         }
 

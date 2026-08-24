@@ -91,6 +91,14 @@ export async function initializeDefaultData() {
       updatedSettings.theme = 'neo-brutalism';
       needUpdate = true;
     }
+    if (updatedSettings.gotoRingSize === undefined) {
+      updatedSettings.gotoRingSize = 'md'; // 60px,悬浮 goto 圆环默认值
+      needUpdate = true;
+    }
+    if (updatedSettings.gotoRingBg === undefined) {
+      updatedSettings.gotoRingBg = null; // 默认:圆环 ☰ 正常显示
+      needUpdate = true;
+    }
     // 注:visibleGroups / focusSearchGroups 已迁移为 group.visible / group.inFocusSearch
     // (由 group-model.ensureGroupDefaults 负责),settings 不再持有这两个 key
     if (needUpdate) {

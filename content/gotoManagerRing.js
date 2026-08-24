@@ -30,8 +30,10 @@
       --accent: ${ACCENT};
     }
     /* 双 CSS 变量:trigger 与 panel 同 calc,与 ring-order / draggable-ring 协同 */
+    /* 侧边栏 ★ trigger 尺寸固定 40px(不再跟随悬浮圆环大小设置) */
     #${WRAPPER_ID}-trigger {
-      width: 40px; height: 40px; border-radius: 50%; background: white;
+      width: 40px; height: 40px;
+      border-radius: 50%; background: white;
       box-shadow: 0 2px 12px rgba(0,0,0,0.15); cursor: pointer;
       display: flex; align-items: center; justify-content: center;
       position: fixed;
@@ -44,6 +46,10 @@
     }
     :host(.near) #${WRAPPER_ID}-trigger,
     #${WRAPPER_ID}-trigger:hover {
+      right: 8px; opacity: 1; pointer-events: auto;
+    }
+    /* panel 展开时 trigger 保持可见:用户点 size-btn 时鼠标离开 trigger,不能让它消失 */
+    :host(.expanded) #${WRAPPER_ID}-trigger {
       right: 8px; opacity: 1; pointer-events: auto;
     }
     #${WRAPPER_ID}-trigger:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.22); }
@@ -81,6 +87,10 @@
       padding: 10px 12px; border-bottom: 1px solid #eee; flex-shrink: 0;
     }
     .gm-title { font-weight: 700; font-size: 13px; color: #1a1a1a; }
+    /* header 右侧的操作组:设置 ⚙ + 关闭 ×,语义统一,5px gap */
+    .gm-header-actions {
+      display: flex; align-items: center; gap: 5px;
+    }
     .gm-close {
       background: none; border: none; cursor: pointer;
       font-size: 18px; color: #888; padding: 0 4px; line-height: 1;
@@ -221,10 +231,67 @@
     .gm-list::-webkit-scrollbar-thumb, .gm-add-current-list::-webkit-scrollbar-thumb {
       background: #ccc; border-radius: 3px;
     }
+
+    /* ─── 圆环设置 section ─── */
+    .gm-settings-row { margin-bottom: 10px; }
+    .gm-settings-row:last-child { margin-bottom: 0; }
+    .gm-settings-label {
+      font-size: 11px; font-weight: 600; color: #666; margin-bottom: 6px;
+    }
+    .gm-size-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+    .gm-size-btn {
+      padding: 6px 4px;
+      background: white; border: 1px solid #ddd; border-radius: 5px;
+      cursor: pointer; font-size: 11px; color: #555;
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      transition: background 120ms, border-color 120ms, transform 100ms;
+    }
+    .gm-size-btn:hover { background: #f5f5f5; border-color: #bbb; }
+    .gm-size-btn:active { transform: scale(0.95); }
+    .gm-size-btn.active {
+      background: var(--accent); color: white; border-color: var(--accent);
+    }
+    .gm-size-btn-preview {
+      width: 16px; height: 16px; border-radius: 50%;
+      background: currentColor; opacity: 0.7;
+    }
+    .gm-size-btn[data-size="xxs"] .gm-size-btn-preview { width: 7px; height: 7px; }
+    .gm-size-btn[data-size="xs"] .gm-size-btn-preview { width: 10px; height: 10px; }
+    .gm-size-btn[data-size="sm"] .gm-size-btn-preview { width: 13px; height: 13px; }
+    .gm-size-btn[data-size="md"] .gm-size-btn-preview { width: 16px; height: 16px; }
+    .gm-size-btn[data-size="lg"] .gm-size-btn-preview { width: 19px; height: 19px; }
+    .gm-size-btn[data-size="xl"] .gm-size-btn-preview { width: 22px; height: 22px; }
+
+    /* 悬浮 goto 圆环背景 */
+    .gm-bg-status {
+      font-size: 11px; color: #555;
+      padding: 6px 8px; background: white;
+      border: 1px solid #ddd; border-radius: 5px;
+      margin-bottom: 6px;
+    }
+    .gm-bg-actions {
+      display: flex; gap: 6px;
+    }
+    .gm-bg-error {
+      font-size: 11px; color: #c33; margin-top: 4px;
+    }
   `;
 
   let menuData = [];   // 缓存 getGotoGroupsFull 返回值
   let isExpanded = false;
+
+  // ─── 悬浮 goto 圆环个性化设置状态(由 background ring-settings.js 权威维护) ───
+  // 本文件只是"设置面板",控制右下角 #tabboard-goto-ring-circle;侧边栏自己的 ★ trigger 大小恒定不变。
+  let ringSize = 'md';
+  // 悬浮圆环背景:null = 默认(☰ 显示),{type:'custom',data} = 已上传(背景图生效 + ☰ 隐藏)
+  let floatingRingBg = null;
+
+  // 悬浮圆环尺寸映射(与 background/ring-settings.js RING_SIZE_PX 保持一致)
+  const RING_SIZE_PX = { xxs: 24, xs: 32, sm: 48, md: 60, lg: 72, xl: 84 };
 
   // ─── 工具:发送消息到后台(领域 API) ───
   async function send(action, payload) {
@@ -240,6 +307,66 @@
     const div = document.createElement('div');
     div.textContent = s == null ? '' : String(s);
     return div.innerHTML;
+  }
+
+  // ─── 圆环设置:刷新设置面板 UI(state → DOM) ───
+  // 注意:本面板控制的是悬浮 goto 圆环(goto.js),不是侧边栏自身 trigger,
+  // 因此这里只更新面板内的控件状态,不动侧边栏 ★ trigger。
+  function renderSettingsUI() {
+    const shadow = getShadow();
+    if (!shadow) return;
+    // size grid active
+    shadow.querySelectorAll('.gm-size-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.size === ringSize);
+    });
+    // size current label(显示悬浮圆环目标像素值)
+    const sizeCurrentEl = shadow.getElementById(WRAPPER_ID + '-size-current');
+    if (sizeCurrentEl) sizeCurrentEl.textContent = (RING_SIZE_PX[ringSize] || 60) + 'px';
+    // floating bg status
+    const floatingStatusEl = shadow.getElementById(WRAPPER_ID + '-floating-bg-status');
+    if (floatingStatusEl) {
+      if (floatingRingBg && floatingRingBg.data) {
+        const kb = Math.round(floatingRingBg.data.length / 1024);
+        floatingStatusEl.textContent = `已选择图片(约 ${kb} KB),☰ 图标已隐藏`;
+      } else {
+        floatingStatusEl.textContent = '未选择图片(默认显示 ☰)';
+      }
+    }
+  }
+
+  // ─── 圆环设置:从后台拉悬浮圆环设置(size + bg) ───
+  async function loadRingSettings() {
+    const res = await send('getGotoRingSettings');
+    if (res && res.success) {
+      ringSize = res.size || 'md';
+      floatingRingBg = res.bg || null;
+      renderSettingsUI();
+    }
+  }
+
+  // ─── 图片压缩:96x96 cover 裁剪 → PNG base64 ───
+  async function compressTo96Cover(file) {
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    const img = await new Promise((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = reject;
+      i.src = dataUrl;
+    });
+    const canvas = document.createElement('canvas');
+    canvas.width = 96;
+    canvas.height = 96;
+    const ctx = canvas.getContext('2d');
+    const scale = Math.max(96 / img.width, 96 / img.height);
+    const w = img.width * scale;
+    const h = img.height * scale;
+    ctx.drawImage(img, (96 - w) / 2, (96 - h) / 2, w, h);
+    return canvas.toDataURL('image/png');
   }
 
   // ─── shadow DOM 查询辅助 ───
@@ -346,7 +473,10 @@
     panel.innerHTML = `
       <div class="gm-header">
         <span class="gm-title">goto 管理</span>
-        <button class="gm-close" data-action="close">×</button>
+        <div class="gm-header-actions">
+          <button class="gm-icon-btn" data-action="open-settings" title="圆环设置">⚙</button>
+          <button class="gm-close" data-action="close">×</button>
+        </div>
       </div>
       <div class="gm-toolbar">
         <button class="gm-btn" data-action="toggle-add-current">+ 当前 tab</button>
@@ -363,6 +493,30 @@
           <button class="gm-btn gm-btn-primary" data-action="submit-new-group">创建</button>
         </div>
       </div>
+      <div class="gm-section" data-section="ring-settings">
+        <div class="gm-section-title">悬浮 goto 圆环设置</div>
+        <div class="gm-settings-row">
+          <div class="gm-settings-label">大小(<span id="${WRAPPER_ID}-size-current">60px</span>)</div>
+          <div class="gm-size-grid" id="${WRAPPER_ID}-size-grid">
+            <button class="gm-size-btn" data-size="xxs"><span class="gm-size-btn-preview"></span>微型 24</button>
+            <button class="gm-size-btn" data-size="xs"><span class="gm-size-btn-preview"></span>特小 32</button>
+            <button class="gm-size-btn" data-size="sm"><span class="gm-size-btn-preview"></span>小 48</button>
+            <button class="gm-size-btn" data-size="md"><span class="gm-size-btn-preview"></span>默认 60</button>
+            <button class="gm-size-btn" data-size="lg"><span class="gm-size-btn-preview"></span>大 72</button>
+            <button class="gm-size-btn" data-size="xl"><span class="gm-size-btn-preview"></span>特大 84</button>
+          </div>
+        </div>
+        <div class="gm-settings-row">
+          <div class="gm-settings-label">悬浮 goto 圆环背景</div>
+          <div class="gm-bg-status" id="${WRAPPER_ID}-floating-bg-status">未选择图片(默认显示 ☰)</div>
+          <div class="gm-bg-actions">
+            <button class="gm-btn" data-action="upload-floating-bg">上传图片</button>
+            <button class="gm-btn" data-action="reset-floating-bg">恢复默认</button>
+            <input type="file" id="${WRAPPER_ID}-floating-bg-input" accept="image/*" hidden>
+          </div>
+          <div class="gm-bg-error" id="${WRAPPER_ID}-floating-bg-error" hidden></div>
+        </div>
+      </div>
       <div class="gm-list" id="${WRAPPER_ID}-list"></div>
       <div class="gm-empty" id="${WRAPPER_ID}-empty" hidden>暂无 goto 分组,点 "+ 新建 goto 分组" 开始</div>
     `;
@@ -372,6 +526,7 @@
 
     // ── 委托事件 ──
     panel.addEventListener('click', onPanelClick);
+    console.log('[GotoManager] build: panel click listener registered');
 
     // ── header 点击 + rename 入口(list 元素上独立监听) ──
     bindHeaderClicks();
@@ -409,8 +564,16 @@
       }
     });
 
+    // ── 圆环设置:file input change 处理(其他点击走 onPanelClick 委托) ──
+    const floatingInput = shadow.getElementById(WRAPPER_ID + '-floating-bg-input');
+    if (floatingInput) {
+      floatingInput.addEventListener('change', handleFloatingBgSelected);
+    }
+
     // ── 拉首屏数据 ──
     loadAndRender();
+    // 圆环个性化设置(size + floating bg)
+    loadRingSettings();
   }
 
   function removeSidebar() {
@@ -428,9 +591,13 @@
 
   // ─── 委托事件处理 ───
   function onPanelClick(e) {
-    const target = e.target.closest('[data-action]');
-    if (!target) return;
-    const action = target.dataset.action;
+    // 区分两个概念:
+    //   actionTarget — 最近带 data-action 的祖先,用来判断"做什么动作"
+    //   e.target     — 原始事件目标(size-btn / gm-tab 等独立元素可能没有 data-action,但要响应点击)
+    // 之前用同一个 target,导致 target 为 null 时后续 .closest 抛 TypeError。
+    const actionTarget = e.target.closest('[data-action]');
+    const action = actionTarget && actionTarget.dataset.action;
+    console.log('[GotoManager] onPanelClick', { target: e.target.tagName + '#' + e.target.id, class: e.target.className, action });
 
     if (action === 'close') {
       isExpanded = false;
@@ -462,17 +629,42 @@
       return;
     }
 
+    if (action === 'open-settings') {
+      const opening = !isSectionOpen('ring-settings');
+      toggleSection('ring-settings', opening);
+      return;
+    }
+
+    if (action === 'upload-floating-bg') {
+      const shadow = getShadow();
+      const input = shadow?.getElementById(WRAPPER_ID + '-floating-bg-input');
+      if (input) input.click();
+      return;
+    }
+
+    if (action === 'reset-floating-bg') {
+      handleResetFloatingBg();
+      return;
+    }
+
+    // size-btn(没有 data-action,直接从 e.target 找)
+    const sizeBtn = e.target.closest('.gm-size-btn');
+    if (sizeBtn && sizeBtn.dataset.size) {
+      handleSizeClick(sizeBtn.dataset.size);
+      return;
+    }
+
     // group 折叠/展开(点击 header 空白处)
     if (action === 'rename') {
       // 由 startRename 处理,见下方
       return;
     }
 
-    const groupEl = target.closest('.gm-group');
+    const groupEl = e.target.closest('.gm-group');
     if (!groupEl) return;
     const groupId = groupEl.dataset.groupId;
 
-    if (action === 'toggle-tabs' || (target.classList.contains('gm-group-header') && target.dataset.action === undefined)) {
+    if (action === 'toggle-tabs' || (actionTarget && actionTarget.classList.contains('gm-group-header') && !actionTarget.dataset.action)) {
       toggleGroupExpanded(groupId);
       return;
     }
@@ -490,7 +682,7 @@
     }
 
     // tab 级别
-    const tabEl = target.closest('.gm-tab');
+    const tabEl = e.target.closest('.gm-tab');
     if (tabEl) {
       const tabId = tabEl.dataset.tabId;
       if (action === 'open-tab') {
@@ -686,6 +878,70 @@
     if (res?.success) await loadAndRender();
   }
 
+  // ─── 圆环设置:size 按钮点击(控制悬浮 goto 圆环) ───
+  async function handleSizeClick(size) {
+    if (size !== ringSize) {
+      ringSize = size; // 本地先更新,立即给用户反馈
+      send('updateGotoRingSize', { size }).then(res => {
+        if (res && res.success) {
+          console.log('[GotoManager] 悬浮圆环 size →', res.size);
+        } else {
+          console.warn('[GotoManager] size sync failed:', res?.error);
+        }
+      });
+    }
+    renderSettingsUI();
+  }
+
+  // ─── 圆环设置:悬浮 goto 圆环背景 ───
+  // 上传 → 5MB 前置检查 → 96x96 cover 压缩 → 200KB 上限 → 写 storage
+  // 写入后由 chrome.storage.onChanged 推送给所有 tab 的 goto.js,后者将 ☰ 图标隐藏(圆环本体仍显示)
+  async function handleFloatingBgSelected(e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const shadow = getShadow();
+    const errEl = shadow?.getElementById(WRAPPER_ID + '-floating-bg-error');
+    // 5MB 前置压缩前检查
+    if (file.size > 5 * 1024 * 1024) {
+      if (errEl) { errEl.textContent = '图片太大,请选择 5MB 以内的图片'; errEl.hidden = false; }
+      e.target.value = '';
+      return;
+    }
+    try {
+      const base64 = await compressTo96Cover(file);
+      if (base64.length > 250 * 1024) {
+        if (errEl) { errEl.textContent = '压缩后仍超过 200KB,请选择更小的图片'; errEl.hidden = false; }
+        e.target.value = '';
+        return;
+      }
+      const res = await send('updateGotoRingBg', { bg: { type: 'custom', data: base64 } });
+      if (res?.success) {
+        floatingRingBg = res.bg;
+        if (errEl) errEl.hidden = true;
+        renderSettingsUI();
+      } else {
+        if (errEl) { errEl.textContent = '保存失败: ' + (res?.error || '未知错误'); errEl.hidden = false; }
+      }
+    } catch (err) {
+      console.warn('[GotoManager] floating bg upload failed:', err);
+      if (errEl) { errEl.textContent = '图片处理失败,请尝试其他图片'; errEl.hidden = false; }
+    } finally {
+      e.target.value = '';
+    }
+  }
+
+  // 恢复默认:清除 bg,悬浮 goto 圆环 circle 重新显示
+  async function handleResetFloatingBg() {
+    const res = await send('updateGotoRingBg', { bg: null });
+    if (res?.success) {
+      floatingRingBg = null;
+      const shadow = getShadow();
+      const errEl = shadow?.getElementById(WRAPPER_ID + '-floating-bg-error');
+      if (errEl) errEl.hidden = true;
+      renderSettingsUI();
+    }
+  }
+
   function startRename(groupId, nameEl) {
     if (!nameEl || nameEl.tagName === 'INPUT') return;
     const shadow = getShadow();
@@ -741,6 +997,10 @@
     if (ns !== 'local') return;
     if (changes.settings) {
       const s = changes.settings.newValue || {};
+      // 悬浮圆环 size / bg 变化 → 刷新设置面板显示
+      if (s.gotoRingSize !== undefined || s.gotoRingBg !== undefined) {
+        loadRingSettings();
+      }
       const el = document.getElementById(WRAPPER_ID);
       if (shouldHide(s)) {
         if (el) removeSidebar();
