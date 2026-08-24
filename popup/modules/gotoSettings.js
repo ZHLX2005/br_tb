@@ -6,33 +6,29 @@
 import { showToast } from './utils.js';
 
 /**
- * 加载 Goto Ring 设置状态
+ * 加载 Goto Ring 设置状态(同步)
  */
-export async function loadGotoRingSetting() {
-  try {
-    const settingsRes = await chrome.runtime.sendMessage({ action: 'getSettings' });
-    const settings = settingsRes.success ? (settingsRes.settings || {}) : {};
-    const toggleEl = document.getElementById('popupShowGotoRing');
-    if (toggleEl) {
-      toggleEl.checked = !!settings.showGotoRing;
-    }
-  } catch (err) {
-    console.error('[Popup] Failed to load goto ring setting:', err);
+export function loadGotoRingSetting(settings) {
+  const s = settings || {};
+  const toggleEl = document.getElementById('popupShowGotoRing');
+  if (toggleEl) {
+    toggleEl.checked = !!s.showGotoRing;
   }
 }
 
 /**
  * 绑定 Goto Ring 开关事件
  */
-export function bindGotoRingEvents() {
+export function bindGotoRingEvents(settings) {
   const toggleEl = document.getElementById('popupShowGotoRing');
   if (!toggleEl) return;
 
   toggleEl.addEventListener('change', async () => {
-    const settingsRes = await chrome.runtime.sendMessage({ action: 'getSettings' });
-    const settings = settingsRes.success ? (settingsRes.settings || {}) : {};
-    settings.showGotoRing = toggleEl.checked;
-    await chrome.runtime.sendMessage({ action: 'updateSettings', settings });
+    await chrome.runtime.sendMessage({
+      action: 'updateSettings',
+      settings: { showGotoRing: toggleEl.checked }
+    });
+    if (settings) settings.showGotoRing = toggleEl.checked;
 
     const container = document.querySelector('.app');
     showToast(

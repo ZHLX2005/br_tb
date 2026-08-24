@@ -7,36 +7,32 @@
 import { showToast } from './utils.js';
 
 /**
- * 加载圆环总开关状态
+ * 加载圆环总开关状态(同步)
  */
-export async function loadRingSidebarSetting() {
-  try {
-    const res = await chrome.runtime.sendMessage({ action: 'getSettings' });
-    const settings = res.success ? (res.settings || {}) : {};
-    const enabled = settings.ringSidebarEnabled !== false; // undefined 视为开启（默认开）
-    const toggleEl = document.getElementById('popupRingSidebarEnabled');
-    if (toggleEl) {
-      toggleEl.checked = enabled;
-      updateSubToggles(enabled);
-    }
-  } catch (err) {
-    console.error('[Popup] Failed to load ring sidebar setting:', err);
+export function loadRingSidebarSetting(settings) {
+  const s = settings || {};
+  const enabled = s.ringSidebarEnabled !== false; // undefined 视为开启（默认开）
+  const toggleEl = document.getElementById('popupRingSidebarEnabled');
+  if (toggleEl) {
+    toggleEl.checked = enabled;
+    updateSubToggles(enabled);
   }
 }
 
 /**
  * 绑定圆环总开关事件
  */
-export function bindRingSidebarEvents() {
+export function bindRingSidebarEvents(settings) {
   const toggleEl = document.getElementById('popupRingSidebarEnabled');
   if (!toggleEl) return;
 
   toggleEl.addEventListener('change', async () => {
     const enabled = toggleEl.checked;
-    const res = await chrome.runtime.sendMessage({ action: 'getSettings' });
-    const settings = res.success ? (res.settings || {}) : {};
-    settings.ringSidebarEnabled = enabled;
-    await chrome.runtime.sendMessage({ action: 'updateSettings', settings });
+    await chrome.runtime.sendMessage({
+      action: 'updateSettings',
+      settings: { ringSidebarEnabled: enabled }
+    });
+    if (settings) settings.ringSidebarEnabled = enabled;
 
     updateSubToggles(enabled);
 

@@ -9,34 +9,30 @@
 import { showToast } from './utils.js';
 
 /**
- * 加载笔记圆环开关状态
+ * 加载笔记圆环开关状态(同步)
  */
-export async function loadNoteRingSetting() {
-  try {
-    const res = await chrome.runtime.sendMessage({ action: 'getSettings' });
-    const settings = res.success ? (res.settings || {}) : {};
-    const toggleEl = document.getElementById('popupShowNoteRing');
-    if (toggleEl) {
-      // 默认开；undefined 视为开（向后兼容）
-      toggleEl.checked = settings.showNoteRing !== false;
-    }
-  } catch (err) {
-    console.error('[Popup] Failed to load note ring setting:', err);
+export function loadNoteRingSetting(settings) {
+  const s = settings || {};
+  const toggleEl = document.getElementById('popupShowNoteRing');
+  if (toggleEl) {
+    // 默认开；undefined 视为开（向后兼容）
+    toggleEl.checked = s.showNoteRing !== false;
   }
 }
 
 /**
  * 绑定笔记圆环开关事件
  */
-export function bindNoteRingEvents() {
+export function bindNoteRingEvents(settings) {
   const toggleEl = document.getElementById('popupShowNoteRing');
   if (!toggleEl) return;
 
   toggleEl.addEventListener('change', async () => {
-    const res = await chrome.runtime.sendMessage({ action: 'getSettings' });
-    const settings = res.success ? (res.settings || {}) : {};
-    settings.showNoteRing = toggleEl.checked;
-    await chrome.runtime.sendMessage({ action: 'updateSettings', settings });
+    await chrome.runtime.sendMessage({
+      action: 'updateSettings',
+      settings: { showNoteRing: toggleEl.checked }
+    });
+    if (settings) settings.showNoteRing = toggleEl.checked;
 
     const container = document.querySelector('.app');
     showToast(

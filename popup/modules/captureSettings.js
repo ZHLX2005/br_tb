@@ -7,33 +7,29 @@
 import { showToast } from './utils.js';
 
 /**
- * 加载捕获视频圆环开关状态
+ * 加载捕获视频圆环开关状态(同步)
  */
-export async function loadCaptureRingSetting() {
-  try {
-    const res = await chrome.runtime.sendMessage({ action: 'getSettings' });
-    const settings = res.success ? (res.settings || {}) : {};
-    const toggleEl = document.getElementById('popupShowCaptureRing');
-    if (toggleEl) {
-      toggleEl.checked = settings.showCaptureRing !== false;
-    }
-  } catch (err) {
-    console.error('[Popup] Failed to load capture ring setting:', err);
+export function loadCaptureRingSetting(settings) {
+  const s = settings || {};
+  const toggleEl = document.getElementById('popupShowCaptureRing');
+  if (toggleEl) {
+    toggleEl.checked = s.showCaptureRing !== false;
   }
 }
 
 /**
  * 绑定捕获视频圆环开关事件
  */
-export function bindCaptureRingEvents() {
+export function bindCaptureRingEvents(settings) {
   const toggleEl = document.getElementById('popupShowCaptureRing');
   if (!toggleEl) return;
 
   toggleEl.addEventListener('change', async () => {
-    const res = await chrome.runtime.sendMessage({ action: 'getSettings' });
-    const settings = res.success ? (res.settings || {}) : {};
-    settings.showCaptureRing = toggleEl.checked;
-    await chrome.runtime.sendMessage({ action: 'updateSettings', settings });
+    await chrome.runtime.sendMessage({
+      action: 'updateSettings',
+      settings: { showCaptureRing: toggleEl.checked }
+    });
+    if (settings) settings.showCaptureRing = toggleEl.checked;
 
     const container = document.querySelector('.app');
     showToast(container, toggleEl.checked ? '捕获视频圆环已开启' : '捕获视频圆环已关闭', 'success');

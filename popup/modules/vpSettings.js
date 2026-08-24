@@ -7,33 +7,29 @@
 import { showToast } from './utils.js';
 
 /**
- * 加载 VP 圆环开关状态
+ * 加载 VP 圆环开关状态(同步)
  */
-export async function loadVpSidebarSetting() {
-  try {
-    const res = await chrome.runtime.sendMessage({ action: 'getSettings' });
-    const settings = res.success ? (res.settings || {}) : {};
-    const toggleEl = document.getElementById('popupShowVpSidebar');
-    if (toggleEl) {
-      toggleEl.checked = settings.showVpSidebar !== false; // undefined 视为开启（默认开）
-    }
-  } catch (err) {
-    console.error('[Popup] Failed to load VP sidebar setting:', err);
+export function loadVpSidebarSetting(settings) {
+  const s = settings || {};
+  const toggleEl = document.getElementById('popupShowVpSidebar');
+  if (toggleEl) {
+    toggleEl.checked = s.showVpSidebar !== false; // undefined 视为开启（默认开）
   }
 }
 
 /**
  * 绑定 VP 圆环开关事件
  */
-export function bindVpSidebarEvents() {
+export function bindVpSidebarEvents(settings) {
   const toggleEl = document.getElementById('popupShowVpSidebar');
   if (!toggleEl) return;
 
   toggleEl.addEventListener('change', async () => {
-    const res = await chrome.runtime.sendMessage({ action: 'getSettings' });
-    const settings = res.success ? (res.settings || {}) : {};
-    settings.showVpSidebar = toggleEl.checked;
-    await chrome.runtime.sendMessage({ action: 'updateSettings', settings });
+    await chrome.runtime.sendMessage({
+      action: 'updateSettings',
+      settings: { showVpSidebar: toggleEl.checked }
+    });
+    if (settings) settings.showVpSidebar = toggleEl.checked;
 
     const container = document.querySelector('.app');
     showToast(container, toggleEl.checked ? '视频进度圆环已开启' : '视频进度圆环已关闭', 'success');

@@ -4,19 +4,17 @@
  */
 
 /**
- * 加载设置
- * @returns {Promise<Object>} 设置对象
+ * 加载设置(同步 — settings 由 popup.js 顶层 cache 后传入)
+ * @param {Object} settings - 已从 storage 拿到的 settings 对象
+ * @returns {Object} 设置对象(原样返回)
  */
-export async function loadSettings() {
-  const response = await chrome.runtime.sendMessage({ action: 'getSettings' });
-  if (!response.success) return {};
+export function loadSettings(settings) {
+  const s = settings || {};
+  document.getElementById('closeAfterCollect').checked = !!s.closeAfterCollect;
+  document.getElementById('closeAfterRestore').checked = !!s.closeAfterRestore;
+  document.getElementById('excludeEdgeUrls').checked = !!s.excludeEdgeUrls;
 
-  const settings = response.settings;
-  document.getElementById('closeAfterCollect').checked = settings.closeAfterCollect || false;
-  document.getElementById('closeAfterRestore').checked = settings.closeAfterRestore || false;
-  document.getElementById('excludeEdgeUrls').checked = settings.excludeEdgeUrls || false;
-
-  return settings;
+  return s;
 }
 
 /**

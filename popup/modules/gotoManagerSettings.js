@@ -1,32 +1,27 @@
 /**
- * Popup Goto Manager Ring Settings
- * goto 管理圆环的 popup 开关控制(走 updateSettings action 合并语义)
+ * Popup Goto Manager Ring Settings(同步 — settings 由 popup.js 顶层 cache 后传入)
  */
 import { showToast } from './utils.js';
 
-export async function loadGotoManagerSetting() {
-  try {
-    const settingsRes = await chrome.runtime.sendMessage({ action: 'getSettings' });
-    const settings = settingsRes.success ? (settingsRes.settings || {}) : {};
-    const toggleEl = document.getElementById('popupShowGotoManagerSidebar');
-    if (toggleEl) {
-      toggleEl.checked = settings.showGotoManagerSidebar !== false;
-    }
-  } catch (err) {
-    console.error('[Popup] Failed to load goto manager setting:', err);
+export function loadGotoManagerSetting(settings) {
+  const s = settings || {};
+  const toggleEl = document.getElementById('popupShowGotoManagerSidebar');
+  if (toggleEl) {
+    toggleEl.checked = s.showGotoManagerSidebar !== false;
   }
 }
 
-export function bindGotoManagerEvents() {
+export function bindGotoManagerEvents(settings) {
   const toggleEl = document.getElementById('popupShowGotoManagerSidebar');
   if (!toggleEl) return;
 
   toggleEl.addEventListener('change', async () => {
-    const settingsRes = await chrome.runtime.sendMessage({ action: 'getSettings' });
-    const settings = settingsRes.success ? (settingsRes.settings || {}) : {};
-    settings.showGotoManagerSidebar = toggleEl.checked;
-    const response = await chrome.runtime.sendMessage({ action: 'updateSettings', settings });
+    const response = await chrome.runtime.sendMessage({
+      action: 'updateSettings',
+      settings: { showGotoManagerSidebar: toggleEl.checked }
+    });
     if (response?.success) {
+      if (settings) settings.showGotoManagerSidebar = toggleEl.checked;
       showToast(document.querySelector('.app'), '已' + (toggleEl.checked ? '显示' : '隐藏') + ' goto 管理圆环', 'success');
     } else {
       // 回滚 UI

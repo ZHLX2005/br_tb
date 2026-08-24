@@ -215,12 +215,16 @@ function bindUIEvents() {
  * 主初始化函数
  */
 async function init() {
-  // 加载主题
-  await loadTheme();
+  // 一次拿 settings(避免 8 次串行 IPC wakeup MV3 service worker)— cache 起来供所有 load/bind 共用
+  const settingsResult = await chrome.storage.local.get(['settings']);
+  const currentSettings = settingsResult.settings || {};
+
+  // 加载主题(从 cache 取,不再单独读 storage)
+  applyTheme(currentSettings.theme || 'neo-brutalism');
 
   // 加载各模块数据
   await Promise.all([
-    loadSettings(),
+    loadSettings(currentSettings),
     loadGroups({
       onDelete: handleDeleteGroup,
       onSetDefault: handleSetDefaultGroup,
@@ -243,36 +247,36 @@ async function init() {
   await initVideoSpeedControl();
 
   // 绑定圆环总开关（先于子开关，控制 LC/VP 等 ring-sidebar）
-  await loadRingSidebarSetting();
-  bindRingSidebarEvents();
+  loadRingSidebarSetting(currentSettings);
+  bindRingSidebarEvents(currentSettings);
 
   // 绑定刷题侧边栏设置
-  await loadLcSidebarSetting();
-  bindLcSidebarEvents();
+  loadLcSidebarSetting(currentSettings);
+  bindLcSidebarEvents(currentSettings);
 
   // 绑定视频进度圆环设置
-  await loadVpSidebarSetting();
-  bindVpSidebarEvents();
+  loadVpSidebarSetting(currentSettings);
+  bindVpSidebarEvents(currentSettings);
 
   // 绑定捕获视频圆环设置
-  await loadCaptureRingSetting();
-  bindCaptureRingEvents();
+  loadCaptureRingSetting(currentSettings);
+  bindCaptureRingEvents(currentSettings);
 
   // 绑定倍速控制圆环设置
-  await loadSpeedRingSetting();
-  bindSpeedRingEvents();
+  loadSpeedRingSetting(currentSettings);
+  bindSpeedRingEvents(currentSettings);
 
   // 绑定笔记圆环设置（独立顶层入口，与 ringSidebarEnabled 平级）
-  await loadNoteRingSetting();
-  bindNoteRingEvents();
+  loadNoteRingSetting(currentSettings);
+  bindNoteRingEvents(currentSettings);
 
   // 绑定 goto 圆环设置
-  await loadGotoRingSetting();
-  bindGotoRingEvents();
+  loadGotoRingSetting(currentSettings);
+  bindGotoRingEvents(currentSettings);
 
   // 绑定 goto 管理圆环设置
-  await loadGotoManagerSetting();
-  bindGotoManagerEvents();
+  loadGotoManagerSetting(currentSettings);
+  bindGotoManagerEvents(currentSettings);
 
   // 绑定UI事件
   bindUIEvents();
@@ -285,6 +289,13 @@ async function init() {
 
   // 初始化主题切换
   initTheme();
+
+  // 监听其他来源的 settings 变化,同步本地 cache(其他 tab/popup/ring 改 settings 时)
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes.settings) {
+      Object.assign(currentSettings, changes.settings.newValue || {});
+    }
+  });
 }
 
 // DOM加载完成后初始化

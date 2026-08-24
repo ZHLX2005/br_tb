@@ -298,11 +298,36 @@ window.__tabboardRingOrder?.register({
 
 > **如果你的圆环要作为 Mode B 自由圆环**：不带 `ring-sub` class，放在顶层（与 goto / noteRing 平级），**不要**用 `popupShowXxxSidebar` 这种带 `Sidebar` 后缀的命名——直接 `popupShowXxx` 即可。详见 `references/free-floating-entry.md` Step 3。
 
-**popup/modules/xxxSettings.js**（参考 `vpSettings.js` / `timerSettings.js`）：
-- `loadXxxSidebarSetting()` — 从 settings 加载开关状态
-- `bindXxxSidebarEvents()` — change 时调 `updateSettings` action（合并语义，不直接 set）
+**popup/modules/xxxSettings.js**（参考 `gotoManagerSettings.js`，当前最新规范）：
+- `loadXxxSidebarSetting(settings)` — **同步**渲染开关状态，**不自己发 IPC**；settings 由 popup.js 顶层一次性 cache 后传入
+- `bindXxxSidebarEvents(settings)` — change 时直接发**局部 patch** `{ action: 'updateSettings', settings: { showXxxSidebar: val } }`，依赖后台合并语义保留其他 key；同时更新传入的 cache 对象
 
-> 写 settings 用 `chrome.runtime.sendMessage({ action: 'updateSettings', settings })`，background 的合并语义会保留其他 key。**禁止** `chrome.storage.local.set({ settings: { myKey: val } })` 整体覆盖。
+**popup.js 集成（性能关键，必看）**:
+
+> **为什么**：旧规范每个 settings 模块的 load 函数自己发 `getSettings` IPC 读 settings。N 个模块 = N 次串行 IPC，每次都会唤醒 MV3 service worker（popup 打开 8 个 ring 时可达 3s+）。**必须**在 popup.js init() 顶部一次 cache，各模块 load 变同步接收 cache。
+
+```js
+async function init() {
+  // ① 一次 cache settings(popup 有 chrome.storage 权限,直读不走 IPC)
+  const settingsResult = await chrome.storage.local.get(['settings']);
+  const currentSettings = settingsResult.settings || {};
+
+  // ② 每个 ring 两行,**同步**调用(不再 await loadXxxSetting)
+  loadRingSidebarSetting(currentSettings);
+  bindRingSidebarEvents(currentSettings);
+  loadXxxSidebarSetting(currentSettings);   // ← 你的新 ring
+  bindXxxSidebarEvents(currentSettings);
+
+  // ③ 其他来源改 settings 时同步本地 cache(其他 tab/popup/ring)
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes.settings) {
+      Object.assign(currentSettings, changes.settings.newValue || {});
+    }
+  });
+}
+```
+
+> 写 settings 用 `chrome.runtime.sendMessage({ action: 'updateSettings', settings: { 局部 patch } })`，background 的合并语义会保留其他 key。**禁止** `chrome.storage.local.set({ settings: { myKey: val } })` 整体覆盖；**禁止** load 函数里自己发 `getSettings` IPC（应接收 popup.js 传来的 cache）。
 
 #### Step 5: 更新 background/init.js
 

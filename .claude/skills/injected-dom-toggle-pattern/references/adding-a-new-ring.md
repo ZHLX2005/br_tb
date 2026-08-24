@@ -143,6 +143,58 @@ if (s.showXxxSidebar === false) return;
 - `.ring-sub`：`padding-left: 20px`
 - `input:disabled` + `.setting-row:has(input:disabled)`：master 关时子开关整行置灰
 
+**popup settings 模块规范（同步 cache 模式，性能关键）**
+
+> **为什么不能每个 load 自己发 `getSettings` IPC**：N 个 ring 模块 = N 次串行 `sendMessage`，每次都会唤醒 MV3 service worker，popup 打开 8 个 ring 时可达 3s+。popup 有 `chrome.storage` 权限，可直接直读 storage，不需要绕 IPC。
+
+1. **popup.js init() 顶部一次 cache**：
+
+```js
+const settingsResult = await chrome.storage.local.get(['settings']);
+const currentSettings = settingsResult.settings || {};
+```
+
+2. **settings 模块**（参考 `popup/modules/gotoManagerSettings.js`）：
+
+```js
+// load 同步：settings 由 popup.js 传入,不自己发 IPC
+export function loadXxxSidebarSetting(settings) {
+  const s = settings || {};
+  const toggleEl = document.getElementById('popupShowXxxSidebar');
+  if (toggleEl) toggleEl.checked = s.showXxxSidebar !== false;
+}
+
+// bind 同步：change 时发局部 patch,后台合并语义保留其他 key
+export function bindXxxSidebarEvents(settings) {
+  const toggleEl = document.getElementById('popupShowXxxSidebar');
+  if (!toggleEl) return;
+  toggleEl.addEventListener('change', async () => {
+    await chrome.runtime.sendMessage({
+      action: 'updateSettings',
+      settings: { showXxxSidebar: toggleEl.checked }   // ← 局部 patch,不是全量 settings
+    });
+    if (settings) settings.showXxxSidebar = toggleEl.checked;  // 同步 cache
+  });
+}
+```
+
+3. **popup.js 调用（同步，不再 await）**：
+
+```js
+loadXxxSidebarSetting(currentSettings);   // 每个 ring 两行,同步
+bindXxxSidebarEvents(currentSettings);
+```
+
+4. **cache 同步**（其他 tab/popup/ring 改 settings 时本地 cache 跟随）：
+
+```js
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes.settings) {
+    Object.assign(currentSettings, changes.settings.newValue || {});
+  }
+});
+```
+
 ### Step 6：刷新扩展 + 强刷测试页面（Ctrl+Shift+R）
 
 content script 不会自动重新注入已打开的页面，**必须刷新页面**。
