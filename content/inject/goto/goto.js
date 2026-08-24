@@ -34,6 +34,10 @@
   let offsetX = 0;
   let offsetY = 0;
 
+  // 悬浮圆环个性化设置缓存(size + bg),由 background/ring-settings.js 权威维护,
+  // 这里缓存起来避免每次都异步读 chrome.storage,并让 buildRing 能同步应用(无闪变动画)。
+  let ringSettings = { size: 'md', bg: null };
+
   // ===================== 样式 =====================
   const STYLES = `
     #${WRAPPER_ID} {
@@ -44,10 +48,13 @@
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
     #${WRAPPER_ID}-circle {
-      width: 60px;
-      height: 60px;
+      width: var(--goto-ring-size, 60px);
+      height: var(--goto-ring-size, 60px);
       border-radius: 50%;
-      background: white;
+      background-color: white;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
       display: flex;
       justify-content: center;
       align-items: center;
@@ -59,12 +66,18 @@
       color: #667eea;
       font-size: 24px;
       border: 3px solid #667eea;
+      overflow: hidden;
     }
+    #${WRAPPER_ID}-circle-glyph {
+      transition: opacity 0.2s ease;
+      pointer-events: none;
+    }
+    #${WRAPPER_ID}-circle-glyph.hidden { opacity: 0; }
     #${WRAPPER_ID}-circle:hover {
       transform: scale(1.1);
     }
     #${WRAPPER_ID}-circle.active {
-      background: #ff4757;
+      background-color: #ff4757;
       color: white;
       border-color: #ff4757;
     }
@@ -196,8 +209,12 @@
 
     const circle = document.createElement('div');
     circle.id = WRAPPER_ID + '-circle';
-    circle.innerHTML = '☰';
     circle.title = '悬浮激活菜单';
+    // glyph(☰)包到 span,便于通过 .hidden 类隐藏(背景图生效时让 icon 不显示)
+    getGlyph(circle).textContent = '☰';
+    // ⚠️ append 前就设目标大小,避免 STYLES 的 width/height transition
+    //    先以默认 60px 渲染再过渡到目标尺寸造成"刷新后由大变小的动画"
+    circle.style.setProperty('--goto-ring-size', (RING_SIZE_PX[ringSettings.size] || 60) + 'px');
     wrapper.appendChild(circle);
     document.body.appendChild(wrapper);
 
@@ -205,6 +222,9 @@
     clampWrapperPosition();
 
     bindRingEvents(circle);
+
+    // 用缓存 ringSettings 同步应用(size/bg),不异步读 storage → 无闪变动画
+    applyRingSettings();
   }
 
   function removeRing() {
@@ -255,6 +275,8 @@
           left: wrapper.style.left,
           top: wrapper.style.top
         }));
+        // 拖动结束后重调,保证背景图 + ☰ 显隐不被任何中间状态破坏
+        applyRingSettings();
       }
     });
 
@@ -297,13 +319,27 @@
   }
 
   // ===================== 菜单展开/收起 =====================
+  // 注意:复用同一个 #tabboard-goto-ring-circle-glyph span 只改文本,绝不 innerHTML 重建,
+  // 否则背景图生效时添加的 .hidden 类会丢失,☰ 图标"移动后重新出现"。
+  function getGlyph(circle) {
+    let glyph = circle.querySelector('#' + WRAPPER_ID + '-circle-glyph');
+    if (!glyph) {
+      glyph = document.createElement('span');
+      glyph.id = WRAPPER_ID + '-circle-glyph';
+      circle.appendChild(glyph);
+    }
+    return glyph;
+  }
+
   function expandMenu(circle) {
     isActive = true;
     circle.classList.add('active');
-    circle.innerHTML = '✕';
+    getGlyph(circle).textContent = '✕';
     circle.title = '点击关闭菜单';
     clearMenuItems();
     showMenuItems(menuData.children);
+    // active 类会改 background-color,重调保证背景图 + ☰ 显隐与缓存一致
+    applyRingSettings();
   }
 
   function collapseMenu() {
@@ -311,9 +347,10 @@
     if (!circle) return;
     isActive = false;
     circle.classList.remove('active');
-    circle.innerHTML = '☰';
+    getGlyph(circle).textContent = '☰';
     circle.title = '悬浮激活菜单';
     clearMenuItems();
+    applyRingSettings();
   }
 
   function showMenuItems(items) {
@@ -456,6 +493,32 @@
     }
   }
 
+  // ===================== 悬浮圆环设置应用(size + bg) =====================
+  // 统一入口:所有 DOM 变化(展开/收起/拖动/buildRing)后重调 applyRingSettings(),
+  // 保证背景图 + ☰ 显隐永远跟缓存 ringSettings 一致。
+  const RING_SIZE_PX = { xxs: 24, xs: 32, sm: 48, md: 60, lg: 72, xl: 84 };
+
+  function applyRingSettings() {
+    const circle = document.getElementById(WRAPPER_ID + '-circle');
+    if (!circle) return;
+    const glyph = getGlyph(circle);
+    const { size, bg } = ringSettings;
+
+    // 1) 大小
+    const px = RING_SIZE_PX[size] || 60;
+    circle.style.setProperty('--goto-ring-size', px + 'px');
+
+    // 2) 背景图 + ☰ 显隐(圆环本体始终显示)
+    const hasCustom = bg && bg.type === 'custom' && bg.data;
+    if (hasCustom) {
+      circle.style.backgroundImage = 'url("' + bg.data + '")';
+      glyph.classList.add('hidden');
+    } else {
+      circle.style.backgroundImage = '';
+      glyph.classList.remove('hidden');
+    }
+  }
+
   // ===================== 初始化 =====================
   async function init() {
     try {
@@ -467,14 +530,22 @@
         removeRing();
         return;
       }
+      // 先读 size/bg 到缓存,buildRing 即可同步应用,无"从默认 60px 闪变到目标尺寸"的动画
+      ringSettings = {
+        size: (settings.gotoRingSize || 'md'),
+        bg: (settings.gotoRingBg || null)
+      };
       await loadMenuData();
       buildRing();
+      applyRingSettings(); // 覆盖 buildRing 后的 glyph/背景图状态
     } catch (err) {
       // Extension context may be invalid
     }
   }
 
   // ===================== 设置变更监听 =====================
+  // settings.gotoRingSize / gotoRingBg 由侧边栏 goto 管理圆环(gotoManagerRing.js)的设置面板写入;
+  // 这里消费变化并应用到悬浮圆环。圆环本体(#tabboard-goto-ring-circle)始终可见。
   chrome.storage.onChanged.addListener((changes, namespace) => {
     if (namespace !== 'local') return;
     if (changes.settings) {
@@ -484,6 +555,12 @@
         isEnabled = newEnabled;
         if (isEnabled) init();
         else removeRing();
+      }
+      // size / bg 变化 → 更新缓存并重新应用
+      if (newSettings.gotoRingSize !== undefined || newSettings.gotoRingBg !== undefined) {
+        if (newSettings.gotoRingSize !== undefined) ringSettings.size = newSettings.gotoRingSize;
+        if (newSettings.gotoRingBg !== undefined) ringSettings.bg = newSettings.gotoRingBg;
+        applyRingSettings();
       }
     }
     if (changes.tabs || changes.groups) {
