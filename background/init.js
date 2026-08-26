@@ -92,11 +92,15 @@ export async function initializeDefaultData() {
       needUpdate = true;
     }
     if (updatedSettings.gotoRingSize === undefined) {
-      updatedSettings.gotoRingSize = 'md'; // 60px,悬浮 goto 圆环默认值
+      updatedSettings.gotoRingSize = 60; // 默认 60px,悬浮 goto 圆环默认值
       needUpdate = true;
     }
     if (updatedSettings.gotoRingBg === undefined) {
       updatedSettings.gotoRingBg = null; // 默认:圆环 ☰ 正常显示
+      needUpdate = true;
+    }
+    if (updatedSettings.gotoRingSettingsExpanded === undefined) {
+      updatedSettings.gotoRingSettingsExpanded = false; // goto 管理圆环 ⚙ 面板默认收起
       needUpdate = true;
     }
     // 注:visibleGroups / focusSearchGroups 已迁移为 group.visible / group.inFocusSearch
