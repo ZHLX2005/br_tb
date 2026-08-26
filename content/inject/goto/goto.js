@@ -36,7 +36,11 @@
 
   // 悬浮圆环个性化设置缓存(size + bg),由 background/ring-settings.js 权威维护,
   // 这里缓存起来避免每次都异步读 chrome.storage,并让 buildRing 能同步应用(无闪变动画)。
-  let ringSettings = { size: 'md', bg: null };
+  // size 是整数像素,直接应用,不再走字符串 enum → px 映射。
+  let ringSettings = { size: 60, bg: null };
+
+  // 历史 enum → 像素映射,读取老 settings 时需要(理论上 background 已迁移,但保险)
+  const LEGACY_ENUM_PX = { xxs: 24, xs: 32, sm: 48, md: 60, lg: 72, xl: 84 };
 
   // ===================== 样式 =====================
   const STYLES = `
@@ -214,7 +218,7 @@
     getGlyph(circle).textContent = '☰';
     // ⚠️ append 前就设目标大小,避免 STYLES 的 width/height transition
     //    先以默认 60px 渲染再过渡到目标尺寸造成"刷新后由大变小的动画"
-    circle.style.setProperty('--goto-ring-size', (RING_SIZE_PX[ringSettings.size] || 60) + 'px');
+    circle.style.setProperty('--goto-ring-size', ringSettings.size + 'px');
     wrapper.appendChild(circle);
     document.body.appendChild(wrapper);
 
@@ -496,7 +500,6 @@
   // ===================== 悬浮圆环设置应用(size + bg) =====================
   // 统一入口:所有 DOM 变化(展开/收起/拖动/buildRing)后重调 applyRingSettings(),
   // 保证背景图 + ☰ 显隐永远跟缓存 ringSettings 一致。
-  const RING_SIZE_PX = { xxs: 24, xs: 32, sm: 48, md: 60, lg: 72, xl: 84 };
 
   function applyRingSettings() {
     const circle = document.getElementById(WRAPPER_ID + '-circle');
@@ -504,8 +507,8 @@
     const glyph = getGlyph(circle);
     const { size, bg } = ringSettings;
 
-    // 1) 大小
-    const px = RING_SIZE_PX[size] || 60;
+    // 1) 大小 — size 已是整数像素,直接应用
+    const px = (typeof size === 'number' && Number.isFinite(size)) ? size : 60;
     circle.style.setProperty('--goto-ring-size', px + 'px');
 
     // 2) 背景图 + ☰ 显隐(圆环本体始终显示)
@@ -531,8 +534,16 @@
         return;
       }
       // 先读 size/bg 到缓存,buildRing 即可同步应用,无"从默认 60px 闪变到目标尺寸"的动画
+      // size 兼容老 enum 字符串('md'/'lg' 等) — 落到对应像素,避免历史用户闪变
+      let initialSize = 60;
+      const rawSize = settings.gotoRingSize;
+      if (typeof rawSize === 'number' && Number.isFinite(rawSize)) {
+        initialSize = rawSize;
+      } else if (typeof rawSize === 'string' && rawSize in LEGACY_ENUM_PX) {
+        initialSize = LEGACY_ENUM_PX[rawSize];
+      }
       ringSettings = {
-        size: (settings.gotoRingSize || 'md'),
+        size: initialSize,
         bg: (settings.gotoRingBg || null)
       };
       await loadMenuData();
@@ -558,7 +569,17 @@
       }
       // size / bg 变化 → 更新缓存并重新应用
       if (newSettings.gotoRingSize !== undefined || newSettings.gotoRingBg !== undefined) {
-        if (newSettings.gotoRingSize !== undefined) ringSettings.size = newSettings.gotoRingSize;
+        if (newSettings.gotoRingSize !== undefined) {
+          // 兼容老 enum 字符串(理论上不会,新代码只写数字,但保险起见)
+          const raw = newSettings.gotoRingSize;
+          if (typeof raw === 'number' && Number.isFinite(raw)) {
+            ringSettings.size = raw;
+          } else if (typeof raw === 'string' && raw in LEGACY_ENUM_PX) {
+            ringSettings.size = LEGACY_ENUM_PX[raw];
+          } else {
+            ringSettings.size = 60;
+          }
+        }
         if (newSettings.gotoRingBg !== undefined) ringSettings.bg = newSettings.gotoRingBg;
         applyRingSettings();
       }

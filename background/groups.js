@@ -8,7 +8,8 @@ import { openTabboard } from './tabboard.js';
 import {
   getGotoRingSettings,
   updateGotoRingSize,
-  updateGotoRingBg
+  updateGotoRingBg,
+  updateGotoRingSettingsExpanded
 } from './ring-settings.js';
 import {
   getGroups,
@@ -337,6 +338,16 @@ function setupGroupsListeners() {
         case 'updateGotoRingBg': {
           try {
             const result = await updateGotoRingBg(request.bg);
+            sendResponse({ success: true, ...result });
+          } catch (e) {
+            sendResponse({ success: false, error: e.message });
+          }
+          break;
+        }
+
+        case 'updateGotoRingSettingsExpanded': {
+          try {
+            const result = await updateGotoRingSettingsExpanded(request.expanded);
             sendResponse({ success: true, ...result });
           } catch (e) {
             sendResponse({ success: false, error: e.message });

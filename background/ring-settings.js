@@ -6,16 +6,29 @@
  * 本文件是数据的唯一读写入口(遵循 group-model 规约,不散写 settings.read-modify-write)。
  *
  * 数据字段(写在 chrome.storage.local.settings 下):
- *   settings.gotoRingSize: 'xxs'(24) | 'xs'(32) | 'sm'(48) | 'md'(60) | 'lg'(72) | 'xl'(84),默认 'md'
+ *   settings.gotoRingSize: 整数像素值,范围 [RING_MIN_PX, RING_MAX_PX],默认 60
+ *                          (历史版本是字符串 enum 'xxs'/'xs'/'sm'/'md'/'lg'/'xl',
+ *                          在 getGotoRingSettings / updateGotoRingSize 内做兼容,老值一次性迁移到数字)
  *   settings.gotoRingBg:   null(默认,圆环正常显示 ☰)
  *                          | { type:'custom', data:'data:image/...' }(上传后,背景图生效 + ☰ 隐藏)
+ *   settings.gotoRingSettingsExpanded: boolean,默认 false
+ *                          (goto 管理圆环 ⚙ 面板的展开/收起状态,跨 tab + 跨刷新持久化)
  */
 
-const RING_SIZE_PX = { xxs: 24, xs: 32, sm: 48, md: 60, lg: 72, xl: 84 };
-const VALID_SIZES = new Set(Object.keys(RING_SIZE_PX));
+const RING_MIN_PX = 24;
+const RING_MAX_PX = 96;
+const RING_DEFAULT_PX = 60;
 
-function isValidSize(s) {
-  return VALID_SIZES.has(s);
+// 旧 enum → 像素映射,迁移用(历史版本存储的字符串值)
+const LEGACY_ENUM_PX = { xxs: 24, xs: 32, sm: 48, md: 60, lg: 72, xl: 84 };
+
+function clampSize(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return RING_DEFAULT_PX;
+  const rounded = Math.round(n);
+  if (rounded < RING_MIN_PX) return RING_MIN_PX;
+  if (rounded > RING_MAX_PX) return RING_MAX_PX;
+  return rounded;
 }
 
 function isValidBg(bg) {
@@ -26,27 +39,38 @@ function isValidBg(bg) {
 }
 
 /**
- * 读当前悬浮 goto 圆环完整设置(size + bg)。缺失字段给默认值。
+ * 读当前悬浮 goto 圆环完整设置(size + bg + 面板展开状态)。缺失字段给默认值;旧 enum size 自动迁移到像素。
  */
 async function getGotoRingSettings() {
   const { settings } = await chrome.storage.local.get(['settings']);
   const s = settings || {};
-  const size = isValidSize(s.gotoRingSize) ? s.gotoRingSize : 'md';
+  // size:可能是数字(新)、字符串 enum(老)、undefined
+  let size;
+  if (typeof s.gotoRingSize === 'number') {
+    size = clampSize(s.gotoRingSize);
+  } else if (typeof s.gotoRingSize === 'string' && s.gotoRingSize in LEGACY_ENUM_PX) {
+    size = LEGACY_ENUM_PX[s.gotoRingSize]; // 迁移:老 enum 直接落到对应像素
+  } else {
+    size = RING_DEFAULT_PX;
+  }
   const bg = isValidBg(s.gotoRingBg) ? s.gotoRingBg : null;
-  return { size, bg };
+  const expanded = !!s.gotoRingSettingsExpanded;
+  return { size, bg, expanded };
 }
 
 /**
  * 更新悬浮圆环大小。校验失败抛 Error 让 message adapter 返回失败。
+ * 接受任意数字,内部 clamp 到 [RING_MIN_PX, RING_MAX_PX] 并取整。
  */
 async function updateGotoRingSize(size) {
-  if (!isValidSize(size)) {
-    throw new Error(`Invalid size: ${size} (allowed: ${[...VALID_SIZES].join(', ')})`);
+  if (typeof size !== 'number' || !Number.isFinite(size)) {
+    throw new Error(`Invalid size: expected number, got ${typeof size}`);
   }
+  const next = clampSize(size);
   const { settings } = await chrome.storage.local.get(['settings']);
-  const next = { ...(settings || {}), gotoRingSize: size };
-  await chrome.storage.local.set({ settings: next });
-  return { size };
+  const nextSettings = { ...(settings || {}), gotoRingSize: next };
+  await chrome.storage.local.set({ settings: nextSettings });
+  return { size: next };
 }
 
 /**
@@ -63,25 +87,39 @@ async function updateGotoRingBg(bg) {
     throw new Error(`Custom bg too large: ${bg.data.length} bytes (limit 100KB)`);
   }
   const { settings } = await chrome.storage.local.get(['settings']);
-  const next = { ...(settings || {}), gotoRingBg: bg };
-  await chrome.storage.local.set({ settings: next });
+  const nextSettings = { ...(settings || {}), gotoRingBg: bg };
+  await chrome.storage.local.set({ settings: nextSettings });
   return { bg };
 }
 
 /**
- * 将 size 枚举映射成像素值,供 content script 应用。
+ * 切换 goto 管理圆环 ⚙ 面板的展开/收起状态。
+ */
+async function updateGotoRingSettingsExpanded(expanded) {
+  const value = !!expanded;
+  const { settings } = await chrome.storage.local.get(['settings']);
+  const nextSettings = { ...(settings || {}), gotoRingSettingsExpanded: value };
+  await chrome.storage.local.set({ settings: nextSettings });
+  return { expanded: value };
+}
+
+/**
+ * 把 size 直接成像素(返回的本来就是数字,保留接口兼容)。
  */
 function getGotoRingSizePx(size) {
-  return RING_SIZE_PX[isValidSize(size) ? size : 'md'];
+  return clampSize(size);
 }
 
 export {
   getGotoRingSettings,
   updateGotoRingSize,
   updateGotoRingBg,
+  updateGotoRingSettingsExpanded,
   getGotoRingSizePx,
   // 暴露给测试/调试
-  isValidSize,
   isValidBg,
-  RING_SIZE_PX
+  RING_MIN_PX,
+  RING_MAX_PX,
+  RING_DEFAULT_PX,
+  LEGACY_ENUM_PX
 };

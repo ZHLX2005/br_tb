@@ -233,51 +233,134 @@
     }
 
     /* ─── 圆环设置 section ─── */
-    .gm-settings-row { margin-bottom: 10px; }
+    /* 三层视觉层级:section-title(主标题) > row-label(控件标签) > value(数值)
+       通过字号 / 字重 / 颜色 / 大小写 拉开,确保一眼分清层级 */
+    .gm-section[data-section="ring-settings"] {
+      padding: 14px 12px 12px;
+    }
+    .gm-section[data-section="ring-settings"] .gm-section-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #1a1a1a;
+      letter-spacing: 0.2px;
+      margin-bottom: 12px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .gm-section[data-section="ring-settings"] .gm-section-title::before {
+      content: '';
+      width: 3px; height: 12px;
+      border-radius: 2px;
+      background: var(--accent);
+    }
+    .gm-settings-row { margin-bottom: 14px; }
     .gm-settings-row:last-child { margin-bottom: 0; }
     .gm-settings-label {
-      font-size: 11px; font-weight: 600; color: #666; margin-bottom: 6px;
+      font-size: 10px;
+      font-weight: 600;
+      color: #999;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
     }
-    .gm-size-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 6px;
-    }
-    .gm-size-btn {
-      padding: 6px 4px;
-      background: white; border: 1px solid #ddd; border-radius: 5px;
-      cursor: pointer; font-size: 11px; color: #555;
-      display: flex; flex-direction: column; align-items: center; gap: 3px;
-      transition: background 120ms, border-color 120ms, transform 100ms;
-    }
-    .gm-size-btn:hover { background: #f5f5f5; border-color: #bbb; }
-    .gm-size-btn:active { transform: scale(0.95); }
-    .gm-size-btn.active {
-      background: var(--accent); color: white; border-color: var(--accent);
-    }
-    .gm-size-btn-preview {
-      width: 16px; height: 16px; border-radius: 50%;
-      background: currentColor; opacity: 0.7;
-    }
-    .gm-size-btn[data-size="xxs"] .gm-size-btn-preview { width: 7px; height: 7px; }
-    .gm-size-btn[data-size="xs"] .gm-size-btn-preview { width: 10px; height: 10px; }
-    .gm-size-btn[data-size="sm"] .gm-size-btn-preview { width: 13px; height: 13px; }
-    .gm-size-btn[data-size="md"] .gm-size-btn-preview { width: 16px; height: 16px; }
-    .gm-size-btn[data-size="lg"] .gm-size-btn-preview { width: 19px; height: 19px; }
-    .gm-size-btn[data-size="xl"] .gm-size-btn-preview { width: 22px; height: 22px; }
 
-    /* 悬浮 goto 圆环背景 */
+    /* 滑动条:精致轨道 + 双层 thumb + 明显填充色 */
+    .gm-size-slider-row {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .gm-size-slider-wrap {
+      flex: 1; position: relative;
+      padding: 8px 0; /* 给 thumb 上下留呼吸,防止溢出被裁 */
+    }
+    .gm-size-slider {
+      flex: 1; appearance: none; -webkit-appearance: none;
+      width: 100%; height: 6px;
+      border-radius: 3px;
+      background: linear-gradient(to right,
+        var(--accent) 0%,
+        var(--accent) var(--gm-slider-fill, 50%),
+        #e8e8e8 var(--gm-slider-fill, 50%),
+        #e8e8e8 100%);
+      outline: none; cursor: pointer; margin: 0;
+    }
+    .gm-size-slider::-webkit-slider-thumb {
+      appearance: none; -webkit-appearance: none;
+      width: 18px; height: 18px; border-radius: 50%;
+      background: white;
+      border: 2.5px solid var(--accent);
+      cursor: pointer;
+      box-shadow:
+        0 2px 6px rgba(66, 165, 245, 0.3),
+        0 0 0 0 rgba(66, 165, 245, 0);
+      transition: transform 150ms, box-shadow 150ms;
+    }
+    .gm-size-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.12);
+      box-shadow:
+        0 2px 8px rgba(66, 165, 245, 0.45),
+        0 0 0 6px rgba(66, 165, 245, 0.08);
+    }
+    .gm-size-slider::-webkit-slider-thumb:active {
+      transform: scale(1.05);
+      box-shadow:
+        0 1px 4px rgba(66, 165, 245, 0.4),
+        0 0 0 8px rgba(66, 165, 245, 0.12);
+    }
+    .gm-size-slider::-moz-range-thumb {
+      width: 18px; height: 18px; border-radius: 50%;
+      background: white; border: 2.5px solid var(--accent);
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(66, 165, 245, 0.3);
+    }
+    .gm-size-slider:focus::-webkit-slider-thumb {
+      box-shadow:
+        0 0 0 3px rgba(66, 165, 245, 0.25),
+        0 2px 6px rgba(66, 165, 245, 0.3);
+    }
+    /* 当前值 badge:右侧独立 chip,渐变浅蓝底 + accent 粗字 */
+    .gm-size-value {
+      font-size: 12px; font-weight: 700;
+      color: var(--accent);
+      background: rgba(66, 165, 245, 0.1);
+      padding: 4px 8px;
+      border-radius: 4px;
+      min-width: 52px;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+    }
+    /* ⚙ 按钮 active 高亮(面板展开时)— 只染 icon 色,不染背景 */
+    .gm-icon-btn-active { color: var(--accent) !important; }
+
+    /* 悬浮 goto 圆环背景 — 卡片化,左侧 status dot,右侧描述 */
     .gm-bg-status {
-      font-size: 11px; color: #555;
-      padding: 6px 8px; background: white;
-      border: 1px solid #ddd; border-radius: 5px;
-      margin-bottom: 6px;
+      display: flex; align-items: center; gap: 8px;
+      font-size: 11px; color: #666;
+      padding: 9px 10px;
+      background: white;
+      border: 1px solid #ececec;
+      border-radius: 5px;
+      margin-bottom: 8px;
+      transition: border-color 150ms;
+    }
+    .gm-bg-status.has-bg {
+      color: #1a1a1a;
+      border-color: rgba(66, 165, 245, 0.35);
+    }
+    .gm-bg-status::before {
+      content: '';
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #d4d4d4;
+      flex-shrink: 0;
+    }
+    .gm-bg-status.has-bg::before {
+      background: var(--accent);
+      box-shadow: 0 0 0 3px rgba(66, 165, 245, 0.15);
     }
     .gm-bg-actions {
       display: flex; gap: 6px;
     }
     .gm-bg-error {
-      font-size: 11px; color: #c33; margin-top: 4px;
+      font-size: 11px; color: #c33; margin-top: 6px;
     }
   `;
 
@@ -286,12 +369,14 @@
 
   // ─── 悬浮 goto 圆环个性化设置状态(由 background ring-settings.js 权威维护) ───
   // 本文件只是"设置面板",控制右下角 #tabboard-goto-ring-circle;侧边栏自己的 ★ trigger 大小恒定不变。
-  let ringSize = 'md';
+  // ringSize 现在是整数像素(原 enum 已迁移到 px)
+  let ringSize = 60;
   // 悬浮圆环背景:null = 默认(☰ 显示),{type:'custom',data} = 已上传(背景图生效 + ☰ 隐藏)
   let floatingRingBg = null;
 
-  // 悬浮圆环尺寸映射(与 background/ring-settings.js RING_SIZE_PX 保持一致)
-  const RING_SIZE_PX = { xxs: 24, xs: 32, sm: 48, md: 60, lg: 72, xl: 84 };
+  // 滑动条范围(与 background/ring-settings.js RING_MIN_PX / RING_MAX_PX 保持一致)
+  const RING_MIN_PX = 24;
+  const RING_MAX_PX = 96;
 
   // ─── 工具:发送消息到后台(领域 API) ───
   async function send(action, payload) {
@@ -315,17 +400,21 @@
   function renderSettingsUI() {
     const shadow = getShadow();
     if (!shadow) return;
-    // size grid active
-    shadow.querySelectorAll('.gm-size-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.size === ringSize);
-    });
-    // size current label(显示悬浮圆环目标像素值)
-    const sizeCurrentEl = shadow.getElementById(WRAPPER_ID + '-size-current');
-    if (sizeCurrentEl) sizeCurrentEl.textContent = (RING_SIZE_PX[ringSize] || 60) + 'px';
-    // floating bg status
+    // 1) 滑动条位置 + 填充百分比 + 当前像素显示
+    const slider = shadow.getElementById(WRAPPER_ID + '-size-slider');
+    const sizeValueEl = shadow.getElementById(WRAPPER_ID + '-size-value');
+    if (slider) {
+      slider.value = String(ringSize);
+      const pct = ((ringSize - RING_MIN_PX) / (RING_MAX_PX - RING_MIN_PX)) * 100;
+      slider.style.setProperty('--gm-slider-fill', pct + '%');
+    }
+    if (sizeValueEl) sizeValueEl.textContent = ringSize + 'px';
+    // 2) 浮动圆环背景状态(has-bg class 切换 dot 颜色 + 边框)
     const floatingStatusEl = shadow.getElementById(WRAPPER_ID + '-floating-bg-status');
     if (floatingStatusEl) {
-      if (floatingRingBg && floatingRingBg.data) {
+      const hasBg = !!(floatingRingBg && floatingRingBg.data);
+      floatingStatusEl.classList.toggle('has-bg', hasBg);
+      if (hasBg) {
         const kb = Math.round(floatingRingBg.data.length / 1024);
         floatingStatusEl.textContent = `已选择图片(约 ${kb} KB),☰ 图标已隐藏`;
       } else {
@@ -334,13 +423,15 @@
     }
   }
 
-  // ─── 圆环设置:从后台拉悬浮圆环设置(size + bg) ───
+  // ─── 圆环设置:从后台拉悬浮圆环设置(size + bg + 面板展开状态) ───
   async function loadRingSettings() {
     const res = await send('getGotoRingSettings');
     if (res && res.success) {
-      ringSize = res.size || 'md';
+      ringSize = (typeof res.size === 'number' && Number.isFinite(res.size)) ? res.size : 60;
       floatingRingBg = res.bg || null;
       renderSettingsUI();
+      // 面板展开状态:后台权威 → 同步 DOM(防止 build 后 ⚙ 按钮高亮与面板状态不一致)
+      applySettingsExpandedState(!!res.expanded);
     }
   }
 
@@ -493,21 +584,21 @@
           <button class="gm-btn gm-btn-primary" data-action="submit-new-group">创建</button>
         </div>
       </div>
-      <div class="gm-section" data-section="ring-settings">
+      <div class="gm-section" data-section="ring-settings" hidden>
         <div class="gm-section-title">悬浮 goto 圆环设置</div>
         <div class="gm-settings-row">
-          <div class="gm-settings-label">大小(<span id="${WRAPPER_ID}-size-current">60px</span>)</div>
-          <div class="gm-size-grid" id="${WRAPPER_ID}-size-grid">
-            <button class="gm-size-btn" data-size="xxs"><span class="gm-size-btn-preview"></span>微型 24</button>
-            <button class="gm-size-btn" data-size="xs"><span class="gm-size-btn-preview"></span>特小 32</button>
-            <button class="gm-size-btn" data-size="sm"><span class="gm-size-btn-preview"></span>小 48</button>
-            <button class="gm-size-btn" data-size="md"><span class="gm-size-btn-preview"></span>默认 60</button>
-            <button class="gm-size-btn" data-size="lg"><span class="gm-size-btn-preview"></span>大 72</button>
-            <button class="gm-size-btn" data-size="xl"><span class="gm-size-btn-preview"></span>特大 84</button>
+          <div class="gm-settings-label">大小</div>
+          <div class="gm-size-slider-row">
+            <div class="gm-size-slider-wrap">
+              <input type="range" class="gm-size-slider" id="${WRAPPER_ID}-size-slider"
+                min="${RING_MIN_PX}" max="${RING_MAX_PX}" step="1" value="60"
+                aria-label="悬浮 goto 圆环大小">
+            </div>
+            <span class="gm-size-value" id="${WRAPPER_ID}-size-value">60px</span>
           </div>
         </div>
         <div class="gm-settings-row">
-          <div class="gm-settings-label">悬浮 goto 圆环背景</div>
+          <div class="gm-settings-label">背景</div>
           <div class="gm-bg-status" id="${WRAPPER_ID}-floating-bg-status">未选择图片(默认显示 ☰)</div>
           <div class="gm-bg-actions">
             <button class="gm-btn" data-action="upload-floating-bg">上传图片</button>
@@ -568,6 +659,12 @@
     const floatingInput = shadow.getElementById(WRAPPER_ID + '-floating-bg-input');
     if (floatingInput) {
       floatingInput.addEventListener('change', handleFloatingBgSelected);
+    }
+
+    // ── 圆环设置:size 滑动条 input 事件(实时预览 + 同步 storage)──
+    const sizeSlider = shadow.getElementById(WRAPPER_ID + '-size-slider');
+    if (sizeSlider) {
+      sizeSlider.addEventListener('input', handleSizeSliderInput);
     }
 
     // ── 拉首屏数据 ──
@@ -631,7 +728,7 @@
 
     if (action === 'open-settings') {
       const opening = !isSectionOpen('ring-settings');
-      toggleSection('ring-settings', opening);
+      applySettingsExpandedState(opening, { persist: true });
       return;
     }
 
@@ -647,12 +744,9 @@
       return;
     }
 
-    // size-btn(没有 data-action,直接从 e.target 找)
+    // size 滑动条(走 input 事件,这里不响应点击)
     const sizeBtn = e.target.closest('.gm-size-btn');
-    if (sizeBtn && sizeBtn.dataset.size) {
-      handleSizeClick(sizeBtn.dataset.size);
-      return;
-    }
+    if (sizeBtn) return;
 
     // group 折叠/展开(点击 header 空白处)
     if (action === 'rename') {
@@ -763,6 +857,25 @@
     }
     const btn = shadow.querySelector(`.gm-toolbar [data-action="toggle-${name}"]`);
     if (btn) btn.classList.toggle('gm-btn-active', open);
+  }
+
+  // ─── 圆环设置面板:展开/收起状态 — 本地 DOM + (可选)持久化到 storage ───
+  // expanded=true 时显示 ring-settings section 且 ⚙ 按钮高亮;否则收起。
+  // persist=true 时调后台 updateGotoRingSettingsExpanded 写入 settings(跨 tab + 跨刷新保留)。
+  function applySettingsExpandedState(expanded, { persist = false } = {}) {
+    const shadow = getShadow();
+    if (!shadow) return;
+    toggleSection('ring-settings', expanded);
+    // ⚙ 按钮 active 高亮(展开时)
+    const gearBtn = shadow.querySelector('[data-action="open-settings"]');
+    if (gearBtn) gearBtn.classList.toggle('gm-icon-btn-active', expanded);
+    if (persist) {
+      send('updateGotoRingSettingsExpanded', { expanded }).then(res => {
+        if (!res || !res.success) {
+          console.warn('[GotoManager] persist expanded failed:', res?.error);
+        }
+      });
+    }
   }
 
   function populateAddCurrentList() {
@@ -878,19 +991,27 @@
     if (res?.success) await loadAndRender();
   }
 
-  // ─── 圆环设置:size 按钮点击(控制悬浮 goto 圆环) ───
-  async function handleSizeClick(size) {
-    if (size !== ringSize) {
-      ringSize = size; // 本地先更新,立即给用户反馈
-      send('updateGotoRingSize', { size }).then(res => {
-        if (res && res.success) {
-          console.log('[GotoManager] 悬浮圆环 size →', res.size);
-        } else {
+  // ─── 圆环设置:滑动条 input 处理(控制悬浮 goto 圆环大小) ───
+  // 拖动时实时更新本地状态 + 调 background 同步,background 写完会通过 storage.onChanged
+  // 广播给所有 tab 的 goto.js,后者立即应用。input 事件本身节流意义不大(范围只有 24-96),
+  // 但若未来扩展到更大范围可加 requestAnimationFrame 合并。
+  let sizeSyncPending = null;     // 去抖:同一帧多次 input 只发最后一次
+  async function handleSizeSliderInput(e) {
+    const px = parseInt(e.target.value, 10);
+    if (!Number.isFinite(px)) return;
+    if (px === ringSize) return; // 没变就跳过
+    ringSize = px;
+    renderSettingsUI();          // 立即更新"XXpx"标签和滑块填充
+    // 去抖 50ms:用户拖动时合并连续事件,只在松手前最后一次同步到 storage
+    if (sizeSyncPending) clearTimeout(sizeSyncPending);
+    sizeSyncPending = setTimeout(() => {
+      sizeSyncPending = null;
+      send('updateGotoRingSize', { size: px }).then(res => {
+        if (!res || !res.success) {
           console.warn('[GotoManager] size sync failed:', res?.error);
         }
       });
-    }
-    renderSettingsUI();
+    }, 50);
   }
 
   // ─── 圆环设置:悬浮 goto 圆环背景 ───
@@ -1001,6 +1122,10 @@
       // 悬浮圆环 size / bg 变化 → 刷新设置面板显示
       if (s.gotoRingSize !== undefined || s.gotoRingBg !== undefined) {
         loadRingSettings();
+      }
+      // 面板展开状态变化 → 同步(其他 tab 改了,本 tab 跟着变;不要 persist,避免写回 storage 形成回环)
+      if (s.gotoRingSettingsExpanded !== undefined && document.getElementById(WRAPPER_ID)) {
+        applySettingsExpandedState(!!s.gotoRingSettingsExpanded);
       }
       const el = document.getElementById(WRAPPER_ID);
       if (shouldHide(s)) {
