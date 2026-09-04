@@ -4,7 +4,7 @@
  * 协调各功能模块
  */
 
-import { loadGroups, setDefaultGroup, deleteGroup, addGroup, toggleFocusSearchGroup, loadNamespaces, getSelectedColor } from './modules/groups.js';
+import { loadGroups, setDefaultGroup, deleteGroup, addGroup, toggleFocusSearchGroup, toggleGotoGroup, loadNamespaces, getSelectedColor } from './modules/groups.js';
 import { loadSettings, bindSettingsListeners } from './modules/settings.js';
 import { bindQuickActionsListeners } from './modules/quickActions.js';
 import { loadVideoProgress, bindVideoProgressEvents, refreshCurrentVideo } from './modules/videoProgress.js';
@@ -97,6 +97,18 @@ export function closeAddGroupDialog() {
 /**
  * 添加分组处理
  */
+/**
+ * 统一的 loadGroups 回调集 — 所有重渲染走这一个工厂,避免 5 处重复
+ */
+function groupCallbacks() {
+  return {
+    onDelete: handleDeleteGroup,
+    onSetDefault: handleSetDefaultGroup,
+    onToggleFocus: handleToggleFocus,
+    onToggleGoto: handleToggleGoto
+  };
+}
+
 async function handleAddGroup() {
   const name = document.getElementById('newGroupName').value.trim();
   if (!name) {
@@ -107,11 +119,7 @@ async function handleAddGroup() {
   try {
     await addGroup(name, getSelectedColor());
     closeAddGroupDialog();
-    await loadGroups({
-      onDelete: handleDeleteGroup,
-      onSetDefault: handleSetDefaultGroup,
-      onToggleFocus: handleToggleFocus
-    });
+    await loadGroups(groupCallbacks());
     showToast(document.querySelector('.app'), '分组已创建', 'success');
   } catch (e) {
     showToast(document.querySelector('.app'), e.message, 'error');
@@ -123,11 +131,7 @@ async function handleAddGroup() {
  */
 async function handleSetDefaultGroup(groupId) {
   await setDefaultGroup(groupId);
-  await loadGroups({
-    onDelete: handleDeleteGroup,
-    onSetDefault: handleSetDefaultGroup,
-    onToggleFocus: handleToggleFocus
-  });
+  await loadGroups(groupCallbacks());
 }
 
 /**
@@ -136,25 +140,37 @@ async function handleSetDefaultGroup(groupId) {
 async function handleDeleteGroup(groupId) {
   const success = await deleteGroup(groupId);
   if (success) {
-    await loadGroups({
-      onDelete: handleDeleteGroup,
-      onSetDefault: handleSetDefaultGroup,
-      onToggleFocus: handleToggleFocus
-    });
+    await loadGroups(groupCallbacks());
     showToast(document.querySelector('.app'), '分组已删除', 'success');
   }
 }
 
 /**
- * 切换专注搜索分组（行内 checkbox）
+ * 切换专注搜索分组(行内 toggle 按钮)
  */
 async function handleToggleFocus(groupId, enabled, prevChecked) {
   try {
     await toggleFocusSearchGroup(groupId, enabled);
   } catch (e) {
-    const box = document.getElementById('groupsList')?.querySelector(`.focus-checkbox[data-id="${groupId}"]`);
-    if (box) box.checked = prevChecked;
+    // 失败回滚按钮激活态(新扁平化 UI:gt-focus 按钮 .on class)
+    const btn = document.getElementById('groupsList')?.querySelector(`.gt-focus[data-id="${groupId}"]`);
+    if (btn) btn.classList.toggle('on', prevChecked);
     showToast(document.querySelector('.app'), `专注搜索更新失败: ${e.message}`, 'error');
+  }
+}
+
+/**
+ * 切换 goto 圆环源分组(行内 toggle 按钮)
+ */
+async function handleToggleGoto(groupId, enabled) {
+  const btn = document.getElementById('groupsList')?.querySelector(`.gt-goto[data-id="${groupId}"]`);
+  try {
+    const isGoto = await toggleGotoGroup(groupId);
+    // 以后台权威结果同步激活态(isGoto 是 toggle 后的真实值)
+    if (btn) btn.classList.toggle('on', isGoto);
+  } catch (e) {
+    if (btn) btn.classList.remove('on');
+    showToast(document.querySelector('.app'), `goto 更新失败: ${e.message}`, 'error');
   }
 }
 
@@ -225,19 +241,11 @@ async function init() {
   // 加载各模块数据
   await Promise.all([
     loadSettings(currentSettings),
-    loadGroups({
-      onDelete: handleDeleteGroup,
-      onSetDefault: handleSetDefaultGroup,
-      onToggleFocus: handleToggleFocus
-    }),
+    loadGroups(groupCallbacks()),
     loadNamespaces({
       onChange: async () => {
         // setActiveNamespace 成功后重渲染整个分组列表(切 ns 后 group 集合换了)
-        await loadGroups({
-          onDelete: handleDeleteGroup,
-          onSetDefault: handleSetDefaultGroup,
-          onToggleFocus: handleToggleFocus
-        });
+        await loadGroups(groupCallbacks());
       }
     })
   ]);
@@ -312,18 +320,10 @@ async function init() {
         await Promise.all([
           loadNamespaces({
             onChange: async () => {
-              await loadGroups({
-                onDelete: handleDeleteGroup,
-                onSetDefault: handleSetDefaultGroup,
-                onToggleFocus: handleToggleFocus
-              });
+              await loadGroups(groupCallbacks());
             }
           }),
-          loadGroups({
-            onDelete: handleDeleteGroup,
-            onSetDefault: handleSetDefaultGroup,
-            onToggleFocus: handleToggleFocus
-          })
+          loadGroups(groupCallbacks())
         ]);
       }
     }

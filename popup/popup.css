@@ -338,109 +338,119 @@ body {
   flex-shrink: 0;
 }
 
-/* ========== 分组管理页（合并后） ========== */
+/* ========== 分组管理页（扁平化单行布局） ========== */
 
 .groups-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
 }
 
+/* 单行 group item:色点 | 名称 | tab数 | ★ 🔍 🎯 ✕ */
 .group-item {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 10px 12px;
-}
-
-.group-item .group-row {
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 6px 10px;
+  border-left: 3px solid var(--group-color, transparent);
+  min-height: 34px;
+}
+
+.group-item.is-default {
+  background: color-mix(in srgb, var(--color-accent, #00c8ff) 8%, transparent);
 }
 
 .group-item .group-color {
-  width: 14px;
-  height: 14px;
+  width: 10px;
+  height: 10px;
   flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--group-color, #ccc);
 }
 
 .group-item .group-name {
   flex: 1;
+  min-width: 0;
   font-size: 12px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.group-item .group-default-badge {
-  font-size: 9px;
-  padding: 2px 6px;
-  flex-shrink: 0;
+.group-item.is-default .group-name {
+  font-weight: 700;
 }
 
 .group-item .group-tab-count {
   font-size: 10px;
   flex-shrink: 0;
-  margin-left: auto;
-  padding: 2px 6px;
+  color: var(--text-secondary, #888);
+  font-variant-numeric: tabular-nums;
 }
 
-.group-item .group-controls {
+/* 右侧状态 toggle 组:未激活半透明,激活 accent 高亮 */
+.group-toggles {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  gap: 2px;
+  flex-shrink: 0;
 }
 
-.group-item .group-focus-toggle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  cursor: pointer;
-  user-select: none;
-  flex: 1;
-}
-
-.group-item .group-focus-toggle input[type="checkbox"] {
+.gt-toggle {
   appearance: none;
   -webkit-appearance: none;
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  line-height: 1;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary, #888);
+  opacity: 0.35;
   cursor: pointer;
-  position: relative;
-  flex-shrink: 0;
-  margin: 0;
-  border: var(--border-width) solid var(--border-color);
-  background: var(--bg-surface);
+  transition: opacity 0.12s, background 0.12s, color 0.12s, transform 0.06s;
 }
 
-.group-item .group-focus-toggle input[type="checkbox"]:checked {
-  background: var(--color-accent);
+.gt-toggle:hover {
+  opacity: 0.85;
+  background: var(--bg-subtle-hover, #e8e8e4);
 }
 
-.group-item .group-focus-toggle input[type="checkbox"]:checked::after {
-  content: '';
-  position: absolute;
-  left: 4px;
-  top: 1px;
-  width: 5px;
-  height: 9px;
-  border: solid var(--text-on-accent);
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
+.gt-toggle:active {
+  transform: scale(0.9);
 }
 
-.group-item .group-actions-buttons {
-  display: flex;
-  gap: 4px;
-  flex-shrink: 0;
+.gt-toggle.on {
+  opacity: 1;
+  color: var(--color-accent, #00c8ff);
+  background: color-mix(in srgb, var(--color-accent, #00c8ff) 14%, transparent);
 }
 
-.group-item .group-actions-buttons button {
-  padding: 3px 7px;
-  font-size: 10px;
-  cursor: pointer;
+.gt-toggle:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+/* 默认分组 🎯 激活时用 success 色(与旧「目标」badge 一致) */
+.gt-toggle.gt-default.on {
+  color: var(--color-success, #c8ff00);
+  background: color-mix(in srgb, var(--color-success, #c8ff00) 18%, transparent);
+  filter: brightness(0.75) saturate(1.4);
+}
+
+/* 删除 ✕ hover 时染 danger 色 */
+.gt-toggle.gt-delete {
+  opacity: 0.25;
+}
+
+.gt-toggle.gt-delete:hover {
+  opacity: 1;
+  color: var(--color-danger, #ff4d6d);
+  background: color-mix(in srgb, var(--color-danger, #ff4d6d) 12%, transparent);
 }
 
 /* ========== 设置页 ========== */

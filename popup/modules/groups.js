@@ -206,13 +206,17 @@ export async function loadNamespaces({ onChange } = {}) {
 }
 
 /**
- * 加载全量分组列表 + 每行专注搜索勾选 + tab 计数
+ * 加载全量分组列表 — 扁平化单行布局
+ * 每行:色点 + 名称 + tab 数 + 三个状态 toggle(Goto ★ / 专注 🔍 / 默认 🎯)+ 删除
+ * 状态 toggle 激活时 accent 高亮,再点取消;未激活时半透明,点击即激活。
+ *
  * @param {Object} options
  * @param {Function} options.onDelete - 删除分组回调 (groupId)
  * @param {Function} options.onSetDefault - 设置默认分组回调 (groupId)
  * @param {Function} options.onToggleFocus - 切换专注搜索回调 (groupId, enabled, prevChecked)
+ * @param {Function} [options.onToggleGoto] - 切换 goto 回调 (groupId, enabled)
  */
-export async function loadGroups({ onDelete, onSetDefault, onToggleFocus } = {}) {
+export async function loadGroups({ onDelete, onSetDefault, onToggleFocus, onToggleGoto } = {}) {
   const dataResponse = await chrome.runtime.sendMessage({ action: 'getAllData' });
   if (!dataResponse?.success) {
     document.getElementById('groupsList').innerHTML =
@@ -233,55 +237,61 @@ export async function loadGroups({ onDelete, onSetDefault, onToggleFocus } = {})
       <div class="empty-state">
         <div>当前命名空间「${escapeHtml(activeNs)}」暂无分组</div>
         ${activeNs && activeNs !== 'default'
-          ? `<div style="margin-top:6px;font-size:12px;color:#888;">默认分组在「default」中,可从上方 ns 下拉框切换回来</div>`
+          ? `<div style="margin-top:6px;font-size:12px;color:#888;">默认分组在「default」中,可从上方 ns chips 切换回来</div>`
           : `<div style="margin-top:6px;font-size:12px;color:#888;">点击「+ 添加分组」创建第一个</div>`}
       </div>`;
     return;
   }
 
   groupsList.innerHTML = groups.map(group => {
+    const isGoto = group.goto === true;
     const isInFocus = group.inFocusSearch === true;
+    const isDefault = group.isDefault === true;
     const tabCount = (tabs[group.id] || []).length;
-    return `<div class="group-item" style="border-left-color: ${group.color}">
-      <div class="group-row">
-        <div class="group-color" style="background: ${group.color}"></div>
-        <div class="group-name">${escapeHtml(group.name)}</div>
-        ${group.isDefault ? '<span class="group-default-badge">目标</span>' : ''}
-        <span class="group-tab-count">${tabCount} 个</span>
-      </div>
-      <div class="group-controls">
-        <label class="group-focus-toggle">
-          <input type="checkbox" class="focus-checkbox" data-id="${group.id}" ${isInFocus ? 'checked' : ''}>
-          <span>专注搜索</span>
-        </label>
-        <div class="group-actions-buttons">
-          ${!group.isDefault ? `<button class="set-default" data-id="${group.id}">设为目标</button>` : ''}
-          <button class="delete" data-id="${group.id}">删除</button>
+    return `
+      <div class="group-item${isDefault ? ' is-default' : ''}" data-id="${group.id}" style="--group-color: ${group.color}">
+        <span class="group-color" title="${escapeHtml(group.color)}"></span>
+        <span class="group-name" title="${escapeHtml(group.name)}">${escapeHtml(group.name)}</span>
+        <span class="group-tab-count">${tabCount}</span>
+        <div class="group-toggles">
+          <button class="gt-toggle gt-goto${isGoto ? ' on' : ''}" data-id="${group.id}" data-action="toggle-goto"
+            title="${isGoto ? '已在 goto 圆环展示,点击取消' : '设为 goto 圆环展示源'}">★</button>
+          <button class="gt-toggle gt-focus${isInFocus ? ' on' : ''}" data-id="${group.id}" data-action="toggle-focus"
+            title="${isInFocus ? '已加入专注搜索,点击移除' : '加入专注搜索'}">🔍</button>
+          <button class="gt-toggle gt-default${isDefault ? ' on' : ''}" data-id="${group.id}" data-action="set-default" ${isDefault ? 'disabled' : ''}
+            title="${isDefault ? '当前默认分组(快捷添加目标)' : '设为默认分组(快捷添加目标)'}">🎯</button>
+          <button class="gt-toggle gt-delete" data-id="${group.id}" data-action="delete"
+            title="删除分组">✕</button>
         </div>
-      </div>
-    </div>`;
+      </div>`;
   }).join('');
 
-  // 绑定事件
-  if (onSetDefault) {
-    groupsList.querySelectorAll('.set-default').forEach(btn => {
-      btn.addEventListener('click', () => onSetDefault(btn.dataset.id));
+  // ── 事件绑定(统一按 data-action 委托) ──
+  groupsList.querySelectorAll('[data-action]').forEach(btn => {
+    const groupId = btn.dataset.id;
+    const action = btn.dataset.action;
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      switch (action) {
+        case 'toggle-goto': {
+          if (onToggleGoto) await onToggleGoto(groupId, !btn.classList.contains('on'));
+          break;
+        }
+        case 'toggle-focus': {
+          if (onToggleFocus) await onToggleFocus(groupId, !btn.classList.contains('on'), btn.classList.contains('on'));
+          break;
+        }
+        case 'set-default': {
+          if (onSetDefault) await onSetDefault(groupId);
+          break;
+        }
+        case 'delete': {
+          if (onDelete) await onDelete(groupId);
+          break;
+        }
+      }
     });
-  }
-
-  if (onDelete) {
-    groupsList.querySelectorAll('.delete').forEach(btn => {
-      btn.addEventListener('click', () => onDelete(btn.dataset.id));
-    });
-  }
-
-  if (onToggleFocus) {
-    groupsList.querySelectorAll('.focus-checkbox').forEach(box => {
-      box.addEventListener('change', (e) => {
-        onToggleFocus(box.dataset.id, e.target.checked, !e.target.checked);
-      });
-    });
-  }
+  });
 }
 
 /**
@@ -330,6 +340,20 @@ export async function toggleFocusSearchGroup(groupId, enabled) {
   if (!response?.success) {
     throw new Error(response?.error || 'toggleGroupFocusSearch failed');
   }
+}
+
+/**
+ * 切换分组的 goto 状态(走 setGroupAsGoto 消息 → model toggleGoto)
+ */
+export async function toggleGotoGroup(groupId) {
+  const response = await chrome.runtime.sendMessage({
+    action: 'setGroupAsGoto',
+    groupId
+  });
+  if (!response?.success) {
+    throw new Error(response?.error || 'setGroupAsGoto failed');
+  }
+  return response.isGoto;
 }
 
 /**
