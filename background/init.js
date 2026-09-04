@@ -35,7 +35,8 @@ export async function initializeDefaultData() {
         showGotoRing: false,
         ringSidebarEnabled: true,
         showVpSidebar: true,
-        theme: 'neo-brutalism'
+        theme: 'neo-brutalism',
+        activeNamespace: 'default'
       }
     });
   } else {
@@ -101,6 +102,10 @@ export async function initializeDefaultData() {
     }
     if (updatedSettings.gotoRingSettingsExpanded === undefined) {
       updatedSettings.gotoRingSettingsExpanded = false; // goto 管理圆环 ⚙ 面板默认收起
+      needUpdate = true;
+    }
+    if (updatedSettings.activeNamespace === undefined) {
+      updatedSettings.activeNamespace = 'default'; // 分组命名空间默认值
       needUpdate = true;
     }
     // 注:visibleGroups / focusSearchGroups 已迁移为 group.visible / group.inFocusSearch

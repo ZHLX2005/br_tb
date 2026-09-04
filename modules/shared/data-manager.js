@@ -24,16 +24,17 @@ class DataManager {
    * 使用 'in' 操作符检查 key，避免空数组被 falsy 判断导致不更新
    */
   async loadData() {
+    // CLAUDE.md 规约:groups / tabs 只能由 background/group-model.js 读写,
+    // 前端必须走 background/groups.js 适配层 (getAllData 已在 model 内部按 ns 过滤)
     const data = await chrome.storage.local.get([
-      'groups', 'tabs', 'timelineSnapshots', 'recordings', 'recordingState', 'videoGroups', 'leetcodeProgress', 'notePages', 'settings'
+      'timelineSnapshots', 'recordings', 'recordingState', 'videoGroups', 'leetcodeProgress', 'notePages', 'settings'
     ]);
+    const groupData = await this.sendMessage('getAllData');
+    const groups = groupData?.groups;
+    const tabs = groupData?.tabs;
 
-    if ('groups' in data) {
-      this.data.groups = data.groups;
-    }
-    if ('tabs' in data) {
-      this.data.tabs = data.tabs;
-    }
+    this.data.groups = Array.isArray(groups) ? groups : this.data.groups;
+    this.data.tabs = (tabs && typeof tabs === 'object') ? tabs : this.data.tabs;
     if ('timelineSnapshots' in data) {
       this.data.timelineSnapshots = data.timelineSnapshots;
     }

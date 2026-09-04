@@ -12,6 +12,9 @@ import {
   updateGotoRingSettingsExpanded
 } from './ring-settings.js';
 import {
+  getActiveNamespace,
+  setActiveNamespace,
+  getAllGroupsAcrossNamespaces,
   getGroups,
   getTabsMap,
   getDefaultGroupId,
@@ -134,6 +137,37 @@ function setupGroupsListeners() {
           break;
         }
 
+        case 'getAllGroupsAcrossNamespaces': {
+          // 跨 ns group 列表,popup / board 的 ns 下拉框用来聚合所有出现过的 ns 名。
+          // spec §4.1.5:仅供导出 / 跨 ns 视图 / 调试使用;调用方需明确知道是跨 ns 视图。
+          sendResponse({ success: true, groups: await getAllGroupsAcrossNamespaces() });
+          break;
+        }
+
+        case 'getActiveNamespace': {
+          // namespace / activeNamespace 双字段:与 setActiveNamespace 一致,兼容两侧调用方读法
+          const ns = await getActiveNamespace();
+          sendResponse({ success: true, namespace: ns, activeNamespace: ns });
+          break;
+        }
+
+        case 'setActiveNamespace': {
+          // 入参兼容:namespace(本 adapter 契约)与 ns(spec §5.1,popup/board UI 用)
+          const nextNs = request.namespace !== undefined ? request.namespace : request.ns;
+          try {
+            // model 对非法 ns 抛 INVALID_NAMESPACE;成功时返回 undefined(spec §4.1.2),
+            // 因此以「未抛错且未显式返回 false」判定成功,不依赖返回值真值。
+            const ok = await setActiveNamespace(nextNs);
+            // 切 ns 后 goto 圆环的数据源整体换了一批,通知所有 tab 重建圆环
+            broadcastGotoRefresh();
+            // namespace / activeNamespace 双字段:兼容两侧调用方读法
+            sendResponse({ success: ok !== false, namespace: nextNs, activeNamespace: nextNs });
+          } catch (e) {
+            sendResponse({ success: false, error: e.message });
+          }
+          break;
+        }
+
         case 'clearAllGroups': {
           await clearAllGroupTabs();
           sendResponse({ success: true });
@@ -150,6 +184,11 @@ function setupGroupsListeners() {
         case 'addTab': {
           const defaultId = await getDefaultGroupId();
           const targetGroupId = request.groupId || defaultId;
+          if (!targetGroupId) {
+            // 当前 ns 内没有任何 group — 避免把 null 直接喂给 toggleTabInGroup 触发 GROUP_NOT_FOUND
+            sendResponse({ success: false, error: '当前命名空间没有分组,请先创建分组' });
+            break;
+          }
           const action = await toggleTabInGroup(request.tab, targetGroupId);
           sendResponse({ success: true, action });
           break;

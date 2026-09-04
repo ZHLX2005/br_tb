@@ -14,6 +14,14 @@ class GroupView {
     this.kanban = null;
     this.boardActionsObserver = null;
     this.visibleGroups = new Set(); // 存储可见分组的 ID
+    // 【ns】命名空间状态:从 settings.activeNamespace 缓存当前活跃 ns,
+    // availableNamespaces 列出已知 ns(用于下拉框选项)。渲染时直接读这两个属性,
+    // 跨源切 ns(popup / content script)的同步由 tabboard.js 的 storage.onChanged
+    // 监听器触发 updateData() + render(),此处不再额外注册 listener。
+    this.activeNamespace = 'default';
+    this.availableNamespaces = ['default'];
+    // 启动时异步拉一次,确保下拉框选项尽量完整(若 message 不可用,降级为仅 active)
+    this._refreshAvailableNamespaces();
   }
 
   /**
@@ -24,6 +32,46 @@ class GroupView {
     this.tabs = data.tabs || {};
     // 可见性已迁移为 group.visible 属性(原 settings.visibleGroups,见 background/group-model.js)
     this._refreshVisibleGroups();
+    // 【ns】从 settings.activeNamespace 同步当前 ns;同步刷新下拉框候选(异步)
+    if (data.settings && typeof data.settings.activeNamespace === 'string') {
+      this.activeNamespace = data.settings.activeNamespace;
+      if (!this.availableNamespaces.includes(this.activeNamespace)) {
+        this.availableNamespaces = [...this.availableNamespaces, this.activeNamespace];
+      }
+    }
+    this._refreshAvailableNamespaces();
+  }
+
+  /**
+   * 【ns】异步拉取所有 ns 下的 group,聚合出 ns 集合。
+   * 调用 getAllGroupsAcrossNamespaces 消息(若 adapter 尚未实现则忽略错误,
+   * 下拉框候选退化为仅当前 active)。
+   * 注意:严格遵守 CLAUDE.md 规约,不直接 chrome.storage.local.get(['groups'])。
+   */
+  async _refreshAvailableNamespaces() {
+    try {
+      const result = await this.dataManager.sendMessage('getAllGroupsAcrossNamespaces');
+      const allGroups = result?.groups;
+      if (!Array.isArray(allGroups)) return;
+      const nsSet = new Set([this.activeNamespace]);
+      for (const g of allGroups) {
+        if (g && typeof g.ns === 'string') nsSet.add(g.ns);
+      }
+      this.availableNamespaces = Array.from(nsSet).sort();
+    } catch (err) {
+      // action 尚未在 adapter 注册时静默降级,不影响主流程
+      // (开发期可在 console 看到 warn,生产环境忽略)
+      if (err && !/Unknown action/i.test(String(err.message || err))) {
+        console.warn('[GroupView] refresh namespaces failed:', err);
+      }
+    }
+  }
+
+  /**
+   * 【ns】返回下拉框候选 ns 列表
+   */
+  _getAvailableNamespaces() {
+    return this.availableNamespaces;
   }
 
   /**
@@ -64,10 +112,24 @@ class GroupView {
 
     emptyState.style.display = 'none';
 
+    // 【ns】命名空间下拉框,放在操作按钮区最前(spec §6.2:与视图切换 tab 并列)
+    // 结构与 popup 保持一致(<input list> + <datalist>),支持键入新 ns 名
+    const nsSwitcherHtml = `
+      <div class="ns-switcher" title="切换命名空间">
+        <label for="board-ns-input" class="ns-switcher-label">ns:</label>
+        <input id="board-ns-input" class="ns-switcher-input" list="board-ns-list" autocomplete="off" value="${escapeHtml(this.activeNamespace)}" />
+        <datalist id="board-ns-list">
+          ${this._getAvailableNamespaces().map(ns => `<option value="${escapeHtml(ns)}"></option>`).join('')}
+        </datalist>
+        <span class="ns-help" title="切换命名空间会隐藏其他命名空间的分组，原数据不会被删除">?</span>
+      </div>
+    `;
+
     // 添加操作按钮区域
     const actionsHeader = document.createElement('div');
     actionsHeader.className = 'board-actions-header';
     actionsHeader.innerHTML = `
+      ${nsSwitcherHtml}
       <button class="board-action-btn add-group-btn" title="添加新分组">+ 添加分组</button>
       <button class="board-action-btn filter-groups-btn" title="选择要显示的分组">筛选</button>
       <button class="board-action-btn refresh-sort-btn" title="按点击次数刷新排序">刷新排序</button>
@@ -560,6 +622,56 @@ class GroupView {
     if (importBtn) {
       importBtn.addEventListener('click', () => this._importData());
     }
+
+    // 【ns】命名空间下拉框 change 事件(once-bound,避免 render() 多次调用累积监听器)
+    this._setupNamespaceSwitcher();
+  }
+
+  /**
+   * 【ns】绑定 ns 下拉框 change 事件。
+   * - 走 dataManager.sendMessage('setActiveNamespace', { namespace }) 切 ns
+   * - 成功后 reloadData + render()(同时也会触发 tabboard.js 的 storage.onChanged,
+   *   导致一次额外的 render(),属可接受的双重渲染,无副作用)
+   * - 失败时把 input 值回退到当前 activeNamespace
+   * 注:跨源切 ns(popup / content script)的同步,由 tabboard.js 的
+   *     storage.onChanged 监听器触发 updateData() + render(),此 input 随之刷新。
+   */
+  _setupNamespaceSwitcher() {
+    const nsInput = document.querySelector('#board-ns-input');
+    if (!nsInput || nsInput.__nsBound) return;
+    nsInput.__nsBound = true;
+
+    nsInput.addEventListener('change', async (e) => {
+      const newNs = e.target.value.trim();
+      if (!newNs) {
+        e.target.value = this.activeNamespace;
+        return;
+      }
+      if (newNs === this.activeNamespace) return;
+
+      let result;
+      try {
+        result = await this.dataManager.sendMessage('setActiveNamespace', { namespace: newNs });
+      } catch (err) {
+        alert(`切换命名空间失败: ${err?.message || err}`);
+        e.target.value = this.activeNamespace;
+        return;
+      }
+
+      if (!result || result.success === false || result.error) {
+        alert(`切换命名空间失败: ${result?.error || '未知错误'}`);
+        e.target.value = this.activeNamespace;
+        return;
+      }
+
+      // 成功:重新拉数据 + 重渲染(也走 updateData → this.activeNamespace 同步)
+      try {
+        await this.dataManager.loadData();
+        this.render();
+      } catch (err) {
+        console.error('[GroupView] loadData after ns switch failed:', err);
+      }
+    });
   }
 
   /**

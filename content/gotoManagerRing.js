@@ -937,6 +937,10 @@
     // 默认颜色循环
     const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24', '#6c5ce7', '#a29bfe', '#fd79a8', '#00b894', '#e17055', '#74b9ff'];
     const color = colors[menuData.length % colors.length];
+    // 【ns】本侧边栏只展示 active ns 的 goto group(由 model 内部按 ns 过滤);
+    // addGroup / setGroupAsGoto 都作用于 active ns,因此「+ 新建 goto 分组」在
+    // 当前 active ns 下创建,创建后会被本侧边栏立即看到(由上面的 storage.onChanged
+    // activeNamespace + groups 双触发 loadAndRender)。无需显式传 ns。
     const addRes = await send('addGroup', { name, color });
     if (addRes?.success && addRes.groupId) {
       await send('setGroupAsGoto', { groupId: addRes.groupId });
@@ -1119,6 +1123,7 @@
     if (ns !== 'local') return;
     if (changes.settings) {
       const s = changes.settings.newValue || {};
+      const oldS = changes.settings.oldValue || {};
       // 悬浮圆环 size / bg 变化 → 刷新设置面板显示
       if (s.gotoRingSize !== undefined || s.gotoRingBg !== undefined) {
         loadRingSettings();
@@ -1132,6 +1137,15 @@
         if (el) removeSidebar();
       } else {
         if (!el) build();
+      }
+      // 【ns】activeNamespace 变化 → 重新拉取侧边栏数据。
+      // getGotoGroupsFull 由 model 内部已按 active ns 过滤(参见 background/group-model.js
+      // getAllGroups 的 ns 过滤 + getGotoGroupsFull 的 goto filter),所以这里只需重拉。
+      // 不调 loadRingSettings():那是 size/bg 控制面板的状态,与 ns 无关。
+      if (s.activeNamespace !== oldS.activeNamespace) {
+        if (document.getElementById(WRAPPER_ID)) {
+          loadAndRender();
+        }
       }
     }
     // groups / tabs 变化 → 失效信号,重拉(去掉自己刚触发的 setTimeout 防回环:这里用 seq 防)

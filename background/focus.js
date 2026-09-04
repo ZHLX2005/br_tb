@@ -15,6 +15,7 @@ async function getOrCreateHistoryGroup() {
   const existing = groups.find(g => g.name === HISTORY_GROUP_NAME);
   if (existing) return existing;
   // 统一走 createGroup;visible: false 保持历史行为(History 分组不在看板显示)
+  // 每个 ns 各自拥有独立的 History group(createGroup 内部会写入 active ns)
   return createGroup({
     name: HISTORY_GROUP_NAME,
     color: HISTORY_GROUP_COLOR,

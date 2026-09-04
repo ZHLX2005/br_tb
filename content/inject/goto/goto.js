@@ -561,6 +561,7 @@
     if (namespace !== 'local') return;
     if (changes.settings) {
       const newSettings = changes.settings.newValue || {};
+      const oldSettings = changes.settings.oldValue || {};
       const newEnabled = !!newSettings.showGotoRing;
       if (newEnabled !== isEnabled) {
         isEnabled = newEnabled;
@@ -582,6 +583,13 @@
         }
         if (newSettings.gotoRingBg !== undefined) ringSettings.bg = newSettings.gotoRingBg;
         applyRingSettings();
+      }
+      // 【ns】activeNamespace 变化 → model 内部 getGotoMenuData 已按 active ns 过滤,
+      // 这里只触发 menuData 重拉;圆环本身无 ns 特定 UI(只显示 ☰ / 背景图),不需要销毁重建。
+      if (newSettings.activeNamespace !== oldSettings.activeNamespace) {
+        loadMenuData().then(() => {
+          if (isEnabled) buildRing();
+        });
       }
     }
     if (changes.tabs || changes.groups) {

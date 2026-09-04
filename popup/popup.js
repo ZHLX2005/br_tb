@@ -4,7 +4,7 @@
  * 协调各功能模块
  */
 
-import { loadGroups, setDefaultGroup, deleteGroup, addGroup, toggleFocusSearchGroup, getSelectedColor } from './modules/groups.js';
+import { loadGroups, setDefaultGroup, deleteGroup, addGroup, toggleFocusSearchGroup, loadNamespaces, getSelectedColor } from './modules/groups.js';
 import { loadSettings, bindSettingsListeners } from './modules/settings.js';
 import { bindQuickActionsListeners } from './modules/quickActions.js';
 import { loadVideoProgress, bindVideoProgressEvents, refreshCurrentVideo } from './modules/videoProgress.js';
@@ -229,6 +229,16 @@ async function init() {
       onDelete: handleDeleteGroup,
       onSetDefault: handleSetDefaultGroup,
       onToggleFocus: handleToggleFocus
+    }),
+    loadNamespaces({
+      onChange: async () => {
+        // setActiveNamespace 成功后重渲染整个分组列表(切 ns 后 group 集合换了)
+        await loadGroups({
+          onDelete: handleDeleteGroup,
+          onSetDefault: handleSetDefaultGroup,
+          onToggleFocus: handleToggleFocus
+        });
+      }
     })
   ]);
 
@@ -291,9 +301,31 @@ async function init() {
   initTheme();
 
   // 监听其他来源的 settings 变化,同步本地 cache(其他 tab/popup/ring 改 settings 时)
-  chrome.storage.onChanged.addListener((changes, area) => {
+  chrome.storage.onChanged.addListener(async (changes, area) => {
     if (area === 'local' && changes.settings) {
       Object.assign(currentSettings, changes.settings.newValue || {});
+
+      // 外部来源切了 ns(board view / content script / 其他 popup)→ 重渲染 namespace 下拉框 + 分组列表
+      const oldActiveNs = changes.settings.oldValue?.activeNamespace;
+      const newActiveNs = changes.settings.newValue?.activeNamespace;
+      if (oldActiveNs !== newActiveNs) {
+        await Promise.all([
+          loadNamespaces({
+            onChange: async () => {
+              await loadGroups({
+                onDelete: handleDeleteGroup,
+                onSetDefault: handleSetDefaultGroup,
+                onToggleFocus: handleToggleFocus
+              });
+            }
+          }),
+          loadGroups({
+            onDelete: handleDeleteGroup,
+            onSetDefault: handleSetDefaultGroup,
+            onToggleFocus: handleToggleFocus
+          })
+        ]);
+      }
     }
   });
 }
