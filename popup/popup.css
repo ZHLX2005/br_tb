@@ -265,6 +265,37 @@ body {
   background: var(--bg-subtle-hover, #e8e8e4);
 }
 
+/* ns chip 列表:所有可选 ns 一目了然,不依赖 datalist 焦点交互 */
+.namespace-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+  padding: 0 4px;
+}
+
+.ns-chip {
+  font-size: 11px;
+  padding: 2px 8px;
+  border: 1px solid var(--border-color, #000);
+  border-radius: 12px;
+  background: var(--bg-surface, #fff);
+  color: var(--text-secondary, #555);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.ns-chip:hover {
+  background: var(--bg-subtle, #f7f7f7);
+}
+
+.ns-chip.active {
+  background: var(--color-accent, #00c8ff);
+  color: var(--text-on-accent, #111);
+  font-weight: 700;
+  border-color: var(--color-accent, #00c8ff);
+}
+
 .ns-help {
   display: inline-flex;
   align-items: center;

@@ -95,6 +95,37 @@
   background: var(--bg);
 }
 
+/* ns chip 列表:所有可选 ns 一目了然 */
+.ns-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-left: 4px;
+  margin-bottom: 4px;
+}
+
+.ns-chip {
+  font-size: 11px;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: white;
+  color: var(--text-secondary, #888);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.ns-chip:hover {
+  background: var(--bg);
+}
+
+.ns-chip.active {
+  background: var(--color-accent, #42a5f5);
+  color: white;
+  border-color: var(--color-accent, #42a5f5);
+  font-weight: 700;
+}
+
 /* jKanban 看板样式覆盖 */
 .kanban-container {
   display: flex;

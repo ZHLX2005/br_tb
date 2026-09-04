@@ -101,6 +101,13 @@ export async function loadNamespaces({ onChange } = {}) {
       <button id="namespaceApply" class="namespace-apply" title="切换到该命名空间">应用</button>
       <span class="ns-help" title="切换命名空间会隐藏其他命名空间的分组，原数据不会被删除">?</span>
     </div>
+    <div class="namespace-chips" id="namespaceChips">
+      ${nsList.map(ns => `
+        <button class="ns-chip${ns === activeNs ? ' active' : ''}" data-ns="${escapeHtml(ns)}" title="切换到「${escapeHtml(ns)}」">
+          ${escapeHtml(ns)}
+        </button>
+      `).join('')}
+    </div>
   `;
 
   const input = container.querySelector('#namespaceInput');
@@ -190,6 +197,16 @@ export async function loadNamespaces({ onChange } = {}) {
       commitSwitch(activeNs, input.value.trim());
     });
   }
+
+  // 5) chip 列表:点哪个直接切哪个(active chip 高亮)
+  container.querySelectorAll('.ns-chip').forEach(chip => {
+    chip.addEventListener('mousedown', (e) => {
+      // mousedown 优先于 click/blur,避免 popup 因 input blur 关闭
+      e.preventDefault();
+      const targetNs = chip.dataset.ns;
+      commitSwitch(activeNs, targetNs);
+    });
+  });
 }
 
 /**

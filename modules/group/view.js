@@ -136,7 +136,7 @@ class GroupView {
     }
 
     // 【ns】命名空间下拉框,放在操作按钮区最前(spec §6.2:与视图切换 tab 并列)
-    // 结构与 popup 保持一致(<input list> + <datalist> + 应用按钮 + 新建按钮),支持键入新 ns 名
+    // 结构与 popup 保持一致(<input list> + <datalist> + 应用按钮 + 新建按钮 + chip 列表)
     const nsSwitcherHtml = `
       <div class="ns-switcher" title="切换命名空间">
         <label for="board-ns-input" class="ns-switcher-label">ns:</label>
@@ -149,6 +149,13 @@ class GroupView {
         <button id="board-ns-new" class="ns-switcher-new" title="新建命名空间(清空输入框并聚焦,键入新名后按 Enter 或「应用」)">+ 新建</button>
         <button id="board-ns-apply" class="ns-switcher-apply" title="切换到该命名空间">应用</button>
         <span class="ns-help" title="切换命名空间会隐藏其他命名空间的分组，原数据不会被删除">?</span>
+      </div>
+      <div class="ns-chips" id="board-ns-chips">
+        ${this._getAvailableNamespaces().map(ns => `
+          <button class="ns-chip${ns === this.activeNamespace ? ' active' : ''}" data-ns="${escapeHtml(ns)}" title="切换到「${escapeHtml(ns)}」">
+            ${escapeHtml(ns)}
+          </button>
+        `).join('')}
       </div>
     `;
 
@@ -753,6 +760,17 @@ class GroupView {
         nsInput.placeholder = '输入新 ns 名,按 Enter 创建';
       });
     }
+
+    // 6) chip 列表:点哪个直接切哪个(active chip 高亮)
+    document.querySelectorAll('#board-ns-chips .ns-chip').forEach(chip => {
+      if (chip.__nsBound) return;
+      chip.__nsBound = true;
+      chip.addEventListener('mousedown', (e) => {
+        // mousedown 在 input blur 之前,避免 click 丢失
+        e.preventDefault();
+        commitSwitch.call(this, this.activeNamespace, chip.dataset.ns);
+      });
+    });
   }
 
   /**
