@@ -29,6 +29,58 @@
   background: var(--bg);
 }
 
+/* 命名空间下拉框(放最前) */
+.ns-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg, #fff);
+  margin-right: 4px;
+}
+
+.ns-switcher-label {
+  font-size: 11px;
+  color: var(--text-secondary, #888);
+  user-select: none;
+}
+
+.ns-switcher-input {
+  font-size: 11px;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  min-width: 100px;
+  background: white;
+  color: var(--text);
+}
+
+.ns-switcher-input:focus {
+  outline: 2px solid var(--color-accent, #42a5f5);
+  outline-offset: 1px;
+}
+
+.ns-switcher-apply {
+  font-size: 11px;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--color-accent, #42a5f5);
+  color: white;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.ns-switcher-apply:hover {
+  opacity: 0.85;
+}
+
+.ns-switcher-apply:active {
+  transform: translate(1px, 1px);
+}
+
 /* jKanban 看板样式覆盖 */
 .kanban-container {
   display: flex;

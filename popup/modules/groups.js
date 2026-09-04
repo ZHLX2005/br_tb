@@ -91,6 +91,7 @@ export async function loadNamespaces({ onChange } = {}) {
           `<option value="${escapeHtml(ns)}"></option>`
         ).join('')}
       </datalist>
+      <button id="namespaceApply" class="namespace-apply" title="切换到该命名空间">应用</button>
       <span class="ns-help" title="切换命名空间会隐藏其他命名空间的分组，原数据不会被删除">?</span>
     </div>
   `;
@@ -103,28 +104,67 @@ export async function loadNamespaces({ onChange } = {}) {
     input.value = activeNs;
   }
 
-  input.addEventListener('change', async (e) => {
-    const newNs = e.target.value.trim();
-    // 空值 / 未变化 → 回退到当前 active,避免误删
+  /**
+   * 提交 ns 切换。封装 async 逻辑,避免在多个事件处理器里重复样板。
+   * - prevValue:失败时回滚 input 用的旧值
+   * - newNs:已经 trim 过的目标 ns
+   */
+  async function commitSwitch(prevValue, newNs) {
     if (!newNs || newNs === activeNs) {
-      e.target.value = activeNs;
+      input.value = activeNs;
       return;
     }
-    const prevValue = activeNs;
     const response = await trySendMessage({
       action: 'setActiveNamespace',
       namespace: newNs
     });
     if (!response || response.success === false || response.error) {
       showToast(document.querySelector('.app'), `切换失败: ${response?.error || '未知错误'}`, 'error');
-      e.target.value = prevValue;
+      input.value = prevValue;
       return;
     }
     activeNs = newNs;
     if (typeof onChange === 'function') {
       await onChange(newNs);
     }
+  }
+
+  // ── 事件绑定 ──
+  // 1) change 事件:用户按 Enter 或失焦时触发(popup 关闭前可能丢失,所以不能是唯一入口)
+  input.addEventListener('change', (e) => {
+    commitSwitch(activeNs, e.target.value.trim());
   });
+
+  // 2) Enter 键:即时提交,不依赖 change / blur(在 popup 关闭前能保证发出去)
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      commitSwitch(activeNs, e.target.value.trim());
+    }
+  });
+
+  // 3) input 事件 + 250ms 防抖:用户一边输一边自动保存,
+  //    避免「输完直接点外面 popup 关闭 → change 没机会触发 → 没保存」这条丢保存路径
+  let debounceTimer = null;
+  input.addEventListener('input', (e) => {
+    if (debounceTimer) clearTimeout(debounceTimer);
+    const newNs = e.target.value.trim();
+    if (!newNs || newNs === activeNs) return;
+    debounceTimer = setTimeout(() => {
+      debounceTimer = null;
+      commitSwitch(activeNs, newNs);
+    }, 250);
+  });
+
+  // 4) 「应用」按钮:显式保存入口,鼠标点击走 mousedown 防 popup blur
+  const applyBtn = container.querySelector('#namespaceApply');
+  if (applyBtn) {
+    applyBtn.addEventListener('mousedown', (e) => {
+      // mousedown 在 input blur 之前触发,避免 popup 因 input blur 而关闭导致 click 丢失
+      e.preventDefault();
+      commitSwitch(activeNs, input.value.trim());
+    });
+  }
 }
 
 /**

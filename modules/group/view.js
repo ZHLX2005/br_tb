@@ -113,7 +113,7 @@ class GroupView {
     emptyState.style.display = 'none';
 
     // 【ns】命名空间下拉框,放在操作按钮区最前(spec §6.2:与视图切换 tab 并列)
-    // 结构与 popup 保持一致(<input list> + <datalist>),支持键入新 ns 名
+    // 结构与 popup 保持一致(<input list> + <datalist> + 应用按钮),支持键入新 ns 名
     const nsSwitcherHtml = `
       <div class="ns-switcher" title="切换命名空间">
         <label for="board-ns-input" class="ns-switcher-label">ns:</label>
@@ -121,6 +121,7 @@ class GroupView {
         <datalist id="board-ns-list">
           ${this._getAvailableNamespaces().map(ns => `<option value="${escapeHtml(ns)}"></option>`).join('')}
         </datalist>
+        <button id="board-ns-apply" class="ns-switcher-apply" title="切换到该命名空间">应用</button>
         <span class="ns-help" title="切换命名空间会隐藏其他命名空间的分组，原数据不会被删除">?</span>
       </div>
     `;
@@ -628,10 +629,10 @@ class GroupView {
   }
 
   /**
-   * 【ns】绑定 ns 下拉框 change 事件。
+   * 【ns】绑定 ns 下拉框事件。
+   * - change / Enter / input 防抖 / 应用按钮 四重保险,避免任一路径丢失保存
    * - 走 dataManager.sendMessage('setActiveNamespace', { namespace }) 切 ns
-   * - 成功后 reloadData + render()(同时也会触发 tabboard.js 的 storage.onChanged,
-   *   导致一次额外的 render(),属可接受的双重渲染,无副作用)
+   * - 成功后 reloadData + render()
    * - 失败时把 input 值回退到当前 activeNamespace
    * 注:跨源切 ns(popup / content script)的同步,由 tabboard.js 的
    *     storage.onChanged 监听器触发 updateData() + render(),此 input 随之刷新。
@@ -641,26 +642,25 @@ class GroupView {
     if (!nsInput || nsInput.__nsBound) return;
     nsInput.__nsBound = true;
 
-    nsInput.addEventListener('change', async (e) => {
-      const newNs = e.target.value.trim();
+    async function commitSwitch(prevValue, newNs) {
       if (!newNs) {
-        e.target.value = this.activeNamespace;
+        nsInput.value = prevValue;
         return;
       }
-      if (newNs === this.activeNamespace) return;
+      if (newNs === prevValue) return;
 
       let result;
       try {
         result = await this.dataManager.sendMessage('setActiveNamespace', { namespace: newNs });
       } catch (err) {
         alert(`切换命名空间失败: ${err?.message || err}`);
-        e.target.value = this.activeNamespace;
+        nsInput.value = prevValue;
         return;
       }
 
       if (!result || result.success === false || result.error) {
         alert(`切换命名空间失败: ${result?.error || '未知错误'}`);
-        e.target.value = this.activeNamespace;
+        nsInput.value = prevValue;
         return;
       }
 
@@ -671,7 +671,43 @@ class GroupView {
       } catch (err) {
         console.error('[GroupView] loadData after ns switch failed:', err);
       }
+    }
+
+    // 1) change:Enter / blur(可能因页面卸载丢失,故加多重入口)
+    nsInput.addEventListener('change', (e) => {
+      commitSwitch.call(this, this.activeNamespace, e.target.value.trim());
     });
+
+    // 2) Enter 即时提交
+    nsInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        commitSwitch.call(this, this.activeNamespace, e.target.value.trim());
+      }
+    });
+
+    // 3) input 防抖:用户一边输一边提交,避免「输完关页面/关 popup」丢保存
+    let debounceTimer = null;
+    nsInput.addEventListener('input', (e) => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      const newNs = e.target.value.trim();
+      if (!newNs || newNs === this.activeNamespace) return;
+      debounceTimer = setTimeout(() => {
+        debounceTimer = null;
+        commitSwitch.call(this, this.activeNamespace, newNs);
+      }, 250);
+    });
+
+    // 4) 「应用」按钮 — 显式保存入口
+    const applyBtn = document.querySelector('#board-ns-apply');
+    if (applyBtn && !applyBtn.__nsBound) {
+      applyBtn.__nsBound = true;
+      applyBtn.addEventListener('mousedown', (e) => {
+        // mousedown 在 input blur 之前触发,避免 button click 因 input blur 丢失
+        e.preventDefault();
+        commitSwitch.call(this, this.activeNamespace, nsInput.value.trim());
+      });
+    }
   }
 
   /**

@@ -231,6 +231,25 @@ body {
   outline-offset: 1px;
 }
 
+.namespace-apply {
+  font-size: 12px;
+  padding: 3px 10px;
+  border: var(--border-width, 2px) solid var(--border-color, #000);
+  border-radius: var(--border-radius, 2px);
+  background: var(--color-accent, #00c8ff);
+  color: var(--text-on-accent, #111);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.namespace-apply:hover {
+  background: var(--color-accent-hover, #33d4ff);
+}
+
+.namespace-apply:active {
+  transform: translate(1px, 1px);
+}
+
 .ns-help {
   display: inline-flex;
   align-items: center;
