@@ -112,6 +112,25 @@ class GroupView {
 
     emptyState.style.display = 'none';
 
+    // 【ns】当前 ns 没有分组时,明确告知「默认分组在 default」,避免以为分组被删
+    if (visibleGroups.length === 0) {
+      const noVisibleMsg = document.createElement('div');
+      noVisibleMsg.className = 'no-visible-groups-message';
+      if (this.groups.length === 0) {
+        noVisibleMsg.innerHTML = `
+          <div>当前命名空间「${escapeHtml(this.activeNamespace)}」暂无分组</div>
+          ${this.activeNamespace !== 'default'
+            ? `<div style="margin-top:8px;font-size:12px;color:#888;">默认分组在「default」中,可从上方 ns 下拉框切换回来</div>`
+            : `<div style="margin-top:8px;font-size:12px;color:#888;">点击「+ 添加分组」创建第一个分组</div>`}`;
+      } else {
+        noVisibleMsg.textContent = '当前没有显示的分组，请点击"筛选"按钮选择要显示的分组';
+      }
+      noVisibleMsg.style.cssText = 'text-align: center; padding: 40px; color: #888; font-size: 14px;';
+      tabboard.appendChild(noVisibleMsg);
+      this._setupGroupActionButtons();
+      return;
+    }
+
     // 【ns】命名空间下拉框,放在操作按钮区最前(spec §6.2:与视图切换 tab 并列)
     // 结构与 popup 保持一致(<input list> + <datalist> + 应用按钮 + 新建按钮),支持键入新 ns 名
     const nsSwitcherHtml = `
@@ -149,9 +168,11 @@ class GroupView {
 
     // 如果没有可见分组，显示提示
     if (visibleGroups.length === 0) {
+      // 注:上面的早期 return 已经处理了「this.groups.length === 0」(整个 active ns 都空)的情况。
+      // 这里只剩下「active ns 内有 group,但都被 visible=false 隐藏」一种情形。
       const noVisibleMsg = document.createElement('div');
       noVisibleMsg.className = 'no-visible-groups-message';
-      noVisibleMsg.textContent = '当前没有显示的分组，请点击"筛选"按钮选择要显示的分组';
+      noVisibleMsg.textContent = '当前没有显示的分组,请点击"筛选"按钮选择要显示的分组';
       noVisibleMsg.style.cssText = 'text-align: center; padding: 40px; color: #888; font-size: 14px;';
       tabboard.appendChild(noVisibleMsg);
       this._setupGroupActionButtons();

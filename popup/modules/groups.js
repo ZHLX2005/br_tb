@@ -209,7 +209,16 @@ export async function loadGroups({ onDelete, onSetDefault, onToggleFocus } = {})
   const groupsList = document.getElementById('groupsList');
 
   if (groups.length === 0) {
-    groupsList.innerHTML = '<div class="empty-state">暂无分组,点击右上角新建</div>';
+    // 拉一下当前 ns,把「其他 ns 有分组」的事实告诉用户,避免以为默认分组被删了
+    const activeNsResp = await trySendMessage({ action: 'getActiveNamespace' });
+    const activeNs = activeNsResp?.activeNamespace || activeNsResp?.namespace || '';
+    groupsList.innerHTML = `
+      <div class="empty-state">
+        <div>当前命名空间「${escapeHtml(activeNs)}」暂无分组</div>
+        ${activeNs && activeNs !== 'default'
+          ? `<div style="margin-top:6px;font-size:12px;color:#888;">默认分组在「default」中,可从上方 ns 下拉框切换回来</div>`
+          : `<div style="margin-top:6px;font-size:12px;color:#888;">点击「+ 添加分组」创建第一个</div>`}
+      </div>`;
     return;
   }
 
