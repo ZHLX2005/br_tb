@@ -52,11 +52,15 @@ class GroupView {
     try {
       const result = await this.dataManager.sendMessage('getAllGroupsAcrossNamespaces');
       const allGroups = result?.groups;
-      if (!Array.isArray(allGroups)) return;
       const nsSet = new Set([this.activeNamespace]);
-      for (const g of allGroups) {
-        if (g && typeof g.ns === 'string') nsSet.add(g.ns);
+      if (Array.isArray(allGroups)) {
+        for (const g of allGroups) {
+          if (g && typeof g.ns === 'string') nsSet.add(g.ns);
+        }
       }
+      // 兜底:「default」永远在选项里 —— 老用户数据可能缺 ns 字段,
+      // 或用户曾清空数据,否则切到新 ns 后再切不回 default
+      nsSet.add('default');
       this.availableNamespaces = Array.from(nsSet).sort();
     } catch (err) {
       // action 尚未在 adapter 注册时静默降级,不影响主流程

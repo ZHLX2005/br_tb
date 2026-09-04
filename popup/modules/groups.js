@@ -66,10 +66,14 @@ export async function loadNamespaces({ onChange } = {}) {
     });
   }
 
+  // 3) 兜底:「default」是系统默认 ns,即使没有 group 在里面、即使迁移没跑,
+  //    也必须出现在下拉框里 —— 否则用户切到新 ns 后无法切回 default。
+  //    (老用户数据可能缺 ns 字段,或用户曾清空数据,droplist 都会看不到 default)
+  nsSet.add('default');
+
   // 兜底:适配层两个 action 都还没实现 → 用 'default' 作为唯一已知 ns
-  if (nsSet.size === 0) {
-    activeNs = activeNs || 'default';
-    nsSet.add(activeNs);
+  if (activeNs === null) {
+    activeNs = 'default';
   }
 
   const nsList = Array.from(nsSet).sort();
