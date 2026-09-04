@@ -136,19 +136,20 @@ class GroupView {
     }
 
     // 【ns】命名空间下拉框,放在操作按钮区最前(spec §6.2:与视图切换 tab 并列)
-    // 结构与 popup 保持一致(<input list> + <datalist> + 应用按钮 + 新建按钮 + chip 列表)
+    // 结构与 popup 保持一致(input + 应用按钮 + 新建按钮 + chip 列表)。
+    // ⚠️ 不再挂 datalist:<input list> 会和 Chrome 自身的表单历史 autofill 下拉冲突,
+    //    历史输入会覆盖 datalist 内容让人误以为下拉坏了。选择已有 ns 完全由 chips 承担,
+    //    input 只用于键入"新 ns 名"(autocomplete=nope 禁掉浏览器历史)。
     // ⚠️ 外层必须包一个纵向 wrapper:.board-actions-header 是横向 flex 容器,
     //    若 ns-switcher / ns-chips 作为两个平级 flex item 会被横向挤压到不可见。
     const nsSwitcherHtml = `
       <div class="ns-switcher-wrap">
         <div class="ns-switcher" title="切换命名空间">
           <label for="board-ns-input" class="ns-switcher-label">ns:</label>
-          <input id="board-ns-input" class="ns-switcher-input" list="board-ns-list" autocomplete="off"
+          <input id="board-ns-input" class="ns-switcher-input" autocomplete="nope" autocorrect="off" autocapitalize="off" spellcheck="false"
+            name="__tabboard_ns_input"
             placeholder="输入 ns 名(新名即新建)"
             value="${escapeHtml(this.activeNamespace)}" />
-          <datalist id="board-ns-list">
-            ${this._getAvailableNamespaces().map(ns => `<option value="${escapeHtml(ns)}"></option>`).join('')}
-          </datalist>
           <button id="board-ns-new" class="ns-switcher-new" title="新建命名空间(清空输入框并聚焦,键入新名后按 Enter 或「应用」)">+ 新建</button>
           <button id="board-ns-apply" class="ns-switcher-apply" title="切换到该命名空间">应用</button>
           <span class="ns-help" title="切换命名空间会隐藏其他命名空间的分组，原数据不会被删除">?</span>

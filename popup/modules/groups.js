@@ -83,20 +83,16 @@ export async function loadNamespaces({ onChange } = {}) {
     activeNs = nsList[0];
   }
 
-  // 任务描述:始终渲染 input+datalist(active ns 作为 value 兜底);其他 ns 出现时再追加为 datalist option
-  // 用 <input list> + <datalist> 而不是 <select>,以便用户可以键入新 ns 名(spec §6.3);
+  // 不再用 <input list> + <datalist> 做选择器:它和 Chrome 自身的表单历史 autofill
+  // 下拉冲突,历史输入会覆盖 datalist 内容。选择已有 ns 完全由下方 chips 承担(input 纯文本)。
   // 结构与 board view 一致(modules/group/view.js 同一处 nsSwitcherHtml)。
   container.innerHTML = `
     <div class="namespace-switcher">
       <label for="namespaceInput" class="namespace-label">ns:</label>
-      <input id="namespaceInput" class="namespace-input" list="namespaceList" autocomplete="off"
+      <input id="namespaceInput" class="namespace-input" autocomplete="nope" autocorrect="off" autocapitalize="off" spellcheck="false"
+        name="__tabboard_ns_input"
         placeholder="输入 ns 名(新名即新建)"
         value="${escapeHtml(activeNs)}" />
-      <datalist id="namespaceList">
-        ${nsList.map(ns =>
-          `<option value="${escapeHtml(ns)}"></option>`
-        ).join('')}
-      </datalist>
       <button id="namespaceNew" class="namespace-new" title="新建命名空间(清空并聚焦输入框,键入新名后按 Enter 或「应用」)">+ 新建</button>
       <button id="namespaceApply" class="namespace-apply" title="切换到该命名空间">应用</button>
       <span class="ns-help" title="切换命名空间会隐藏其他命名空间的分组，原数据不会被删除">?</span>
