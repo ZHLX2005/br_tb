@@ -85,12 +85,15 @@ export async function loadNamespaces({ onChange } = {}) {
   container.innerHTML = `
     <div class="namespace-switcher">
       <label for="namespaceInput" class="namespace-label">ns:</label>
-      <input id="namespaceInput" class="namespace-input" list="namespaceList" autocomplete="off" value="${escapeHtml(activeNs)}" />
+      <input id="namespaceInput" class="namespace-input" list="namespaceList" autocomplete="off"
+        placeholder="输入 ns 名(新名即新建)"
+        value="${escapeHtml(activeNs)}" />
       <datalist id="namespaceList">
         ${nsList.map(ns =>
           `<option value="${escapeHtml(ns)}"></option>`
         ).join('')}
       </datalist>
+      <button id="namespaceNew" class="namespace-new" title="新建命名空间(清空并聚焦输入框,键入新名后按 Enter 或「应用」)">+ 新建</button>
       <button id="namespaceApply" class="namespace-apply" title="切换到该命名空间">应用</button>
       <span class="ns-help" title="切换命名空间会隐藏其他命名空间的分组，原数据不会被删除">?</span>
     </div>
@@ -102,6 +105,24 @@ export async function loadNamespaces({ onChange } = {}) {
   // stale active 兜底:UI 与 storage 实际值对齐
   if (input.value !== activeNs) {
     input.value = activeNs;
+  }
+
+  // 关键 UX 修复:点击 input 时全选已有文本,让用户键入直接替换(避免「default」+「study」=「defaultstudy」)
+  input.addEventListener('focus', () => {
+    // setTimeout 0 让浏览器先把光标定位到 click 位置,然后我们再 select all 覆盖之
+    setTimeout(() => input.select(), 0);
+  });
+
+  // 「+ 新建」按钮:清空 input + 聚焦,用户键入新名后按 Enter / 「应用」即创建
+  const newBtn = container.querySelector('#namespaceNew');
+  if (newBtn) {
+    newBtn.addEventListener('mousedown', (e) => {
+      // mousedown 在 input blur 之前触发,避免 button click 因 input blur 丢失
+      e.preventDefault();
+      input.value = '';
+      input.focus();
+      input.placeholder = '输入新 ns 名,按 Enter 创建';
+    });
   }
 
   /**

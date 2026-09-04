@@ -81,6 +81,20 @@
   transform: translate(1px, 1px);
 }
 
+.ns-switcher-new {
+  font-size: 11px;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: white;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.ns-switcher-new:hover {
+  background: var(--bg);
+}
+
 /* jKanban 看板样式覆盖 */
 .kanban-container {
   display: flex;

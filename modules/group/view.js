@@ -113,14 +113,17 @@ class GroupView {
     emptyState.style.display = 'none';
 
     // 【ns】命名空间下拉框,放在操作按钮区最前(spec §6.2:与视图切换 tab 并列)
-    // 结构与 popup 保持一致(<input list> + <datalist> + 应用按钮),支持键入新 ns 名
+    // 结构与 popup 保持一致(<input list> + <datalist> + 应用按钮 + 新建按钮),支持键入新 ns 名
     const nsSwitcherHtml = `
       <div class="ns-switcher" title="切换命名空间">
         <label for="board-ns-input" class="ns-switcher-label">ns:</label>
-        <input id="board-ns-input" class="ns-switcher-input" list="board-ns-list" autocomplete="off" value="${escapeHtml(this.activeNamespace)}" />
+        <input id="board-ns-input" class="ns-switcher-input" list="board-ns-list" autocomplete="off"
+          placeholder="输入 ns 名(新名即新建)"
+          value="${escapeHtml(this.activeNamespace)}" />
         <datalist id="board-ns-list">
           ${this._getAvailableNamespaces().map(ns => `<option value="${escapeHtml(ns)}"></option>`).join('')}
         </datalist>
+        <button id="board-ns-new" class="ns-switcher-new" title="新建命名空间(清空输入框并聚焦,键入新名后按 Enter 或「应用」)">+ 新建</button>
         <button id="board-ns-apply" class="ns-switcher-apply" title="切换到该命名空间">应用</button>
         <span class="ns-help" title="切换命名空间会隐藏其他命名空间的分组，原数据不会被删除">?</span>
       </div>
@@ -642,6 +645,11 @@ class GroupView {
     if (!nsInput || nsInput.__nsBound) return;
     nsInput.__nsBound = true;
 
+    // 关键 UX 修复:点击 input 时全选已有文本,键入直接替换(避免「default」+「study」=「defaultstudy」)
+    nsInput.addEventListener('focus', () => {
+      setTimeout(() => nsInput.select(), 0);
+    });
+
     async function commitSwitch(prevValue, newNs) {
       if (!newNs) {
         nsInput.value = prevValue;
@@ -706,6 +714,18 @@ class GroupView {
         // mousedown 在 input blur 之前触发,避免 button click 因 input blur 丢失
         e.preventDefault();
         commitSwitch.call(this, this.activeNamespace, nsInput.value.trim());
+      });
+    }
+
+    // 5) 「+ 新建」按钮 — 清空 input + 聚焦,引导用户键入新 ns 名
+    const newBtn = document.querySelector('#board-ns-new');
+    if (newBtn && !newBtn.__nsBound) {
+      newBtn.__nsBound = true;
+      newBtn.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        nsInput.value = '';
+        nsInput.focus();
+        nsInput.placeholder = '输入新 ns 名,按 Enter 创建';
       });
     }
   }

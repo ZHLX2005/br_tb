@@ -250,6 +250,21 @@ body {
   transform: translate(1px, 1px);
 }
 
+.namespace-new {
+  font-size: 12px;
+  padding: 3px 8px;
+  border: var(--border-width, 2px) solid var(--border-color, #000);
+  border-radius: var(--border-radius, 2px);
+  background: var(--bg-surface, #fff);
+  color: var(--text-primary, #1a1a1a);
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.namespace-new:hover {
+  background: var(--bg-subtle-hover, #e8e8e4);
+}
+
 .ns-help {
   display: inline-flex;
   align-items: center;
