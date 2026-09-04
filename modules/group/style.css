@@ -30,6 +30,15 @@
 }
 
 /* 命名空间下拉框(放最前) */
+/* wrapper:board-actions-header 是横向 flex,ns-switcher + ns-chips 必须包成
+   一个纵向 block 才不会被挤压成不可见 */
+.ns-switcher-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-self: flex-start;
+}
+
 .ns-switcher {
   display: inline-flex;
   align-items: center;
@@ -100,8 +109,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  margin-left: 4px;
-  margin-bottom: 4px;
+  /* 不再用 margin-left 挤压——wrap 内已经对齐 */
 }
 
 .ns-chip {
