@@ -33,13 +33,16 @@ async function trySendMessage(message, timeoutMs = 1500) {
 }
 
 /**
- * 加载命名空间下拉框 + 渲染到 #namespaceSelector
+ * 加载命名空间徽章 + 切换面板,渲染到 #namespaceSelector
+ *
+ * 识别优先:当前 ns 以高权重徽章展示(主元素);全部 ns 的 chips 与新建输入
+ * 收进默认隐藏的切换面板(次级操作)。
  *
  * 数据源全部走 message(CLAUDE.md Group 数据访问规约:popup 不允许直接读 chrome.storage 拿 groups/tabs/settings.activeNamespace):
  *  - getActiveNamespace          → 当前 ns
  *  - getAllGroupsAcrossNamespaces → 跨 ns group 列表(从中聚合所有 ns 名)
  *
- * 适配层尚未实现这两个 action 时,优雅降级:渲染仅含 active ns 的下拉框。
+ * 适配层尚未实现这两个 action 时,优雅降级:渲染仅含 active ns 的徽章。
  *
  * @param {Object} options
  * @param {Function} [options.onChange] - (newNs) => void,setActiveNamespace 成功后调用
@@ -67,8 +70,8 @@ export async function loadNamespaces({ onChange } = {}) {
   }
 
   // 3) 兜底:「default」是系统默认 ns,即使没有 group 在里面、即使迁移没跑,
-  //    也必须出现在下拉框里 —— 否则用户切到新 ns 后无法切回 default。
-  //    (老用户数据可能缺 ns 字段,或用户曾清空数据,droplist 都会看不到 default)
+  //    也必须出现在切换面板里 —— 否则用户切到新 ns 后无法切回 default。
+  //    (老用户数据可能缺 ns 字段,或用户曾清空数据,面板里都会看不到 default)
   nsSet.add('default');
 
   // 兜底:适配层两个 action 都还没实现 → 用 'default' 作为唯一已知 ns
@@ -83,91 +86,153 @@ export async function loadNamespaces({ onChange } = {}) {
     activeNs = nsList[0];
   }
 
+  // 【识别优先 + 下拉式】≥2 个 ns 时,当前 ns 以高权重徽章展示(一眼看出「我在哪个 ns」),
+  // 全部 ns 的 chips 收进「点击徽章展开」的下拉面板,「＋ 新建命名空间」是面板底部条目,
+  // 点击后才展开输入行 —— 收起时只占一行,不与其他分组操作按钮抢空间,也无冗余重复。
+  // 单 ns(只有 default)时连徽章都不渲染(没有可识别的上下文),只留「＋ 新建命名空间」入口。
   // 不再用 <input list> + <datalist> 做选择器:它和 Chrome 自身的表单历史 autofill
-  // 下拉冲突,历史输入会覆盖 datalist 内容。选择已有 ns 完全由下方 chips 承担(input 纯文本)。
-  // 结构与 board view 一致(modules/group/view.js 同一处 nsSwitcherHtml)。
-  container.innerHTML = `
+  // 下拉冲突,历史输入会覆盖 datalist 内容。
+  const multiNs = nsList.length > 1;
+  const topHtml = multiNs ? `
     <div class="namespace-switcher">
-      <label for="namespaceInput" class="namespace-label">ns:</label>
-      <input id="namespaceInput" class="namespace-input" autocomplete="nope" autocorrect="off" autocapitalize="off" spellcheck="false"
-        name="__tabboard_ns_input"
-        placeholder="输入 ns 名(新名即新建)"
-        value="${escapeHtml(activeNs)}" />
-      <button id="namespaceNew" class="namespace-new" title="新建命名空间(清空并聚焦输入框,键入新名后按 Enter 或「应用」)">+ 新建</button>
-      <button id="namespaceApply" class="namespace-apply" title="切换到该命名空间">应用</button>
-      <span class="ns-help" title="切换命名空间会隐藏其他命名空间的分组，原数据不会被删除">?</span>
-    </div>
-    <div class="namespace-chips" id="namespaceChips">
-      ${nsList.map(ns => `
-        <button class="ns-chip${ns === activeNs ? ' active' : ''}" data-ns="${escapeHtml(ns)}" title="切换到「${escapeHtml(ns)}」">
-          ${escapeHtml(ns)}
-        </button>
-      `).join('')}
+      <button id="nsBadge" class="ns-badge" title="当前命名空间「${escapeHtml(activeNs)}」,点击切换">
+        <span class="ns-badge-dot"></span>
+        <span id="nsBadgeName" class="ns-badge-name">${escapeHtml(activeNs)}</span>
+        <span class="ns-badge-caret">▾</span>
+      </button>
+    </div>` : `
+    <div class="namespace-switcher ns-single">
+      <button id="namespaceNewSingle" class="namespace-new-single" title="新建命名空间">＋ 新建命名空间</button>
+    </div>`;
+  const chipsHtml = multiNs ? `
+      <div class="namespace-chips" id="namespaceChips">
+        ${nsList.map(ns => `
+          <button class="ns-chip${ns === activeNs ? ' active' : ''}" data-ns="${escapeHtml(ns)}" title="切换到「${escapeHtml(ns)}」">
+            ${escapeHtml(ns)}
+          </button>
+        `).join('')}
+      </div>
+      <button id="namespaceNewSingle" class="namespace-new-single" title="新建命名空间">＋ 新建命名空间</button>` : '';
+  const createHtml = `
+      <div class="namespace-create" id="namespaceCreate" hidden>
+        <input id="namespaceInput" class="namespace-input" autocomplete="nope" autocorrect="off" autocapitalize="off" spellcheck="false"
+          name="__tabboard_ns_input"
+          placeholder="输入新 ns 名,按 Enter 创建" />
+        <button id="namespaceApply" class="namespace-apply" title="创建该命名空间">应用</button>
+      </div>`;
+
+  container.innerHTML = `${topHtml}
+    <div class="namespace-panel${multiNs ? '' : ' ns-panel-inline'}" id="namespacePanel" hidden>
+      ${chipsHtml}
+      ${createHtml}
     </div>
   `;
 
   const input = container.querySelector('#namespaceInput');
-  if (!input) return;
+  const panel = container.querySelector('#namespacePanel');
+  const createRow = container.querySelector('#namespaceCreate');
+  if (!input || !panel) return;
 
-  // stale active 兜底:UI 与 storage 实际值对齐
-  if (input.value !== activeNs) {
-    input.value = activeNs;
+  /** 同步徽章文案(切换成功后局部更新,避免整块重渲染) */
+  function refreshBadge(ns) {
+    const badgeName = container.querySelector('#nsBadgeName');
+    if (badgeName) badgeName.textContent = ns;
+    const badge = container.querySelector('#nsBadge');
+    if (badge) badge.title = `当前命名空间「${ns}」,点击切换`;
   }
 
-  // 关键 UX 修复:点击 input 时全选已有文本,让用户键入直接替换(避免「default」+「study」=「defaultstudy」)
-  input.addEventListener('focus', () => {
-    // setTimeout 0 让浏览器先把光标定位到 click 位置,然后我们再 select all 覆盖之
-    setTimeout(() => input.select(), 0);
-  });
-
-  // 「+ 新建」按钮:清空 input + 聚焦,用户键入新名后按 Enter / 「应用」即创建
-  const newBtn = container.querySelector('#namespaceNew');
-  if (newBtn) {
-    newBtn.addEventListener('mousedown', (e) => {
-      // mousedown 在 input blur 之前触发,避免 button click 因 input blur 丢失
-      e.preventDefault();
-      input.value = '';
+  /** 展开面板;create=true 时同时展开创建输入行并聚焦 */
+  function openPanel(create = false) {
+    panel.hidden = false;
+    const badge = container.querySelector('#nsBadge');
+    if (badge) badge.classList.add('open');
+    if (create) {
+      if (createRow) createRow.hidden = false;
       input.focus();
-      input.placeholder = '输入新 ns 名,按 Enter 创建';
+      input.select();
+    }
+  }
+
+  /** 收起面板(含创建输入行) */
+  function closePanel() {
+    panel.hidden = true;
+    if (createRow) createRow.hidden = true;
+    const badge = container.querySelector('#nsBadge');
+    if (badge) badge.classList.remove('open');
+  }
+
+  // 徽章(仅多 ns):点击展开/收起下拉面板
+  const badge = container.querySelector('#nsBadge');
+  if (badge) {
+    badge.addEventListener('mousedown', (e) => {
+      // mousedown 优先于 click/blur,避免 popup 因 input blur 关闭导致 click 丢失
+      e.preventDefault();
+      if (panel.hidden) openPanel(); else closePanel();
+    });
+  }
+
+  // 「＋ 新建命名空间」(多 ns:面板底部条目 / 单 ns:顶部入口)— 展开面板 + 创建输入行;再点收起
+  const newSingleBtn = container.querySelector('#namespaceNewSingle');
+  if (newSingleBtn) {
+    newSingleBtn.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      if (!panel.hidden && createRow && !createRow.hidden) {
+        closePanel();
+      } else {
+        openPanel(true);
+      }
     });
   }
 
   /**
    * 提交 ns 切换。封装 async 逻辑,避免在多个事件处理器里重复样板。
-   * - prevValue:失败时回滚 input 用的旧值
-   * - newNs:已经 trim 过的目标 ns
+   * - newNs:已经 trim 过的目标 ns;input 是「新建输入框」而非状态展示,
+   *   失败时保留用户输入便于修正重试,成功则清空并收起面板。
+   * - 创建出 ns 集合里不存在的新 ns(如单 ns → 双 ns)时,重建整个切换器
+   *   以升级为完整模式(徽章 + 下拉)。
    */
-  async function commitSwitch(prevValue, newNs) {
+  async function commitSwitch(newNs) {
     if (!newNs || newNs === activeNs) {
-      input.value = activeNs;
+      input.value = '';
+      closePanel();
       return;
     }
+    const createdNew = !nsList.includes(newNs);
     const response = await trySendMessage({
       action: 'setActiveNamespace',
       namespace: newNs
     });
     if (!response || response.success === false || response.error) {
       showToast(document.querySelector('.app'), `切换失败: ${response?.error || '未知错误'}`, 'error');
-      input.value = prevValue;
       return;
     }
     activeNs = newNs;
+    refreshBadge(newNs);
+    input.value = '';
+    closePanel();
+    if (createdNew) {
+      // ns 集合变化(如 1→2):重渲染切换器,升级为完整模式
+      await loadNamespaces({ onChange });
+    }
     if (typeof onChange === 'function') {
       await onChange(newNs);
     }
   }
 
-  // ── 事件绑定 ──
+  // ── 事件绑定(保留四重提交保险,防 popup 关闭丢保存) ──
   // 1) change 事件:用户按 Enter 或失焦时触发(popup 关闭前可能丢失,所以不能是唯一入口)
   input.addEventListener('change', (e) => {
-    commitSwitch(activeNs, e.target.value.trim());
+    commitSwitch(e.target.value.trim());
   });
 
-  // 2) Enter 键:即时提交,不依赖 change / blur(在 popup 关闭前能保证发出去)
+  // 2) Enter 键:即时提交,不依赖 change / blur(在 popup 关闭前能保证发出去);Escape 收起
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      commitSwitch(activeNs, e.target.value.trim());
+      commitSwitch(e.target.value.trim());
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      closePanel();
     }
   });
 
@@ -180,7 +245,7 @@ export async function loadNamespaces({ onChange } = {}) {
     if (!newNs || newNs === activeNs) return;
     debounceTimer = setTimeout(() => {
       debounceTimer = null;
-      commitSwitch(activeNs, newNs);
+      commitSwitch(newNs);
     }, 250);
   });
 
@@ -190,7 +255,7 @@ export async function loadNamespaces({ onChange } = {}) {
     applyBtn.addEventListener('mousedown', (e) => {
       // mousedown 在 input blur 之前触发,避免 popup 因 input blur 而关闭导致 click 丢失
       e.preventDefault();
-      commitSwitch(activeNs, input.value.trim());
+      commitSwitch(input.value.trim());
     });
   }
 
@@ -199,10 +264,23 @@ export async function loadNamespaces({ onChange } = {}) {
     chip.addEventListener('mousedown', (e) => {
       // mousedown 优先于 click/blur,避免 popup 因 input blur 关闭
       e.preventDefault();
-      const targetNs = chip.dataset.ns;
-      commitSwitch(activeNs, targetNs);
+      commitSwitch(chip.dataset.ns);
     });
   });
+
+  // 6) 面板外点击收起。用「捕获阶段(capture)」监听:popup 内其他组件
+  //    (输入框/按钮/弹层)可能在 mousedown 冒泡阶段 stopPropagation,
+  //    捕获阶段最先触发,保证「点外面关闭」一定生效。
+  //    (每次重渲染移除旧监听再挂新监听,避免累积;container 内点击由各自的
+  //    mousedown 处理,这里只关「点外面」的场景)
+  if (document.__nsOutsideClose) {
+    document.removeEventListener('mousedown', document.__nsOutsideClose, true);
+  }
+  const onOutside = (e) => {
+    if (!container.contains(e.target)) closePanel();
+  };
+  document.__nsOutsideClose = onOutside;
+  document.addEventListener('mousedown', onOutside, true);
 }
 
 /**
@@ -237,7 +315,7 @@ export async function loadGroups({ onDelete, onSetDefault, onToggleFocus, onTogg
       <div class="empty-state">
         <div>当前命名空间「${escapeHtml(activeNs)}」暂无分组</div>
         ${activeNs && activeNs !== 'default'
-          ? `<div style="margin-top:6px;font-size:12px;color:#888;">默认分组在「default」中,可从上方 ns chips 切换回来</div>`
+          ? `<div style="margin-top:6px;font-size:12px;color:#888;">默认分组在「default」中,点击上方命名空间徽章可切换回来</div>`
           : `<div style="margin-top:6px;font-size:12px;color:#888;">点击「+ 添加分组」创建第一个</div>`}
       </div>`;
     return;

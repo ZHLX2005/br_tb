@@ -9,6 +9,7 @@
 /* 分组视图操作按钮区域 */
 .board-actions-header {
   display: flex;
+  align-items: flex-start;
   gap: 6px;
   margin-bottom: 8px;
   flex-shrink: 0;
@@ -29,10 +30,11 @@
   background: var(--bg);
 }
 
-/* 命名空间下拉框(放最前) */
-/* wrapper:board-actions-header 是横向 flex,ns-switcher + ns-chips 必须包成
-   一个纵向 block 才不会被挤压成不可见 */
+/* 命名空间切换器(识别优先 + 下拉式):当前 ns 徽章为主,下拉面板默认收起 */
+/* wrapper:board-actions-header 是横向 flex,ns-switcher + ns-panel 必须包成
+   一个纵向 block 才不会被挤压成不可见;下拉面板 absolute 定位,以 wrap 为锚点 */
 .ns-switcher-wrap {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -43,25 +45,95 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 2px 8px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: var(--bg, #fff);
+  padding: 2px 4px;
   margin-right: 4px;
 }
 
-.ns-switcher-label {
-  font-size: 11px;
-  color: var(--text-secondary, #888);
+/* 当前命名空间徽章:高权重识别元素 */
+.ns-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+  border: 1px solid var(--color-accent, #42a5f5);
+  border-radius: 14px;
+  background: var(--color-accent, #42a5f5);
+  color: #fff;
+  cursor: pointer;
   user-select: none;
 }
 
+.ns-badge:hover {
+  opacity: 0.9;
+}
+
+.ns-badge:active {
+  transform: translate(1px, 1px);
+}
+
+.ns-badge-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  flex-shrink: 0;
+}
+
+.ns-badge-caret {
+  font-size: 9px;
+  opacity: 0.85;
+  transition: transform 0.12s ease;
+}
+
+.ns-badge.open .ns-badge-caret {
+  transform: rotate(180deg);
+}
+
+/* 下拉面板:点击徽章展开,悬浮在下方内容之上,不撑高工具栏 */
+.ns-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 180px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg, #fff);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* ns chip 列表:所有可选 ns 一目了然 */
+.ns-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.ns-create {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ns-create[hidden] {
+  display: none;
+}
+
 .ns-switcher-input {
+  flex: 1;
+  min-width: 120px;
   font-size: 11px;
   padding: 2px 6px;
   border: 1px solid var(--border);
   border-radius: 3px;
-  min-width: 100px;
   background: white;
   color: var(--text);
 }
@@ -90,26 +162,40 @@
   transform: translate(1px, 1px);
 }
 
-.ns-switcher-new {
+/* 「＋ 新建命名空间」:
+   单 ns 模式 = 顶部低调入口(点它内联展开输入行,不悬浮);
+   多 ns 模式 = 下拉面板底部的整行条目(面板内) */
+.ns-switcher-new-single {
   font-size: 11px;
   padding: 2px 6px;
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  background: white;
-  color: var(--text);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary, #888);
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
   cursor: pointer;
+  font-family: inherit;
 }
 
-.ns-switcher-new:hover {
-  background: var(--bg);
+.ns-switcher-new-single:hover {
+  color: var(--color-accent, #42a5f5);
 }
 
-/* ns chip 列表:所有可选 ns 一目了然 */
-.ns-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  /* 不再用 margin-left 挤压——wrap 内已经对齐 */
+.ns-panel .ns-switcher-new-single {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 5px 6px;
+  margin-top: 2px;
+  border-top: 1px dashed var(--border);
+  text-decoration: none;
+}
+
+/* 单 ns 模式:面板以内联方式展开(不悬浮覆盖看板内容) */
+.ns-panel.ns-panel-inline {
+  position: static;
+  box-shadow: none;
+  margin-top: 4px;
 }
 
 .ns-chip {

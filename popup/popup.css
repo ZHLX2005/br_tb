@@ -196,27 +196,97 @@ body {
   margin-bottom: 10px;
 }
 
-/* ========== 命名空间下拉框 ========== */
+/* ========== 命名空间切换器(识别优先 + 下拉式) ========== */
 
-.namespace-switcher {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
-  padding: 6px 8px;
-  border: 1px solid var(--border-color, #000);
-  border-radius: var(--border-radius, 2px);
-  background: var(--bg-subtle, #f7f7f7);
+/* 槽位即定位锚点:下拉面板 absolute,以徽章行为 containing block(top:100% = 行高) */
+#namespaceSelector {
+  position: relative;
 }
 
-.namespace-label {
-  font-size: 12px;
-  color: var(--text-secondary, #555);
+/* 主行:当前 ns 徽章(高权重识别元素);下拉面板以此为定位锚点 */
+.namespace-switcher {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+/* 当前命名空间徽章:一眼识别「我在哪个 ns」,视觉权重高于切换操作 */
+.ns-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.4;
+  border: var(--border-width, 2px) solid var(--color-accent, #00c8ff);
+  border-radius: 16px;
+  background: var(--color-accent, #00c8ff);
+  color: var(--text-on-accent, #111);
+  cursor: pointer;
   user-select: none;
+  box-shadow: 2px 2px 0 var(--border-color, #000);
+}
+
+.ns-badge:hover {
+  background: var(--color-accent-hover, #33d4ff);
+}
+
+.ns-badge:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--border-color, #000);
+}
+
+.ns-badge-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-on-accent, #111);
+  flex-shrink: 0;
+}
+
+.ns-badge-caret {
+  font-size: 10px;
+  opacity: 0.85;
+  transition: transform 0.12s ease;
+}
+
+.ns-badge.open .ns-badge-caret {
+  transform: rotate(180deg);
+}
+
+/* 下拉面板:点击徽章展开,悬浮在下方内容之上,不撑布局 */
+.namespace-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 50;
+  min-width: 200px;
+  max-width: 100%;
+  padding: 8px;
+  border: 1px solid var(--border-color, #000);
+  border-radius: var(--border-radius, 2px);
+  background: var(--bg-surface, #fff);
+  box-shadow: 3px 3px 0 var(--border-color, #000);
+}
+
+.namespace-create {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.namespace-create[hidden] {
+  display: none;
 }
 
 .namespace-input {
   flex: 1;
+  min-width: 0;
   font-size: 12px;
   padding: 3px 6px;
   border: 1px solid var(--border-color, #000);
@@ -250,19 +320,41 @@ body {
   transform: translate(1px, 1px);
 }
 
-.namespace-new {
-  font-size: 12px;
-  padding: 3px 8px;
-  border: var(--border-width, 2px) solid var(--border-color, #000);
-  border-radius: var(--border-radius, 2px);
-  background: var(--bg-surface, #fff);
-  color: var(--text-primary, #1a1a1a);
+/* 「＋ 新建命名空间」:
+   单 ns 模式 = 顶部低调入口(点它内联展开输入行,不悬浮);
+   多 ns 模式 = 下拉面板底部的整行条目(面板内) */
+.namespace-new-single {
+  font-size: 11px;
+  padding: 3px 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary, #555);
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
   cursor: pointer;
+  font-family: inherit;
   font-weight: 500;
 }
 
-.namespace-new:hover {
-  background: var(--bg-subtle-hover, #e8e8e4);
+.namespace-new-single:hover {
+  color: var(--color-accent, #00c8ff);
+}
+
+.namespace-panel .namespace-new-single {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 5px 6px;
+  margin-top: 6px;
+  border-top: 1px dashed var(--border-color, #000);
+  text-decoration: none;
+}
+
+/* 单 ns 模式:面板以内联方式展开(不悬浮覆盖下方内容) */
+.namespace-panel.ns-panel-inline {
+  position: static;
+  box-shadow: none;
+  margin-top: 4px;
 }
 
 /* ns chip 列表:所有可选 ns 一目了然,不依赖 datalist 焦点交互 */
@@ -270,8 +362,6 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  margin-bottom: 8px;
-  padding: 0 4px;
 }
 
 .ns-chip {
@@ -294,22 +384,7 @@ body {
   color: var(--text-on-accent, #111);
   font-weight: 700;
   border-color: var(--color-accent, #00c8ff);
-}
-
-.ns-help {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 14px;
-  height: 14px;
-  font-size: 10px;
-  line-height: 1;
-  border: 1px solid var(--text-secondary, #555);
-  border-radius: 50%;
-  color: var(--text-secondary, #555);
-  cursor: help;
-  user-select: none;
-  flex-shrink: 0;
+  box-shadow: 1px 1px 0 var(--border-color, #000);
 }
 
 /* ========== 快捷操作页 ========== */
