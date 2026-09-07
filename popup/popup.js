@@ -128,10 +128,15 @@ async function handleAddGroup() {
 
 /**
  * 设置默认分组处理
+ * 成功后整表重渲染(后台权威状态);失败提示。
  */
 async function handleSetDefaultGroup(groupId) {
-  await setDefaultGroup(groupId);
-  await loadGroups(groupCallbacks());
+  try {
+    await setDefaultGroup(groupId);
+    await loadGroups(groupCallbacks());
+  } catch (e) {
+    showToast(document.querySelector('.app'), `设置默认分组失败: ${e.message}`, 'error');
+  }
 }
 
 /**
@@ -147,10 +152,12 @@ async function handleDeleteGroup(groupId) {
 
 /**
  * 切换专注搜索分组(行内 toggle 按钮)
+ * 成功后整表重渲染(后台权威状态);失败仅回滚被点的那个按钮。
  */
 async function handleToggleFocus(groupId, enabled, prevChecked) {
   try {
     await toggleFocusSearchGroup(groupId, enabled);
+    await loadGroups(groupCallbacks());
   } catch (e) {
     // 失败回滚按钮激活态(新扁平化 UI:gt-focus 按钮 .on class)
     const btn = document.getElementById('groupsList')?.querySelector(`.gt-focus[data-id="${groupId}"]`);
@@ -161,15 +168,18 @@ async function handleToggleFocus(groupId, enabled, prevChecked) {
 
 /**
  * 切换 goto 圆环源分组(行内 toggle 按钮)
+ * 成功后整表重渲染(后台权威状态);失败仅回滚被点的那个按钮。
  */
 async function handleToggleGoto(groupId, enabled) {
   const btn = document.getElementById('groupsList')?.querySelector(`.gt-goto[data-id="${groupId}"]`);
+  // 乐观反馈:点击瞬间先高亮,失败再回滚(避免等后台往返时按钮看起来没反应)
+  if (btn) btn.classList.toggle('on', enabled);
   try {
     const isGoto = await toggleGotoGroup(groupId);
-    // 以后台权威结果同步激活态(isGoto 是 toggle 后的真实值)
-    if (btn) btn.classList.toggle('on', isGoto);
+    // 成功:整表重渲染,以后台权威状态为准(isGoto 是 toggle 后的真实值)
+    await loadGroups(groupCallbacks());
   } catch (e) {
-    if (btn) btn.classList.remove('on');
+    if (btn) btn.classList.toggle('on', !enabled);
     showToast(document.querySelector('.app'), `goto 更新失败: ${e.message}`, 'error');
   }
 }
