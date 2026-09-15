@@ -268,6 +268,97 @@ async function importGroupsAndTabs(groups, tabs) {
   await chrome.storage.local.set({ groups, tabs });
 }
 
+/**
+ * 从 TOML 合并导入分组 + 标签(AI 生成 TOML → 新收藏)。
+ * 与 importGroupsAndTabs 的「全量替换」语义不同:本函数只新建 group,
+ * 不触碰任何已有分组/标签。每个新 group 获得全新 id;
+ * 默认写入 active ns,TOML 中带合法 ns 字段时写入该 ns。
+ *
+ * @param {Array<{name:string,color?:string,ns?:string,visible?:boolean,goto?:boolean,tabs:Array<{title?:string,url:string,favicon?:string}>}>} groups
+ * @returns {Promise<{imported:number,tabs:number,skipped:number,groups:Array<{name:string,ns:string,tabCount:number}>}>}
+ * @throws {Error('TOML_NO_GROUPS'|'TOML_INVALID_GROUP_NAME')}
+ */
+async function importGroupsFromToml(groups) {
+  if (!Array.isArray(groups) || groups.length === 0) {
+    throw new Error('TOML_NO_GROUPS');
+  }
+
+  const [allGroups, allTabs, activeNs] = await Promise.all([
+    getAllGroupsAcrossNamespaces(),
+    getAllTabsMapAcrossNamespaces(),
+    getActiveNamespace()
+  ]);
+
+  const summary = [];
+  let totalTabs = 0;
+  let skipped = 0;
+
+  for (const raw of groups) {
+    if (!raw || typeof raw !== 'object') { skipped++; continue; }
+
+    const name = typeof raw.name === 'string' ? raw.name.trim().slice(0, 100) : '';
+    if (!name) throw new Error('TOML_INVALID_GROUP_NAME');
+
+    // ns 缺省 → active ns;显式给出且合法时尊重 TOML(允许一次导入到别的 ns)
+    let targetNs = activeNs;
+    if (typeof raw.ns === 'string' && validateNamespace(raw.ns)) {
+      targetNs = raw.ns;
+    }
+
+    // 色值必须在调色板内,否则回退到蓝色(与 addGroup 容错风格一致)
+    const color = DEFAULT_COLORS.includes(raw.color) ? raw.color : DEFAULT_COLORS[2];
+
+    const newGroup = {
+      id: generateId(),
+      name,
+      color,
+      isDefault: false, // 导入的分组不抢占默认分组
+      goto: raw.goto === true,
+      inFocusSearch: false,
+      visible: raw.visible !== false,
+      ns: targetNs
+    };
+
+    // 标签清洗:URL 必填且可解析、组内去重、超上限截断
+    const seen = new Set();
+    const entries = [];
+    const rawTabs = Array.isArray(raw.tabs) ? raw.tabs : [];
+    for (const t of rawTabs) {
+      if (entries.length >= DEFAULT_GROUP_MAX_TABS) { skipped++; continue; }
+      if (!t || typeof t.url !== 'string') { skipped++; continue; }
+      const url = t.url.trim();
+      if (!url || url === 'about:blank') { skipped++; continue; }
+      try {
+        // eslint-disable-next-line no-new
+        new URL(url);
+      } catch {
+        skipped++;
+        continue;
+      }
+      if (seen.has(url)) { skipped++; continue; }
+      seen.add(url);
+      const title = (typeof t.title === 'string' && t.title.trim())
+        ? t.title.trim().slice(0, 200)
+        : url;
+      entries.push({
+        id: generateId(),
+        title,
+        url,
+        favicon: typeof t.favicon === 'string' ? t.favicon : '',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    allGroups.push(newGroup);
+    allTabs[newGroup.id] = entries;
+    totalTabs += entries.length;
+    summary.push({ name, ns: targetNs, tabCount: entries.length });
+  }
+
+  await chrome.storage.local.set({ groups: allGroups, tabs: allTabs });
+  return { imported: summary.length, tabs: totalTabs, skipped, groups: summary };
+}
+
 // ===================== Group 标记(flag) =====================
 // goto / inFocusSearch / visible 都是 group 的属性,统一由这里操作
 
@@ -750,6 +841,7 @@ export {
   setDefaultGroup,
   updateBoardOrder,
   importGroupsAndTabs,
+  importGroupsFromToml,
   // 标记
   toggleGoto,
   setGroupFocusSearch,

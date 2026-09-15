@@ -4,68 +4,16 @@
   overflow-x: auto;
   overflow-y: hidden;
   padding: 12px;
-  /* ⚠️ 隐藏原生水平滚动条 —— 自定义滚动条(board-actions-header 右侧的镜像条)
-     已同步 scrollLeft,放底部会让用户在非全屏窗口下看不到。
-     保留 overflow-y: hidden 的滚动机制(scrollLeft/scrollWidth API 仍可用)。 */
-  scrollbar-width: none;  /* Firefox */
-}
-
-#tabboard::-webkit-scrollbar {
-  height: 0;  /* Chrome / Edge:水平滚动条高度 0,只占 0 像素,垂直滚动条仍默认显示 */
 }
 
 /* 分组视图操作按钮区域 */
 .board-actions-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  flex-wrap: wrap;
   gap: 6px;
   margin-bottom: 8px;
   flex-shrink: 0;
-  /* ⚠️ 关键 — sticky 让 actions header 在横向滚动时始终停在视口左侧,
-     自定义滚动条也就在同一行右侧始终可见。z-index 高于 .kanban-board,
-     滚动时不被 kanban 滚动覆盖。 */
-  position: sticky;
-  left: 0;
-  z-index: 10;
-  background: var(--bg, #f5f7fa);
-  /* padding-top/bottom 让 header 高度和滚动条对齐 */
-  padding: 4px 0;
-}
-
-/* 自定义顶部滚动条 —— 镜像 #tabboard 的横向 scroll 状态。
-   位置:actions header 同一行右侧(flex: 1 占满按钮和右边缘之间)。
-   视觉:与原生滚动条一致(浅灰 track + 深灰 thumb),但放在顶部。 */
-.kanban-scrollbar-mirror {
-  flex: 1;
-  height: 10px;
-  min-width: 60px;
-  background: transparent;
-  border-radius: 5px;
-  position: relative;
-  cursor: pointer;
-  align-self: center;
-}
-
-.kanban-scrollbar-thumb {
-  position: absolute;
-  top: 0;
-  left: 0;
-  height: 100%;
-  background: #a0a0a0;
-  border-radius: 5px;
-  cursor: grab;
-  transition: background 0.15s;
-  min-width: 24px;
-  /* width 和 transform 由 JS 同步设置 */
-}
-
-.kanban-scrollbar-thumb:hover {
-  background: #707070;
-}
-
-.kanban-scrollbar-thumb.dragging {
-  background: #505050;
-  cursor: grabbing;
 }
 
 .board-actions-header .board-action-btn {
@@ -163,21 +111,11 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
-/* ⚠️ 关键:作者样式表的 display:flex 会覆盖 UA [hidden]{display:none},
-   导致 panel.hidden=true 仍然 visible,「收起」」失效。
-   显式加 [hidden] 覆盖规则,保证 closePanel() / render() 重置都生效。 */
-.ns-panel[hidden] {
-  display: none;
-}
-
-/* ns chip 列表:所有可选 ns 一目了然。
-   限定 max-height + 滚动,避免 ns 数过多(>5)时 panel 撑高挡住看板 */
+/* ns chip 列表:所有可选 ns 一目了然 */
 .ns-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  max-height: 240px;
-  overflow-y: auto;
 }
 
 .ns-create {
@@ -289,14 +227,6 @@
   gap: 10px;
   height: 100%;
   align-items: stretch;
-  /* ⚠️ 关键:
-     1. min-width: max-content —— jKanban 内联 style="width: 1824px" 不算 gap,
-        实际内容是 6×280 + 6×24 margin + 5×10 gap = 1874px,容器会被压 50px。
-        min-width: max-content 让容器按实际内容宽度撑开,避免右侧 boards 被压到看不见。
-     2. flex-shrink: 0 —— 防止父级 flex 把容器收缩到视口宽度(等于看不到溢出,
-        自然也就没横向滚动条)。 */
-  min-width: max-content;
-  flex-shrink: 0;
 }
 
 /* 看板列 */
@@ -560,4 +490,211 @@
 
 .bm-tree::-webkit-scrollbar-thumb:hover {
   background: #a1a1a1;
+}
+
+/* ============ AI 导入 / TOML 面板 ============ */
+.toml-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toml-dialog {
+  background: var(--bg, #f8f9fa);
+  border-radius: 8px;
+  width: 780px;
+  max-width: 92vw;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.toml-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border, #e0e0e0);
+  flex-shrink: 0;
+}
+
+.toml-dialog-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: var(--text, #222);
+}
+
+.toml-close-btn {
+  background: none;
+  border: none;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--text-light, #888);
+  padding: 2px 8px;
+}
+
+.toml-close-btn:hover {
+  color: var(--danger, #e74c3c);
+}
+
+.toml-dialog-body {
+  padding: 14px 18px 18px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.toml-panel-section h4 {
+  margin: 0 0 10px;
+  font-size: 14px;
+  color: var(--text, #222);
+}
+
+.toml-check-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text, #333);
+  cursor: pointer;
+  user-select: none;
+  margin-bottom: 6px;
+}
+
+.toml-check-row input {
+  margin-top: 2px;
+  cursor: pointer;
+}
+
+.toml-l2-status {
+  font-size: 12px;
+  margin-bottom: 8px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.toml-l2-status-off {
+  color: #888;
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.toml-l2-status-loading {
+  color: #1a5fb4;
+  background: rgba(66, 165, 245, 0.12);
+}
+
+.toml-l2-status-on {
+  color: #1b7a43;
+  background: rgba(0, 184, 148, 0.12);
+}
+
+.toml-l2-status-warn {
+  color: #b3541e;
+  background: rgba(249, 202, 36, 0.18);
+}
+
+.toml-prompt-text,
+.toml-import-text {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--border, #d5d5d5);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.6;
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+  resize: vertical;
+  background: var(--card-bg, #fff);
+  color: var(--text, #222);
+}
+
+.toml-prompt-text {
+  background: var(--card-bg, #fff);
+}
+
+.toml-prompt-text:focus,
+.toml-import-text:focus {
+  outline: 2px solid var(--color-accent, #42a5f5);
+  outline-offset: 1px;
+}
+
+.toml-btn-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.toml-btn {
+  padding: 7px 16px;
+  font-size: 13px;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  font-family: inherit;
+  transition: opacity 0.15s, transform 0.05s;
+}
+
+.toml-btn:active {
+  transform: translate(1px, 1px);
+}
+
+.toml-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.toml-btn-primary {
+  background: var(--color-accent, #007bff);
+  color: #fff;
+}
+
+.toml-btn-primary:hover:not(:disabled) {
+  opacity: 0.88;
+}
+
+.toml-btn-primary.toml-copy-ok {
+  background: #00b894;
+}
+
+.toml-btn-ghost {
+  background: transparent;
+  color: var(--text-secondary, #666);
+  border-color: var(--border, #ccc);
+}
+
+.toml-btn-ghost:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.toml-hint {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-light, #999);
+  line-height: 1.5;
+}
+
+/* 工具栏上的 TOML 按钮:与 AI 主操作稍作区分 */
+.board-actions-header .toml-ai-btn {
+  border-color: var(--color-accent, #42a5f5);
+  color: var(--color-accent, #007bff);
+  font-weight: 600;
+}
+
+.board-actions-header .toml-ai-btn:hover {
+  background: var(--color-accent, #42a5f5);
+  color: #fff;
 }
