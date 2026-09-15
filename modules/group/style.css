@@ -111,6 +111,14 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
+/* hidden 属性必须能压住上面的 display:flex。UA 的 [hidden]{display:none} 优先级
+   低于任何作者样式里的 display 声明,不加这条面板会「永远展开」:JS 里
+   panel.hidden = true 起不到任何视觉效果。(ns-panel-inline 同为 0,2,0 权重,
+   故用 !important 兜底,避免后续新增 .ns-panel.xxx 组合选择器时再次被压过) */
+.ns-panel[hidden] {
+  display: none !important;
+}
+
 /* ns chip 列表:所有可选 ns 一目了然 */
 .ns-chips {
   display: flex;

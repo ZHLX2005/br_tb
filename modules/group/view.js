@@ -14,6 +14,11 @@ class GroupView {
     this.tabs = {};
     this.kanban = null;
     this.boardActionsObserver = null;
+    // 【看板高度】高度由 JS 按视口算成固定 px,需跟着 resize/缩放重算;
+    // 下面三个字段支撑 _bindBoardHeightAutoSync / _unbindBoardHeightAutoSync
+    this._heightSyncBound = false;   // resize 监听是否已挂(只挂一次,防重复累积)
+    this._heightObserver = null;     // ResizeObserver 实例
+    this._heightSyncRaf = null;      // 待执行的 rAF,用于合并连续的 resize 事件
     this.visibleGroups = new Set(); // 存储可见分组的 ID
     // 【ns】命名空间状态:从 settings.activeNamespace 缓存当前活跃 ns,
     // availableNamespaces 列出已知 ns(用于下拉框选项)。渲染时直接读这两个属性,
@@ -336,6 +341,9 @@ class GroupView {
 
     // 绑定看板内按钮(Open/Clear/Del/Goto)的事件委托,避免每次重渲染重复绑定导致事件堆叠
     this._setupBoardActionDelegation();
+
+    // 看板高度是 JS 按视口算的固定 px,需在 resize / 缩放 / 容器尺寸变化时重算
+    this._bindBoardHeightAutoSync();
   }
 
   /**
@@ -393,18 +401,9 @@ class GroupView {
    */
   _addBoardActionButtons() {
     const groupView = document.getElementById('groupView');
-    const actionsHeader = document.querySelector('.board-actions-header');
+    if (!groupView) return;
 
-    // 使用 groupView 的完整高度作为基准
-    const viewHeight = groupView.clientHeight;
-
-    // 计算看板可用高度
-    let boardMaxHeight = viewHeight - 24; // 减去 tabboard 的 padding (12px * 2)
-    if (actionsHeader) {
-      boardMaxHeight -= actionsHeader.offsetHeight + 8; // 减去按钮高度和 margin-bottom
-    }
-
-    document.querySelectorAll('.kanban-board').forEach(board => {
+    groupView.querySelectorAll('.kanban-board').forEach(board => {
       const header = board.querySelector('.kanban-title-board');
       if (header && !header.querySelector('.board-actions')) {
         const boardId = board.getAttribute('data-id');
@@ -421,10 +420,107 @@ class GroupView {
         `;
         header.appendChild(actions);
       }
-
-      // 设置看板高度，使内容区域可以滚动
-      board.style.height = `${Math.max(200, boardMaxHeight)}px`; // 最小高度 200px
     });
+
+    // 设置看板高度，使内容区域可以滚动
+    this._syncBoardHeights();
+  }
+
+  /**
+   * 按当前视口尺寸重算并下发每个看板列的高度(纯几何计算,不注入按钮)。
+   *
+   * 看板列高度是 JS 算出来的固定 px 值(不是 CSS 百分比),形状由“视口高度 −
+   * 工具栏高度”决定。这个值只在 render / 新增看板列时算过一次,而窗口拖拽、
+   * 浏览器缩放(zoom)都不改 DOM —— 没有任何事件会重算它,所以高度会一直停在
+   * 旧值上,表现为“缩放后不跟手,必须点 Refresh 才更新”。
+   * 重算时机由 _bindBoardHeightAutoSync() 负责。
+   */
+  _syncBoardHeights() {
+    const groupView = document.getElementById('groupView');
+    if (!groupView) return;
+
+    // 使用 groupView 的完整高度作为基准
+    const viewHeight = groupView.clientHeight;
+
+    // 视图处于 display:none(当前切在别的 view)时 clientHeight 为 0,算出来是
+    // 负值,被 200px 下限兜住后会把所有看板压成最小高度 —— 这不是“尺寸变了”,
+    // 是无尺寸可算。跳过:切回本视图时 ResizeObserver 会带真实尺寸再触发一次。
+    if (viewHeight === 0) return;
+
+    // 计算看板可用高度
+    let boardMaxHeight = viewHeight - 24; // 减去 tabboard 的 padding (12px * 2)
+    const actionsHeader = groupView.querySelector('.board-actions-header');
+    if (actionsHeader) {
+      boardMaxHeight -= actionsHeader.offsetHeight + 8; // 减去按钮高度和 margin-bottom
+    }
+    const boardHeight = Math.max(200, boardMaxHeight); // 最小高度 200px
+
+    groupView.querySelectorAll('.kanban-board').forEach(board => {
+      board.style.height = `${boardHeight}px`;
+    });
+  }
+
+  /**
+   * rAF 去抖:一次窗口拖拽/缩放会连发几十个 resize,每个都同步读 offsetHeight
+   * (强制 reflow)再写 style 会造成 layout thrashing。合并到下一帧只算一次。
+   */
+  _scheduleBoardHeightSync() {
+    if (this._heightSyncRaf) return;
+    this._heightSyncRaf = requestAnimationFrame(() => {
+      this._heightSyncRaf = null;
+      this._syncBoardHeights();
+    });
+  }
+
+  /**
+   * 绑定看板高度的自动重算。两个信号源缺一不可:
+   *  - window resize:窗口拖拽 + 浏览器缩放(zoom 改变 CSS px 视口,必发 resize)
+   *  - ResizeObserver:覆盖 resize 事件收不到的“窗口没变、容器自己变了”
+   *     —— 工具栏按钮换行导致 header 变高、display:none ⇄ block 切回本视图、
+   *     字体加载完成等
+   *
+   * 监听器只挂一次(__heightSyncBound):render() 会被反复调用,而 GroupModule
+   * 实例在 tabboard.js 里是缓存的(切走再切回只 render 不重建),重复挂会单向
+   * 累积成监听器泄漏。但**观察目标**每轮 render 都会重建(工具栏 header),
+   * 所以每轮都重新指定一次观察目标。
+   */
+  _bindBoardHeightAutoSync() {
+    if (!this._heightSyncBound) {
+      this._heightSyncBound = true;
+      this._onWindowResize = () => this._scheduleBoardHeightSync();
+      window.addEventListener('resize', this._onWindowResize);
+      if (typeof ResizeObserver === 'function') {
+        this._heightObserver = new ResizeObserver(() => this._scheduleBoardHeightSync());
+      }
+    }
+
+    if (this._heightObserver) {
+      // 旧 header 已随上一轮 render 脱离文档,重挂观察目标
+      this._heightObserver.disconnect();
+      const groupView = document.getElementById('groupView');
+      if (groupView) this._heightObserver.observe(groupView);
+      const actionsHeader = document.querySelector('.board-actions-header');
+      if (actionsHeader) this._heightObserver.observe(actionsHeader);
+    }
+  }
+
+  /**
+   * 解绑看板高度自动重算(resize 监听 / ResizeObserver / 未执行的 rAF)
+   */
+  _unbindBoardHeightAutoSync() {
+    if (this._onWindowResize) {
+      window.removeEventListener('resize', this._onWindowResize);
+      this._onWindowResize = null;
+    }
+    if (this._heightObserver) {
+      this._heightObserver.disconnect();
+      this._heightObserver = null;
+    }
+    if (this._heightSyncRaf) {
+      cancelAnimationFrame(this._heightSyncRaf);
+      this._heightSyncRaf = null;
+    }
+    this._heightSyncBound = false;
   }
 
   /**
