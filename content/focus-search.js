@@ -190,7 +190,7 @@ function createOverlay() {
 
   var footer = document.createElement('div');
   footer.className = 'focus-search-footer';
-  footer.innerHTML = '<span><kbd>\u2191</kbd><kbd>\u2193</kbd> \u5bfc\u822a</span><span><kbd>Enter</kbd> \u8df3\u8f6c/\u641c\u7d22</span><span><kbd>Esc</kbd> \u5173\u95ed</span><span><kbd>&gt;</kbd> \u7cfb\u7edf\u9875</span>';
+  footer.innerHTML = '<span><kbd>\u2191</kbd><kbd>\u2193</kbd> \u5bfc\u822a</span><span><kbd>Enter</kbd> \u8df3\u8f6c/\u641c\u7d22</span><span><kbd>Esc</kbd> \u5173\u95ed</span><span><kbd>&gt;</kbd> \u7cfb\u7edf\u9875</span><span><kbd>~</kbd> localhost</span>';
 
   modal.appendChild(header);
   modal.appendChild(results);
@@ -200,6 +200,9 @@ function createOverlay() {
 
   bindOverlayEvents();
   loadAllTabs();
+  // 每次打开都重读 localhost 历史：记录可能在其它页面的面板里被更新过
+  localhostHistoryLoaded = false;
+  loadLocalhostHistory();
 }
 
 function bindOverlayEvents() {
@@ -211,6 +214,8 @@ function bindOverlayEvents() {
     if (isSystemQuery(query)) {
       var sysQuery = query.slice(1).trim();
       filteredResults = filterAndSortSystemPages(sysQuery);
+    } else if (isLocalhostQuery(query)) {
+      filteredResults = filterAndSortLocalhost(query.slice(1).trim());
     } else {
       filteredResults = filterAndSortTabs(allTabs, query);
     }
@@ -275,7 +280,7 @@ async function jumpToSelected() {
     // 无匹配结果时，兜底用默认搜索引擎搜索
     var input = document.getElementById('focus-search-input');
     var query = input ? input.value.trim() : '';
-    if (query && !isSystemQuery(query)) {
+    if (query && !isSystemQuery(query) && !isLocalhostQuery(query)) {
       closeOverlay();
       performSearch(query);
     }
@@ -284,6 +289,36 @@ async function jumpToSelected() {
   var item = filteredResults[selectedIndex];
   if (!item || !item.tab) return;
   var tab = item.tab;
+
+  if (item.kind === 'localhost') {
+    var url = tab.url;
+    recordLocalhostVisit(tab);
+    closeOverlay();
+    if (!isExtensionContextAlive()) {
+      console.warn('[FocusSearch] Extension context invalidated - please reload the page (Alt+Shift+S).');
+      return;
+    }
+    try {
+      chrome.runtime.sendMessage({ action: 'openTab', url: url }, function(response) {
+        if (chrome.runtime.lastError) {
+          console.warn('[FocusSearch] openTab lastError:', chrome.runtime.lastError.message);
+          showErrorToast('无法打开 localhost 页: ' + chrome.runtime.lastError.message);
+          return;
+        }
+        if (response && response.success === false) {
+          console.warn('[FocusSearch] openTab failed:', url, '-', response.error);
+          showErrorToast('无法打开 ' + url + ': ' + (response.error || '未知错误'));
+          return;
+        }
+        // 打开成功才计入历史，避免失败条目占用队列
+        recordLocalhostVisit(tab);
+      });
+    } catch (e) {
+      console.error('[FocusSearch] Failed to open localhost:', e);
+      showErrorToast('无法打开 localhost 页: ' + (e && e.message ? e.message : String(e)));
+    }
+    return;
+  }
 
   if (item.kind === 'system') {
     var url = tab.url;
@@ -362,6 +397,8 @@ function renderResults(query) {
     var emptyMsg;
     if (isSystemQuery(query)) {
       emptyMsg = query.length > 1 ? '\u6ca1\u6709\u5339\u914d\u7684\u7cfb\u7edf\u9875' : '\u6ca1\u6709\u53ef\u7528\u7684\u7cfb\u7edf\u9875';
+    } else if (isLocalhostQuery(query)) {
+      emptyMsg = query.length > 1 ? '\u6ca1\u6709\u5339\u914d\u7684 localhost \u8bb0\u5f55' : '\u6682\u65e0 localhost \u8bbf\u95ee\u8bb0\u5f55';
     } else {
       emptyMsg = query ? '\u6ca1\u6709\u5339\u914d\u7684\u6807\u7b7e\u9875' : '\u6ca1\u6709\u6253\u5f00\u7684\u6807\u7b7e\u9875';
     }
@@ -376,6 +413,7 @@ function renderResults(query) {
     var tab = r.tab;
     var isSelected = i === selectedIndex ? ' selected' : '';
     var isSystem = r.kind === 'system' ? ' system-source' : '';
+    var isLocalhost = r.kind === 'localhost' ? ' localhost-source' : '';
     var isGroup = tab.source === 'group' ? ' group-source' : '';
     var audibleIcon = tab.audible ? '<span class="focus-search-audible" title="\u6b63\u5728\u64ad\u653e\u97f3\u9891">\u25cf</span>' : '';
 
@@ -384,6 +422,8 @@ function renderResults(query) {
       // \u7cfb\u7edf\u9875\u7528\u540d\u79f0\u9996\u5b57\u7b26\u4f5c\u5360\u4f4d\uff08\u4e0d\u4f7f\u7528 emoji\uff09
       var firstChar = (tab.title || '?').charAt(0);
       faviconHtml = '<span class="focus-search-system-icon">' + escapeHtml(firstChar) + '</span>';
+    } else if (r.kind === 'localhost') {
+      faviconHtml = '<span class="focus-search-system-icon focus-search-localhost-icon">L</span>';
     } else {
       var favicon = safeUrl(tab.favIconUrl);
       if (favicon) {
@@ -400,7 +440,7 @@ function renderResults(query) {
     var shortUrl = rawUrl.length > TRUNCATE ? rawUrl.substring(0, TRUNCATE) + '...' : rawUrl;
     var urlClass = 'focus-search-url';
     var urlHtml;
-    if (!query || isSystemQuery(query)) {
+    if (!query || isSystemQuery(query) || isLocalhostQuery(query)) {
       urlHtml = escapeHtml(shortUrl);
     } else {
       var ql = query.toLowerCase();
@@ -415,7 +455,7 @@ function renderResults(query) {
     }
 
     htmlParts.push(
-      '<div class="focus-search-item' + isSelected + isGroup + isSystem + '" data-index="' + i + '">' +
+      '<div class="focus-search-item' + isSelected + isGroup + isSystem + isLocalhost + '" data-index="' + i + '">' +
       faviconHtml +
       audibleIcon +
       '<div class="focus-search-content">' +
@@ -534,6 +574,115 @@ function filterAndSortSystemPages(query) {
     })
     .filter(function(r) { return r.score > 0; })
     .sort(function(a, b) { return b.score - a.score; });
+}
+
+// ========== localhost 快速打开（~） ==========
+
+// 通过本面板打开过的 localhost 记录，队列上限 LOCALHOST_HISTORY_MAX，最近使用的排最前。
+// 与 > 系统页不同，这个列表跨页面持久化（chrome.storage.local），因为用户要在
+// 任意页面快速回到本地开发服务，而不是只在某个页面有记忆。
+var LOCALHOST_HISTORY_KEY = 'focusSearchLocalhostHistory';
+var LOCALHOST_HISTORY_MAX = 10;
+var localhostHistory = [];
+var localhostHistoryLoaded = false;
+
+function loadLocalhostHistory() {
+  if (!isExtensionContextAlive() || localhostHistoryLoaded) return Promise.resolve();
+  return chrome.storage.local.get([LOCALHOST_HISTORY_KEY]).then(function(result) {
+    var list = result && result[LOCALHOST_HISTORY_KEY];
+    localhostHistory = Array.isArray(list) ? list.slice(0, LOCALHOST_HISTORY_MAX) : [];
+    localhostHistoryLoaded = true;
+  }).catch(function(e) {
+    console.warn('[FocusSearch] Failed to load localhost history:', e);
+    localhostHistoryLoaded = true;
+  });
+}
+
+function recordLocalhostVisit(tab) {
+  if (!isExtensionContextAlive()) return;
+  // 去重后置顶：同 URL 只保留一条最新记录
+  var entry = { url: tab.url, title: tab.title || '', timestamp: Date.now() };
+  localhostHistory = [entry].concat(localhostHistory.filter(function(h) {
+    return h.url !== entry.url;
+  })).slice(0, LOCALHOST_HISTORY_MAX);
+  var payload = {};
+  payload[LOCALHOST_HISTORY_KEY] = localhostHistory;
+  chrome.storage.local.set(payload).catch(function(e) {
+    console.warn('[FocusSearch] Failed to save localhost history:', e);
+  });
+}
+
+// 把 ~ 后的用户输入转换成结果列表。三种形态：
+//   空      -> 展示最近 localhost 记录
+//   纯数字   -> 直接映射到 http://localhost:<端口>/，同时并入历史里匹配该端口的记录
+//   其他文本 -> 在历史记录里按关键字过滤
+function filterAndSortLocalhost(q) {
+  var results = [];
+  if (!q) {
+    // 历史尚未加载完成时先给提示，加载后用户继续输入或重开面板即可看到
+    if (!localhostHistoryLoaded) {
+      loadLocalhostHistory().then(function() {
+        var input = document.getElementById('focus-search-input');
+        if (input && isLocalhostQuery(input.value.trim()) && input.value.trim().length <= 1) {
+          filteredResults = filterAndSortLocalhost('');
+          selectedIndex = filteredResults.length > 0 ? 0 : -1;
+          renderResults(input.value.trim());
+        }
+      });
+      return [];
+    }
+    return localhostHistory.map(function(h) {
+      return {
+        kind: 'localhost',
+        tab: { id: 'localhost_' + h.url, title: h.title || localhostUrlToTitle(h.url), url: h.url, favIconUrl: '' },
+        score: 2,
+        matchType: 'history'
+      };
+    });
+  }
+
+  // 端口（可带路径）= 直接生成 localhost 条目，如 ~7800 或 ~7800/admin
+  var portMatch = q.match(/^(\d+)(\/.*)?$/);
+  if (portMatch) {
+    var port = parseInt(portMatch[1], 10);
+    var fullUrl = 'http://localhost:' + port + (portMatch[2] || '/');
+    results.push({
+      kind: 'localhost',
+      tab: { id: 'localhost_' + fullUrl, title: 'localhost:' + port + (portMatch[2] || ''), url: fullUrl, favIconUrl: '' },
+      score: 100,
+      matchType: 'port'
+    });
+  }
+
+  // 历史记录按关键字（端口 / 路径 / 标题）过滤
+  var ql = q.toLowerCase();
+  for (var i = 0; i < localhostHistory.length; i++) {
+    var h = localhostHistory[i];
+    var haystack = (h.url + ' ' + (h.title || '')).toLowerCase();
+    if (!ql || haystack.indexOf(ql) !== -1) {
+      if (results.some(function(r) { return r.tab.url === h.url; })) continue;
+      results.push({
+        kind: 'localhost',
+        tab: { id: 'localhost_' + h.url, title: h.title || localhostUrlToTitle(h.url), url: h.url, favIconUrl: '' },
+        score: 40,
+        matchType: 'history'
+      });
+    }
+  }
+  return results;
+}
+
+function localhostUrlToTitle(url) {
+  try {
+    var parsed = new URL(url);
+    return parsed.host + (parsed.pathname !== '/' ? parsed.pathname : '');
+  } catch (e) {
+    return url;
+  }
+}
+
+function isLocalhostQuery(query) {
+  return typeof query === 'string' && query.charAt(0) === '~';
 }
 
 // ========== 初始化 ==========

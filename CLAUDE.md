@@ -89,6 +89,10 @@ User Action → View Component → DataManager.sendMessage()
     startTime: string | null,
     tabCount: number
   },
+  focusSearchLocalhostHistory: [
+    // focus-search 浮层 ~ 语法:记录通过面板打开过的 localhost,去重置顶,上限 10 条
+    { url: string, title: string, timestamp: number }
+  ],
   settings: {
     closeAfterCollect: boolean,
     closeAfterRestore: boolean,
