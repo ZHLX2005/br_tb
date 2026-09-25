@@ -27,6 +27,9 @@ class GroupModule {
     if (this.view.boardActionsObserver) {
       this.view.boardActionsObserver.disconnect();
     }
+    // 解绑 resize / ResizeObserver:实例被替换时若不清理,
+    // 旧的 view 仍持有 window 级监听,会泄漏并对已脱离文档的 DOM 做无用重算
+    this.view._unbindBoardHeightAutoSync();
     const container = document.getElementById('tabboard');
     if (container) container.innerHTML = '';
     this.view.kanban = null;

@@ -3,8 +3,9 @@
  * 负责分组看板的渲染和交互
  */
 
-import { escapeHtml, formatTime, getColorClass, exportData, importData } from '../shared/utils.js';
+import { escapeHtml, formatTime, getColorClass } from '../shared/utils.js';
 import { modal } from '../../shared/ModalDialog.js';
+import { serializeGroupsToToml, parseGroupsToml, buildAiPrompt } from './toml.js';
 
 class GroupView {
   constructor(dataManager) {
@@ -13,6 +14,11 @@ class GroupView {
     this.tabs = {};
     this.kanban = null;
     this.boardActionsObserver = null;
+    // 【看板高度】高度由 JS 按视口算成固定 px,需跟着 resize/缩放重算;
+    // 下面三个字段支撑 _bindBoardHeightAutoSync / _unbindBoardHeightAutoSync
+    this._heightSyncBound = false;   // resize 监听是否已挂(只挂一次,防重复累积)
+    this._heightObserver = null;     // ResizeObserver 实例
+    this._heightSyncRaf = null;      // 待执行的 rAF,用于合并连续的 resize 事件
     this.visibleGroups = new Set(); // 存储可见分组的 ID
     // 【ns】命名空间状态:从 settings.activeNamespace 缓存当前活跃 ns,
     // availableNamespaces 列出已知 ns(用于下拉框选项)。渲染时直接读这两个属性,
@@ -122,33 +128,9 @@ class GroupView {
     const visibleGroups = this._getVisibleGroups();
     stats.textContent = `${totalTabs} 个标签页 · ${visibleGroups.length}/${this.groups.length} 个分组显示`;
 
-    // 只有没有任何分组时才显示空状态
-    if (this.groups.length === 0) {
-      tabboard.innerHTML = '';
-      emptyState.style.display = 'flex';
-      return;
-    }
-
+    // 即使当前 ns 没有任何分组,也保留工具栏(AI导入 / TOML导入 / JSON 导入
+    // 是冷启动主入口),空态以工具栏下方的内联提示呈现,不再切到 #emptyState。
     emptyState.style.display = 'none';
-
-    // 【ns】当前 ns 没有分组时,明确告知「默认分组在 default」,避免以为分组被删
-    if (visibleGroups.length === 0) {
-      const noVisibleMsg = document.createElement('div');
-      noVisibleMsg.className = 'no-visible-groups-message';
-      if (this.groups.length === 0) {
-        noVisibleMsg.innerHTML = `
-          <div>当前命名空间「${escapeHtml(this.activeNamespace)}」暂无分组</div>
-          ${this.activeNamespace !== 'default'
-            ? `<div style="margin-top:8px;font-size:12px;color:#888;">默认分组在「default」中,点击上方命名空间徽章可切换回来</div>`
-            : `<div style="margin-top:8px;font-size:12px;color:#888;">点击「+ 添加分组」创建第一个分组</div>`}`;
-      } else {
-        noVisibleMsg.textContent = '当前没有显示的分组，请点击"筛选"按钮选择要显示的分组';
-      }
-      noVisibleMsg.style.cssText = 'text-align: center; padding: 40px; color: #888; font-size: 14px;';
-      tabboard.appendChild(noVisibleMsg);
-      this._setupGroupActionButtons();
-      return;
-    }
 
     // 【ns】命名空间切换器,放在操作按钮区最前。识别优先 + 下拉式:
     // 当前 ns 以高权重徽章展示,全部 ns 的 chips 收进「点击徽章展开」的下拉面板,
@@ -213,17 +195,31 @@ class GroupView {
       <button class="board-action-btn refresh-sort-btn" title="按点击次数刷新排序">刷新排序</button>
       <button class="board-action-btn open-all-groups-btn" title="打开所有分组">打开全部</button>
       <button class="board-action-btn import-bookmarks-btn" title="从浏览器书签导入">导入书签</button>
-      <button class="board-action-btn export-groups-btn" title="导出分组数据">导出</button>
-      <button class="board-action-btn import-groups-btn" title="导入分组数据">导入</button>
+      <button class="board-action-btn toml-export-btn" title="把当前分组收藏导出为 TOML 文件">导出</button>
+      <button class="board-action-btn toml-ai-btn" title="复制 AI 提示词 / 粘贴 TOML 导入新分组">导入</button>
     `;
 
     // 清空并添加操作按钮
     tabboard.innerHTML = '';
     tabboard.appendChild(actionsHeader);
 
+    // 当前 ns 完全没有分组:保留工具栏 + 内联引导(AI导入/TOML 是冷启动主入口)
+    if (this.groups.length === 0) {
+      const noGroupMsg = document.createElement('div');
+      noGroupMsg.className = 'no-visible-groups-message';
+      noGroupMsg.style.cssText = 'text-align: center; padding: 40px; color: #888; font-size: 14px; line-height: 2;';
+      noGroupMsg.innerHTML = `
+        <div>当前命名空间「${escapeHtml(this.activeNamespace)}」还没有分组</div>
+        <div style="font-size:12px;color:#888;">点击「+ 添加分组」手动创建,或点击「导入」复制 AI 提示词 → 外部 AI 产出 TOML → 一键导入新分组</div>
+      `;
+      tabboard.appendChild(noGroupMsg);
+      this._setupGroupActionButtons();
+      return;
+    }
+
     // 如果没有可见分组，显示提示
     if (visibleGroups.length === 0) {
-      // 注:上面的早期 return 已经处理了「this.groups.length === 0」(整个 active ns 都空)的情况。
+      // 注:this.groups.length === 0 的情形已由上面的分支处理;
       // 这里只剩下「active ns 内有 group,但都被 visible=false 隐藏」一种情形。
       const noVisibleMsg = document.createElement('div');
       noVisibleMsg.className = 'no-visible-groups-message';
@@ -345,6 +341,9 @@ class GroupView {
 
     // 绑定看板内按钮(Open/Clear/Del/Goto)的事件委托,避免每次重渲染重复绑定导致事件堆叠
     this._setupBoardActionDelegation();
+
+    // 看板高度是 JS 按视口算的固定 px,需在 resize / 缩放 / 容器尺寸变化时重算
+    this._bindBoardHeightAutoSync();
   }
 
   /**
@@ -402,18 +401,9 @@ class GroupView {
    */
   _addBoardActionButtons() {
     const groupView = document.getElementById('groupView');
-    const actionsHeader = document.querySelector('.board-actions-header');
+    if (!groupView) return;
 
-    // 使用 groupView 的完整高度作为基准
-    const viewHeight = groupView.clientHeight;
-
-    // 计算看板可用高度
-    let boardMaxHeight = viewHeight - 24; // 减去 tabboard 的 padding (12px * 2)
-    if (actionsHeader) {
-      boardMaxHeight -= actionsHeader.offsetHeight + 8; // 减去按钮高度和 margin-bottom
-    }
-
-    document.querySelectorAll('.kanban-board').forEach(board => {
+    groupView.querySelectorAll('.kanban-board').forEach(board => {
       const header = board.querySelector('.kanban-title-board');
       if (header && !header.querySelector('.board-actions')) {
         const boardId = board.getAttribute('data-id');
@@ -430,10 +420,107 @@ class GroupView {
         `;
         header.appendChild(actions);
       }
-
-      // 设置看板高度，使内容区域可以滚动
-      board.style.height = `${Math.max(200, boardMaxHeight)}px`; // 最小高度 200px
     });
+
+    // 设置看板高度，使内容区域可以滚动
+    this._syncBoardHeights();
+  }
+
+  /**
+   * 按当前视口尺寸重算并下发每个看板列的高度(纯几何计算,不注入按钮)。
+   *
+   * 看板列高度是 JS 算出来的固定 px 值(不是 CSS 百分比),形状由“视口高度 −
+   * 工具栏高度”决定。这个值只在 render / 新增看板列时算过一次,而窗口拖拽、
+   * 浏览器缩放(zoom)都不改 DOM —— 没有任何事件会重算它,所以高度会一直停在
+   * 旧值上,表现为“缩放后不跟手,必须点 Refresh 才更新”。
+   * 重算时机由 _bindBoardHeightAutoSync() 负责。
+   */
+  _syncBoardHeights() {
+    const groupView = document.getElementById('groupView');
+    if (!groupView) return;
+
+    // 使用 groupView 的完整高度作为基准
+    const viewHeight = groupView.clientHeight;
+
+    // 视图处于 display:none(当前切在别的 view)时 clientHeight 为 0,算出来是
+    // 负值,被 200px 下限兜住后会把所有看板压成最小高度 —— 这不是“尺寸变了”,
+    // 是无尺寸可算。跳过:切回本视图时 ResizeObserver 会带真实尺寸再触发一次。
+    if (viewHeight === 0) return;
+
+    // 计算看板可用高度
+    let boardMaxHeight = viewHeight - 24; // 减去 tabboard 的 padding (12px * 2)
+    const actionsHeader = groupView.querySelector('.board-actions-header');
+    if (actionsHeader) {
+      boardMaxHeight -= actionsHeader.offsetHeight + 8; // 减去按钮高度和 margin-bottom
+    }
+    const boardHeight = Math.max(200, boardMaxHeight); // 最小高度 200px
+
+    groupView.querySelectorAll('.kanban-board').forEach(board => {
+      board.style.height = `${boardHeight}px`;
+    });
+  }
+
+  /**
+   * rAF 去抖:一次窗口拖拽/缩放会连发几十个 resize,每个都同步读 offsetHeight
+   * (强制 reflow)再写 style 会造成 layout thrashing。合并到下一帧只算一次。
+   */
+  _scheduleBoardHeightSync() {
+    if (this._heightSyncRaf) return;
+    this._heightSyncRaf = requestAnimationFrame(() => {
+      this._heightSyncRaf = null;
+      this._syncBoardHeights();
+    });
+  }
+
+  /**
+   * 绑定看板高度的自动重算。两个信号源缺一不可:
+   *  - window resize:窗口拖拽 + 浏览器缩放(zoom 改变 CSS px 视口,必发 resize)
+   *  - ResizeObserver:覆盖 resize 事件收不到的“窗口没变、容器自己变了”
+   *     —— 工具栏按钮换行导致 header 变高、display:none ⇄ block 切回本视图、
+   *     字体加载完成等
+   *
+   * 监听器只挂一次(__heightSyncBound):render() 会被反复调用,而 GroupModule
+   * 实例在 tabboard.js 里是缓存的(切走再切回只 render 不重建),重复挂会单向
+   * 累积成监听器泄漏。但**观察目标**每轮 render 都会重建(工具栏 header),
+   * 所以每轮都重新指定一次观察目标。
+   */
+  _bindBoardHeightAutoSync() {
+    if (!this._heightSyncBound) {
+      this._heightSyncBound = true;
+      this._onWindowResize = () => this._scheduleBoardHeightSync();
+      window.addEventListener('resize', this._onWindowResize);
+      if (typeof ResizeObserver === 'function') {
+        this._heightObserver = new ResizeObserver(() => this._scheduleBoardHeightSync());
+      }
+    }
+
+    if (this._heightObserver) {
+      // 旧 header 已随上一轮 render 脱离文档,重挂观察目标
+      this._heightObserver.disconnect();
+      const groupView = document.getElementById('groupView');
+      if (groupView) this._heightObserver.observe(groupView);
+      const actionsHeader = document.querySelector('.board-actions-header');
+      if (actionsHeader) this._heightObserver.observe(actionsHeader);
+    }
+  }
+
+  /**
+   * 解绑看板高度自动重算(resize 监听 / ResizeObserver / 未执行的 rAF)
+   */
+  _unbindBoardHeightAutoSync() {
+    if (this._onWindowResize) {
+      window.removeEventListener('resize', this._onWindowResize);
+      this._onWindowResize = null;
+    }
+    if (this._heightObserver) {
+      this._heightObserver.disconnect();
+      this._heightObserver = null;
+    }
+    if (this._heightSyncRaf) {
+      cancelAnimationFrame(this._heightSyncRaf);
+      this._heightSyncRaf = null;
+    }
+    this._heightSyncBound = false;
   }
 
   /**
@@ -663,8 +750,8 @@ class GroupView {
     const refreshSortBtn = document.querySelector('.refresh-sort-btn');
     const openAllBtn = document.querySelector('.open-all-groups-btn');
     const importBookmarksBtn = document.querySelector('.import-bookmarks-btn');
-    const exportBtn = document.querySelector('.export-groups-btn');
-    const importBtn = document.querySelector('.import-groups-btn');
+    const tomlExportBtn = document.querySelector('.toml-export-btn');
+    const tomlAiBtn = document.querySelector('.toml-ai-btn');
 
     if (addGroupBtn) {
       addGroupBtn.addEventListener('click', () => this._showAddGroupDialog());
@@ -695,12 +782,12 @@ class GroupView {
       importBookmarksBtn.addEventListener('click', () => this._showBookmarkImportDialog());
     }
 
-    if (exportBtn) {
-      exportBtn.addEventListener('click', () => this._exportData());
+    if (tomlExportBtn) {
+      tomlExportBtn.addEventListener('click', () => this._exportToml());
     }
 
-    if (importBtn) {
-      importBtn.addEventListener('click', () => this._importData());
+    if (tomlAiBtn) {
+      tomlAiBtn.addEventListener('click', () => this._showTomlAiDialog());
     }
 
     // 【ns】命名空间下拉框 change 事件(once-bound,避免 render() 多次调用累积监听器)
@@ -874,47 +961,404 @@ class GroupView {
   }
 
   /**
-   * 导出分组和标签数据
+   * 下载文本文件(TOML 导出用)
    */
-  _exportData() {
-    const data = {
-      version: '1.0',
-      exportTime: new Date().toISOString(),
-      groups: this.groups,
-      tabs: this.tabs
-    };
-    const filename = `tabboard-groups-${new Date().toISOString().slice(0, 10)}.json`;
-    exportData(data, filename);
+  _downloadTextFile(filename, text, mime = 'text/plain;charset=utf-8') {
+    const blob = new Blob([text], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   }
 
   /**
-   * 导入分组和标签数据
+   * 快捷导出:把当前命名空间下的分组收藏序列化为 TOML 文件下载
    */
-  _importData() {
-    importData(async (data) => {
-      if (!data.groups || !Array.isArray(data.groups) || !data.tabs) {
-        alert('无效的数据格式');
-        return;
+  _exportToml() {
+    if (!this.groups || this.groups.length === 0) {
+      alert('当前没有可导出的分组');
+      return;
+    }
+    const toml = serializeGroupsToToml(this.groups, this.tabs);
+    const filename = `tabboard-groups-${new Date().toISOString().slice(0, 10)}.toml`;
+    this._downloadTextFile(filename, toml, 'application/toml;charset=utf-8');
+  }
+
+  /**
+   * 通过 chrome.tabs 官方 API 获取当前浏览器打开的标签页(L2 参考数据)。
+   * tabboard 是扩展页,且 manifest 已声明 "tabs" 权限,可直接读取 title/url。
+   * 仅保留 http/https 页面(过滤 chrome:// / 扩展页 / about: 等噪声),按 URL 去重。
+   * @returns {Promise<Array<{title:string,url:string}>>}
+   */
+  async _queryBrowserTabs() {
+    const allTabs = await chrome.tabs.query({});
+    const seen = new Set();
+    const result = [];
+    for (const tab of allTabs) {
+      if (!tab || typeof tab.url !== 'string') continue;
+      if (!/^https?:\/\//i.test(tab.url)) continue;
+      if (seen.has(tab.url)) continue;
+      seen.add(tab.url);
+      const title = (typeof tab.title === 'string' && tab.title.trim()) ? tab.title.trim() : tab.url;
+      result.push({ title, url: tab.url });
+    }
+    return result;
+  }
+
+  /**
+   * 复制文本到剪贴板:优先 Clipboard API,失败时降级 execCommand(扩展页兼容)。
+   */
+  async _copyText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (e) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch (err) { ok = false; }
+      ta.remove();
+      return ok;
+    }
+  }
+
+  /**
+   * 读取剪贴板文本。优先异步 Clipboard API;不可用或被拒时返回 null
+   * (由调用方提示用户改用 Ctrl+V;execCommand('paste') 在扩展页通常被禁)。
+   * @returns {Promise<string|null>}
+   */
+  async _readClipboardText() {
+    if (navigator.clipboard && typeof navigator.clipboard.readText === 'function') {
+      const text = await navigator.clipboard.readText();
+      return typeof text === 'string' ? text : null;
+    }
+    return null;
+  }
+
+  /**
+   * 从 AI 回复中提取 TOML 本体。
+   * 1) 含 markdown 代码围栏 → 取其中「带 toml 标记」的代码块;没有则取第一个代码块
+   * 2) 无围栏但内容本身像 TOML(出现 [[groups]] 或 version =)→ 直接 trim
+   * 3) 都不是 → null
+   * @param {string} content
+   * @returns {string|null}
+   */
+  _extractTomlBlock(content) {
+    if (typeof content !== 'string') return null;
+    const text = content.replace(/^\uFEFF/, '');
+
+    // 匹配 ```lang ... ``` 形式的围栏块;lang 可省略
+    const fenceRe = /```[ \t]*([A-Za-z0-9_-]*)[ \t]*\r?\n([\s\S]*?)```/g;
+    const blocks = [];
+    let match;
+    while ((match = fenceRe.exec(text)) !== null) {
+      blocks.push({ lang: (match[1] || '').toLowerCase(), body: match[2] });
+    }
+
+    if (blocks.length > 0) {
+      const tomlBlock = blocks.find(b => b.lang === 'toml') || blocks[0];
+      const body = tomlBlock.body.trim();
+      if (body && (body.includes('[[groups]]') || /version\s*=/.test(body))) return body;
+      return body || null;
+    }
+
+    // 无围栏:整段本身就是 TOML 才接受,避免把寒暄文本喂给解析器
+    const trimmed = text.trim();
+    if (trimmed.includes('[[groups]]') || /^\s*version\s*=/m.test(trimmed)) {
+      return trimmed;
+    }
+    return null;
+  }
+
+  /**
+   * 显示 AI 导入 / TOML 面板:
+   * ① 多段提示词生成 —— L1(TOML 领域标准)常驻;L2(当前浏览器标签页,
+   *    chrome.tabs API)仅在勾选时追加;勾选「goto 圆环场景」则追加圆环约束
+   *    (每组 ≤ 6 标签、goto = true);一键复制,拿到任意外部 AI 平台生成 TOML。
+   * ② TOML 输入面板 —— 粘贴或选择 .toml 文件,合并导入为新分组(不覆盖已有数据);
+   *    goto 模式下导入端会强制 goto=true 并把每组截断到 6 个兜底。
+   */
+  _showTomlAiDialog() {
+    const existing = document.getElementById('toml-ai-dialog');
+    if (existing) existing.remove();
+
+    // 面板状态:L2 默认不追加;browserTabs 首次勾选时懒加载
+    let includeL2 = false;
+    let browserTabs = null;
+    // goto 圆环场景:勾选后提示词附加圆环约束,导入时强制 goto=true 且每组 ≤ 6
+    let gotoRing = false;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'toml-ai-dialog';
+    overlay.className = 'toml-overlay';
+
+    const dialog = document.createElement('div');
+    dialog.className = 'toml-dialog';
+    dialog.innerHTML = `
+      <div class="toml-dialog-header">
+        <h3>TOML 导入 / AI 整理面板</h3>
+        <button class="toml-close-btn" title="关闭">×</button>
+      </div>
+      <div class="toml-dialog-body">
+        <section class="toml-panel-section">
+          <h4>① 生成提示词(复制给任意 AI 平台)</h4>
+          <label class="toml-check-row">
+            <input type="checkbox" class="toml-opt-l2">
+            <span>追加当前浏览器已打开的标签页作为参考(L2 · chrome.tabs 官方 API)</span>
+          </label>
+          <label class="toml-check-row">
+            <input type="checkbox" class="toml-opt-goto">
+            <span>goto 圆环场景(提示词要求每个分组 ≤ 6 个标签,超出不会显示在圆环)</span>
+          </label>
+          <div class="toml-l2-status toml-l2-status-off">未勾选:提示词仅包含 L1 领域格式标准</div>
+          <textarea class="toml-prompt-text" rows="20" readonly spellcheck="false"></textarea>
+          <div class="toml-btn-row">
+            <button class="toml-btn toml-btn-primary toml-copy-prompt-btn">复制提示词</button>
+            <button class="toml-btn toml-btn-ghost toml-refresh-l2-btn" disabled title="勾选 L2 后重新读取当前标签页">重新获取标签页</button>
+          </div>
+        </section>
+
+        <section class="toml-panel-section">
+          <h4>② 取回 AI 结果,一键导入为新分组</h4>
+          <textarea class="toml-import-text" rows="10" spellcheck="false"
+            placeholder="在外部 AI 平台拿到结果后,直接点「从剪贴板粘贴」(自动识别并剥离代码围栏),或点「选择 .toml 文件」……&#10;&#10;格式示例:&#10;version = &quot;1.0&quot;&#10;&#10;[[groups]]&#10;name = &quot;分组名&quot;&#10;color = &quot;#45b7d1&quot;&#10;&#10;[[groups.tabs]]&#10;title = &quot;标题&quot;&#10;url = &quot;https://example.com/&quot;"></textarea>
+          <div class="toml-btn-row">
+            <button class="toml-btn toml-btn-primary toml-paste-clipboard-btn" title="读取剪贴板中的 AI 回复,自动提取 TOML 代码块">从剪贴板粘贴</button>
+            <button class="toml-btn toml-btn-ghost toml-pick-file-btn">选择 .toml 文件</button>
+            <button class="toml-btn toml-btn-primary toml-import-confirm-btn">解析并导入为新分组</button>
+          </div>
+          <div class="toml-hint">工作流:复制提示词 → 发给 AI → 复制 AI 回复 → 点「从剪贴板粘贴」→ 导入。导入为「合并」语义:只新建分组,不覆盖已有收藏;分组默认进入当前命名空间「${escapeHtml(this.activeNamespace)}」。</div>
+        </section>
+      </div>
+    `;
+
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    const l2Checkbox = dialog.querySelector('.toml-opt-l2');
+    const gotoCheckbox = dialog.querySelector('.toml-opt-goto');
+    const l2Status = dialog.querySelector('.toml-l2-status');
+    const promptText = dialog.querySelector('.toml-prompt-text');
+    const copyBtn = dialog.querySelector('.toml-copy-prompt-btn');
+    const refreshBtn = dialog.querySelector('.toml-refresh-l2-btn');
+    const pickFileBtn = dialog.querySelector('.toml-pick-file-btn');
+    const pasteClipboardBtn = dialog.querySelector('.toml-paste-clipboard-btn');
+    const importConfirmBtn = dialog.querySelector('.toml-import-confirm-btn');
+    const importText = dialog.querySelector('.toml-import-text');
+
+    /** 按当前勾选状态重绘提示词 */
+    const refreshPrompt = () => {
+      promptText.value = buildAiPrompt({ tabs: includeL2 ? browserTabs : null, gotoRing });
+    };
+
+    /** 拉取 L2 标签页(force=true 时强制重新查询) */
+    const loadL2Tabs = async (force = false) => {
+      if (browserTabs && !force) return browserTabs;
+      l2Status.className = 'toml-l2-status toml-l2-status-loading';
+      l2Status.textContent = '正在通过 chrome.tabs API 读取当前标签页…';
+      try {
+        browserTabs = await this._queryBrowserTabs();
+        if (browserTabs.length === 0) {
+          l2Status.className = 'toml-l2-status toml-l2-status-warn';
+          l2Status.textContent = '没有读到可用的 http/https 标签页,L2 段将为空';
+        } else {
+          l2Status.className = 'toml-l2-status toml-l2-status-on';
+          l2Status.textContent = `已获取 ${browserTabs.length} 个当前标签页,已追加到 L2 段`;
+        }
+        refreshBtn.disabled = false;
+        return browserTabs;
+      } catch (err) {
+        browserTabs = null;
+        l2Status.className = 'toml-l2-status toml-l2-status-warn';
+        l2Status.textContent = `读取标签页失败:${err?.message || err}`;
+        refreshBtn.disabled = true;
+        return null;
       }
+    };
 
-      const groupCount = data.groups.length;
-      const tabCount = Object.values(data.tabs).flat().length;
-      const confirmed = await modal.confirm(`确定要导入 ${groupCount} 个分组和 ${tabCount} 个标签吗？这将替换现有数据。`, {
-        title: '导入数据',
-        type: 'warning'
-      });
-      if (!confirmed) {
-        return;
-      }
-
-      await this.dataManager.sendMessage('importGroupsAndTabs', {
-        groups: data.groups,
-        tabs: data.tabs
-      });
-
-      await this.dataManager.loadData();
-      this.render();
+    // goto 圆环场景勾选 —— 仅影响提示词内容与导入时的强制规则
+    gotoCheckbox.addEventListener('change', () => {
+      gotoRing = gotoCheckbox.checked;
+      refreshPrompt();
     });
+
+    // 初始:仅 L1
+    refreshPrompt();
+
+    // L2 勾选 —— 勾选才查询并追加当前浏览器标签页;取消勾选立即回到 L1-only
+    l2Checkbox.addEventListener('change', async () => {
+      includeL2 = l2Checkbox.checked;
+      if (includeL2) {
+        await loadL2Tabs(false);
+      } else {
+        l2Status.className = 'toml-l2-status toml-l2-status-off';
+        l2Status.textContent = '未勾选:提示词仅包含 L1 领域格式标准';
+        refreshBtn.disabled = true;
+      }
+      refreshPrompt();
+    });
+
+    refreshBtn.addEventListener('click', async () => {
+      if (!includeL2) return;
+      refreshBtn.disabled = true;
+      await loadL2Tabs(true);
+      refreshBtn.disabled = false;
+      refreshPrompt();
+    });
+
+    // 复制提示词
+    copyBtn.addEventListener('click', async () => {
+      const original = copyBtn.textContent;
+      const ok = await this._copyText(promptText.value);
+      copyBtn.textContent = ok ? '已复制 ✓' : '复制失败,请手动选择复制';
+      copyBtn.classList.toggle('toml-copy-ok', ok);
+      setTimeout(() => {
+        copyBtn.textContent = original;
+        copyBtn.classList.remove('toml-copy-ok');
+      }, 1600);
+    });
+
+    // 从剪贴板一键取回 AI 回复:自动剥离 markdown 围栏/寒暄文本,只留 TOML 本体
+    pasteClipboardBtn.addEventListener('click', async () => {
+      const original = pasteClipboardBtn.textContent;
+      pasteClipboardBtn.disabled = true;
+      pasteClipboardBtn.textContent = '读取中…';
+      try {
+        const clip = await this._readClipboardText();
+        if (!clip) {
+          alert('剪贴板为空,或浏览器拒绝了读取权限。请用 Ctrl+V 手动粘贴到输入框。');
+          return;
+        }
+        const toml = this._extractTomlBlock(clip);
+        if (!toml) {
+          alert('剪贴板内容里没有识别到 TOML(需包含 version 或 [[groups]])。请确认已复制 AI 的完整回复。');
+          return;
+        }
+        importText.value = toml;
+        importText.focus();
+        pasteClipboardBtn.textContent = '已粘贴 ✓';
+        setTimeout(() => {
+          pasteClipboardBtn.textContent = original;
+          pasteClipboardBtn.disabled = false;
+        }, 1400);
+      } catch (err) {
+        alert(`读取剪贴板失败:${err.message || err}\n可改用 Ctrl+V 手动粘贴。`);
+        pasteClipboardBtn.textContent = original;
+        pasteClipboardBtn.disabled = false;
+      }
+    });
+
+    // 选择 .toml 文件 → 填入输入面板(再由用户确认导入)
+    pickFileBtn.addEventListener('click', () => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.toml,.txt,text/plain,application/toml';
+      input.addEventListener('change', async () => {
+        const file = input.files && input.files[0];
+        if (!file) return;
+        try {
+          importText.value = await file.text();
+          importText.focus();
+        } catch (err) {
+          alert(`读取文件失败:${err.message || err}`);
+        }
+      });
+      input.click();
+    });
+
+    // 解析并合并导入
+    importConfirmBtn.addEventListener('click', async () => {
+      const rawInput = importText.value.trim();
+      if (!rawInput) {
+        alert('请先粘贴 AI 回复 / TOML 内容,或选择 .toml 文件');
+        return;
+      }
+
+      // 兼容手动粘贴整段 AI 回复:自动剥离 ```toml 代码围栏
+      const raw = this._extractTomlBlock(rawInput) || rawInput;
+
+      let parsed;
+      try {
+        parsed = parseGroupsToml(raw);
+      } catch (err) {
+        alert(`TOML 解析失败:\n${err.message || err}`);
+        return;
+      }
+
+      // goto 圆环场景兜底:强制 goto=true,每组只保留前 6 个(圆环硬限制,
+      // 与 background/group-model.js getGotoMenuData 的 slice(0,6) 一致)
+      let gotoDropped = 0;
+      if (gotoRing) {
+        parsed.groups.forEach((g) => {
+          g.goto = true;
+          if (g.tabs.length > 6) {
+            gotoDropped += g.tabs.length - 6;
+            g.tabs = g.tabs.slice(0, 6);
+          }
+        });
+      }
+
+      const groupCount = parsed.groups.length;
+      const tabCount = parsed.groups.reduce((n, g) => n + g.tabs.length, 0);
+      if (tabCount === 0) {
+        alert('TOML 中没有任何有效标签(每个分组至少需要一个带 url 的 [[groups.tabs]])');
+        return;
+      }
+
+      const gotoNote = gotoRing
+        ? `\n[goto 圆环模式] 已将 ${groupCount} 个分组全部设为圆环展示`
+          + (gotoDropped > 0
+            ? `;有 ${gotoDropped} 个标签因分组超过 6 个上限被截断(超出圆环显示范围)`
+            : ';每组均在 6 个以内')
+        : '';
+      const confirmed = await modal.confirm(
+        `将新建 ${groupCount} 个分组、共 ${tabCount} 个标签。\n采用合并导入,不会覆盖或删除已有分组。${gotoNote}\n确认继续?`,
+        { title: 'TOML 导入', type: 'warning' }
+      );
+      if (!confirmed) return;
+
+      importConfirmBtn.disabled = true;
+      importConfirmBtn.textContent = '导入中…';
+      try {
+        const res = await this.dataManager.sendMessage('importTomlGroups', { groups: parsed.groups });
+        if (!res || res.success === false) {
+          alert(`导入失败:${res?.error || '未知错误'}`);
+          return;
+        }
+        await this.dataManager.loadData();
+        this.render();
+        closeDialog();
+        const skipNote = res.skipped > 0 ? `\n跳过无效/重复标签 ${res.skipped} 个` : '';
+        alert(`导入完成:新建 ${res.imported} 个分组、${res.tabs} 个标签${skipNote}`);
+      } catch (err) {
+        alert(`导入失败:${err.message || err}`);
+      } finally {
+        importConfirmBtn.disabled = false;
+        importConfirmBtn.textContent = '解析并导入为新分组';
+      }
+    });
+
+    // 关闭交互(× / 取消按钮 / 点遮罩 / Esc)
+    const closeDialog = () => overlay.remove();
+    dialog.querySelector('.toml-close-btn').addEventListener('click', closeDialog);
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) closeDialog();
+    });
+    const onEsc = (e) => {
+      if (e.key === 'Escape') {
+        closeDialog();
+        document.removeEventListener('keydown', onEsc);
+      }
+    };
+    document.addEventListener('keydown', onEsc);
   }
 
   /**

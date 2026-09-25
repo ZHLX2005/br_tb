@@ -24,6 +24,7 @@ import {
   setDefaultGroup as modelSetDefaultGroup,
   updateBoardOrder as modelUpdateBoardOrder,
   importGroupsAndTabs,
+  importGroupsFromToml,
   toggleGoto,
   setGroupFocusSearch,
   setGroupsVisibility,
@@ -178,6 +179,18 @@ function setupGroupsListeners() {
           // 导入分组和标签数据（替换现有数据）
           await importGroupsAndTabs(request.groups, request.tabs);
           sendResponse({ success: true });
+          break;
+        }
+
+        case 'importTomlGroups': {
+          // TOML 合并导入:把 AI 生成的分组收藏以「新建分组」方式合入,
+          // 不覆盖已有数据。校验/清洗在 model 内完成,错误转 { success:false }。
+          try {
+            const result = await importGroupsFromToml(request.groups);
+            sendResponse({ success: true, ...result });
+          } catch (e) {
+            sendResponse({ success: false, error: e.message });
+          }
           break;
         }
 

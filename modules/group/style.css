@@ -10,6 +10,7 @@
 .board-actions-header {
   display: flex;
   align-items: flex-start;
+  flex-wrap: wrap;
   gap: 6px;
   margin-bottom: 8px;
   flex-shrink: 0;
@@ -108,6 +109,14 @@
   border-radius: 4px;
   background: var(--bg, #fff);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* hidden 属性必须能压住上面的 display:flex。UA 的 [hidden]{display:none} 优先级
+   低于任何作者样式里的 display 声明,不加这条面板会「永远展开」:JS 里
+   panel.hidden = true 起不到任何视觉效果。(ns-panel-inline 同为 0,2,0 权重,
+   故用 !important 兜底,避免后续新增 .ns-panel.xxx 组合选择器时再次被压过) */
+.ns-panel[hidden] {
+  display: none !important;
 }
 
 /* ns chip 列表:所有可选 ns 一目了然 */
@@ -489,4 +498,211 @@
 
 .bm-tree::-webkit-scrollbar-thumb:hover {
   background: #a1a1a1;
+}
+
+/* ============ AI 导入 / TOML 面板 ============ */
+.toml-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toml-dialog {
+  background: var(--bg, #f8f9fa);
+  border-radius: 8px;
+  width: 780px;
+  max-width: 92vw;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.toml-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border, #e0e0e0);
+  flex-shrink: 0;
+}
+
+.toml-dialog-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: var(--text, #222);
+}
+
+.toml-close-btn {
+  background: none;
+  border: none;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--text-light, #888);
+  padding: 2px 8px;
+}
+
+.toml-close-btn:hover {
+  color: var(--danger, #e74c3c);
+}
+
+.toml-dialog-body {
+  padding: 14px 18px 18px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.toml-panel-section h4 {
+  margin: 0 0 10px;
+  font-size: 14px;
+  color: var(--text, #222);
+}
+
+.toml-check-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text, #333);
+  cursor: pointer;
+  user-select: none;
+  margin-bottom: 6px;
+}
+
+.toml-check-row input {
+  margin-top: 2px;
+  cursor: pointer;
+}
+
+.toml-l2-status {
+  font-size: 12px;
+  margin-bottom: 8px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.toml-l2-status-off {
+  color: #888;
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.toml-l2-status-loading {
+  color: #1a5fb4;
+  background: rgba(66, 165, 245, 0.12);
+}
+
+.toml-l2-status-on {
+  color: #1b7a43;
+  background: rgba(0, 184, 148, 0.12);
+}
+
+.toml-l2-status-warn {
+  color: #b3541e;
+  background: rgba(249, 202, 36, 0.18);
+}
+
+.toml-prompt-text,
+.toml-import-text {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--border, #d5d5d5);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.6;
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+  resize: vertical;
+  background: var(--card-bg, #fff);
+  color: var(--text, #222);
+}
+
+.toml-prompt-text {
+  background: var(--card-bg, #fff);
+}
+
+.toml-prompt-text:focus,
+.toml-import-text:focus {
+  outline: 2px solid var(--color-accent, #42a5f5);
+  outline-offset: 1px;
+}
+
+.toml-btn-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.toml-btn {
+  padding: 7px 16px;
+  font-size: 13px;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  font-family: inherit;
+  transition: opacity 0.15s, transform 0.05s;
+}
+
+.toml-btn:active {
+  transform: translate(1px, 1px);
+}
+
+.toml-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.toml-btn-primary {
+  background: var(--color-accent, #007bff);
+  color: #fff;
+}
+
+.toml-btn-primary:hover:not(:disabled) {
+  opacity: 0.88;
+}
+
+.toml-btn-primary.toml-copy-ok {
+  background: #00b894;
+}
+
+.toml-btn-ghost {
+  background: transparent;
+  color: var(--text-secondary, #666);
+  border-color: var(--border, #ccc);
+}
+
+.toml-btn-ghost:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.toml-hint {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-light, #999);
+  line-height: 1.5;
+}
+
+/* 工具栏上的 TOML 按钮:与 AI 主操作稍作区分 */
+.board-actions-header .toml-ai-btn {
+  border-color: var(--color-accent, #42a5f5);
+  color: var(--color-accent, #007bff);
+  font-weight: 600;
+}
+
+.board-actions-header .toml-ai-btn:hover {
+  background: var(--color-accent, #42a5f5);
+  color: #fff;
 }
