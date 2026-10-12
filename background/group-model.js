@@ -741,6 +741,29 @@ async function sortAllTabsByVisitCount() {
   await chrome.storage.local.set({ tabs: tabsMap });
 }
 
+/**
+ * 全量导出 chrome.storage.local 里的所有 key。
+ * 备份不裹任何信封 —— 直接 dump 一份键值对扁平字典,
+ * 包含 groups / tabs / settings / notes / recording.* 等所有现有 key。
+ */
+async function exportAllStorage() {
+  return await chrome.storage.local.get(null);
+}
+
+/**
+ * 全量恢复 chrome.storage.local。
+ * chrome.storage.local.set 是 merge 语义,不会删除导出文件里没有的 key,
+ * 因此用 clear + set 两步走,保证导入后的 storage 与导出时完全一致。
+ * @throws {Error('INVALID_BACKUP')} 当 data 不是对象时
+ */
+async function importAllStorage(data) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    throw new Error('INVALID_BACKUP');
+  }
+  await chrome.storage.local.clear();
+  await chrome.storage.local.set(data);
+}
+
 // ===================== 初始化与迁移(供 init.js 调用) =====================
 
 /**
@@ -859,5 +882,8 @@ export {
   sortAllTabsByVisitCount,
   seedGroupTabs,
   // 初始化/迁移
-  ensureGroupDefaults
+  ensureGroupDefaults,
+  // 全量 storage 备份/恢复（导出整个 chrome.storage.local 的全部 key）
+  exportAllStorage,
+  importAllStorage
 };

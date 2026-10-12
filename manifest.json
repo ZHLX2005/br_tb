@@ -2,6 +2,7 @@
   "manifest_version": 3,
   "name": "TabBoard - 标签页分组管理",
   "version": "1.4",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzmFPhpE7BTJH3FOZomhxprqe6i+GW0NxoFwDtvE7aDmL7pqJSmRd8n/raZnIe5jqx6BPp2HTK+lnSgH8z9SLSUjoqeIK4OEJUDDL2Vic+ZMTsu5vwmd2SrXgbhKgHHi4myFPTa6v1iQJLYZbFd3SnWXfoVUyLAs6btESXWEUa4OdjrxV+MoEcLeqth/8+OnRVBuWRS6+OycnSsVcr1CJe4i924XRtQeOFgtOT7TfwEIt9Jqy8cLp3mZR+qS2i+UrwDF9A8NJuQUy1WTxz4NIQKikdcz9yxRO9nIGnCJN4m+3k4bKncYVksPDmTlTmp3tx1Jm+Qi5/62BUlNj8p2vQwIDAQAB",
   "description": "类似 OneTab 的标签页分组管理工具，支持快捷键快速收集和分组管理，支持侧边栏显示和表单收集",
   "permissions": [
     "storage",

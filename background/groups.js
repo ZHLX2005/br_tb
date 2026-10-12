@@ -35,7 +35,9 @@ import {
   clearGroupTabs,
   clearAllGroupTabs,
   incrementVisitCount,
-  sortAllTabsByVisitCount
+  sortAllTabsByVisitCount,
+  exportAllStorage,
+  importAllStorage
 } from './group-model.js';
 
 // 添加当前标签页到默认分组
@@ -179,6 +181,24 @@ function setupGroupsListeners() {
           // 导入分组和标签数据（替换现有数据）
           await importGroupsAndTabs(request.groups, request.tabs);
           sendResponse({ success: true });
+          break;
+        }
+
+        case 'exportAllStorage': {
+          // 全量导出 chrome.storage.local(所有 key) — 供数据备份按钮
+          sendResponse({ success: true, data: await exportAllStorage() });
+          break;
+        }
+
+        case 'importAllStorage': {
+          // 全量恢复 chrome.storage.local — clear + set 两步走,
+          // 保证 storage 与导出时完全一致(model 层已校验 data 必须是对象)
+          try {
+            await importAllStorage(request.data);
+            sendResponse({ success: true });
+          } catch (e) {
+            sendResponse({ success: false, error: e.message });
+          }
           break;
         }
 

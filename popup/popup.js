@@ -235,6 +235,93 @@ function bindUIEvents() {
 
   // 颜色选择器回调
   renderColorPicker('colorPicker');
+
+  // 数据备份按钮
+  bindBackupEvents();
+}
+
+/**
+ * 数据备份：导出 / 导入 chrome.storage.local 全量快照
+ */
+function bindBackupEvents() {
+  const exportBtn = document.getElementById('popupExportStorageBtn');
+  const importBtn = document.getElementById('popupImportStorageBtn');
+  const fileInput = document.getElementById('popupImportStorageInput');
+  if (!exportBtn || !importBtn || !fileInput) return;
+
+  const toastTarget = document.querySelector('.app');
+
+  // 导出：拉取 storage 全量 → Blob → 触发下载
+  exportBtn.addEventListener('click', async () => {
+    try {
+      const resp = await chrome.runtime.sendMessage({ action: 'exportAllStorage' });
+      if (!resp?.success) {
+        showToast(toastTarget, resp?.error || '导出失败', 'error');
+        return;
+      }
+      const data = resp.data || {};
+      const keyCount = Object.keys(data).length;
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `tabboard-backup-${formatTimestamp()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast(toastTarget, `已导出 ${keyCount} 项数据`, 'success');
+    } catch (e) {
+      showToast(toastTarget, '导出失败: ' + (e?.message || e), 'error');
+    }
+  });
+
+  // 导入：点按钮 → 触发隐藏 file input;选完文件后读取并写入
+  importBtn.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      let parsed;
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        showToast(toastTarget, 'JSON 解析失败,请检查文件内容', 'error');
+        fileInput.value = '';
+        return;
+      }
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        showToast(toastTarget, '备份文件格式错误(必须为对象)', 'error');
+        fileInput.value = '';
+        return;
+      }
+      const resp = await chrome.runtime.sendMessage({ action: 'importAllStorage', data: parsed });
+      if (!resp?.success) {
+        showToast(toastTarget, '导入失败: ' + (resp?.error || '未知错误'), 'error');
+        fileInput.value = '';
+        return;
+      }
+      const keyCount = Object.keys(parsed).length;
+      showToast(toastTarget, `已导入 ${keyCount} 项数据`, 'success');
+      // 刷新分组列表 + namespace 下拉框,反映新 storage 状态
+      await loadNamespaces({
+        onChange: async () => {
+          await loadGroups(groupCallbacks());
+        }
+      });
+      await loadGroups(groupCallbacks());
+    } catch (e) {
+      showToast(toastTarget, '导入失败: ' + (e?.message || e), 'error');
+    } finally {
+      fileInput.value = '';
+    }
+  });
+}
+
+/** YYYYMMDD-HHmmss 时间戳(本地时区) */
+function formatTimestamp() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
 }
 
 /**

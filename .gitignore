@@ -2,3 +2,5 @@
 .tool/
 .idea/
 .omc/
+keys/*.pem
+keys/*.der
