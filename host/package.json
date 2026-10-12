@@ -1,0 +1,20 @@
+{
+  "name": "@tabboard/host",
+  "version": "0.0.1",
+  "type": "module",
+  "description": "TabBoard native host + local data lake (Node-based, npx-installable)",
+  "bin": {
+    "tabboard": "./bin/tabboard.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "bin",
+    "lib",
+    "skills",
+    "README.md"
+  ],
+  "private": false,
+  "license": "UNLICENSED"
+}
