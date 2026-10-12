@@ -251,6 +251,29 @@ function bindBackupEvents() {
 
   const toastTarget = document.querySelector('.app');
 
+  // 同步到本地数据湖：走 background 中转(t sendNativeMessage 由 SW 执行,
+  // popup 关掉也不中断);host 由 Chrome 按需自动拉起、响应后自动退出
+  const syncBtn = document.getElementById('popupSyncLocalBtn');
+  syncBtn?.addEventListener('click', async () => {
+    syncBtn.disabled = true;
+    const hint = document.getElementById('popupSyncLocalHint');
+    if (hint) hint.textContent = '同步中…';
+    try {
+      const resp = await chrome.runtime.sendMessage({ action: 'tbSyncToLocal' });
+      if (resp?.success) {
+        showToast(toastTarget, `已同步 ${resp.wrote} 条到本地数据湖`, 'success');
+        if (hint) hint.textContent = `上次: ${resp.kinds?.join(', ') || '-'}（host 自动启停）`;
+      } else {
+        showToast(toastTarget, resp?.error || '同步失败', 'error');
+        if (hint) hint.textContent = resp?.needInit ? '需要先运行 npx init' : '';
+      }
+    } catch (e) {
+      showToast(toastTarget, '同步失败: ' + (e?.message || e), 'error');
+    } finally {
+      syncBtn.disabled = false;
+    }
+  });
+
   // 导出：拉取 storage 全量 → Blob → 触发下载
   exportBtn.addEventListener('click', async () => {
     try {

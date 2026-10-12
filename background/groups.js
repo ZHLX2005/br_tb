@@ -129,6 +129,44 @@ export {
   setupGroupsListeners
 };
 
+/**
+ * 把 chrome.storage.local 全量 dump 转成数据湖 records(每行一条,带 kind)。
+ * - 数组值:每个元素一条(如 groups)
+ * - tabs(groupId → tab[]):摊平,groupId 冗余进每条 tab —— 与 lake 的
+ *   tabs.jsonl schema(每行一个 tab,扁平带 groupId)对齐,recent-browse 等
+ *   skill 才能按行消费
+ * - 其他对象:整对象一条(如 settings)
+ * - 原始值:包成 { value }
+ * @param {Record<string, unknown>} all
+ * @returns {Array<{kind: string, data: object}>}
+ */
+function storageToRecords(all) {
+  const records = [];
+  for (const [key, value] of Object.entries(all || {})) {
+    if (key === 'tabs' && value && typeof value === 'object' && !Array.isArray(value)) {
+      for (const [groupId, tabs] of Object.entries(value)) {
+        if (!Array.isArray(tabs)) continue;
+        for (const t of tabs) {
+          if (t && typeof t === 'object') records.push({ kind: 'tabs', data: { ...t, groupId } });
+        }
+      }
+      continue;
+    }
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        if (item && typeof item === 'object') records.push({ kind: key, data: item });
+      }
+      continue;
+    }
+    if (value && typeof value === 'object') {
+      records.push({ kind: key, data: value });
+      continue;
+    }
+    if (value !== undefined) records.push({ kind: key, data: { value } });
+  }
+  return records;
+}
+
 // 设置分组相关的消息监听器
 function setupGroupsListeners() {
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -198,6 +236,38 @@ function setupGroupsListeners() {
             sendResponse({ success: true });
           } catch (e) {
             sendResponse({ success: false, error: e.message });
+          }
+          break;
+        }
+
+        case 'tbSyncToLocal': {
+          // 同步到本地数据湖:storage 全量 → records → native host backup 命令。
+          // native messaging 单消息模型:Chrome 自动拉起 host 进程,响应后自动退出,
+          // 无需(也无法)手动管理 host 生命周期。
+          // host 未注册时报 Specified native messaging host not found,转成可操作的提示。
+          try {
+            const all = await exportAllStorage();
+            const records = storageToRecords(all);
+            const resp = await chrome.runtime.sendNativeMessage('com.tabboard.tb', {
+              command: 'backup',
+              records
+            });
+            if (resp?.status === 'ok') {
+              sendResponse({ success: true, wrote: resp.data?.wrote ?? records.length, kinds: resp.data?.kinds ?? [] });
+            } else {
+              sendResponse({ success: false, error: resp?.message || 'host 返回未知错误' });
+            }
+          } catch (e) {
+            const msg = e?.message ?? String(e);
+            if (/not found|not registered|禁止|forbidden/i.test(msg)) {
+              sendResponse({
+                success: false,
+                error: 'native host 未注册。请在终端运行: npx -y @tabboard/host init（只需一次）',
+                needInit: true
+              });
+            } else {
+              sendResponse({ success: false, error: msg });
+            }
           }
           break;
         }
