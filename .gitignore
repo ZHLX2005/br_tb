@@ -4,3 +4,4 @@
 .omc/
 keys/*.pem
 keys/*.der
+.tmp/

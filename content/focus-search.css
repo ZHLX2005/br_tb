@@ -227,6 +227,29 @@
   line-height: 1;
 }
 
+/* localhost（~）结果 - 柔和橙色背景区分 */
+.focus-search-item.localhost-source {
+  background: #fff7ed;
+}
+
+.focus-search-item.localhost-source:hover {
+  background: #ffedd5;
+}
+
+.focus-search-item.localhost-source.selected {
+  background: #fed7aa;
+}
+
+.focus-search-item.localhost-source.selected:hover {
+  background: #fdba74;
+}
+
+.focus-search-localhost-icon {
+  color: #ea580c;
+  font-weight: 700;
+  font-size: 13px;
+}
+
 /* 无结果提示 */
 .focus-search-empty {
   padding: 32px 16px;
