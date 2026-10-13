@@ -12,7 +12,6 @@ import { setupRecordingListeners } from './recording.js';
 import { setupFocusListeners } from './focus.js';
 import { setupVideoProgressListeners } from './videoProgress.js';
 import { setupGotoListeners } from './goto.js';
-import { setupBiliHistoryListeners } from './bilibili-history.js';
 import { setupNotesListeners, initNoteTabBroadcast } from './notes.js';
 import { setupHostRelay } from './host-relay.js';
 
@@ -30,7 +29,6 @@ setupRecordingListeners();
 setupFocusListeners();
 setupVideoProgressListeners();
 setupGotoListeners();
-setupBiliHistoryListeners();
 setupNotesListeners();
 initNoteTabBroadcast();
 

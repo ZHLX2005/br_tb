@@ -8,7 +8,7 @@ import EventBus from '../shared/event-bus.js';
 import TimelineModule from '../timeline/index.js';
 import GroupModule from '../group/index.js';
 import LeetCodeModule from '../leetcode/index.js';
-import BilibiliHistoryModule from '../bilibili-history/index.js';
+import SyncModule from '../sync/index.js';
 import RecordingModule from '../recording/index.js';
 import VideoProgressModule from '../video-progress/index.js';
 import NoteModule from '../note/index.js';
@@ -23,10 +23,10 @@ class AppShell {
     this.dropdownOpen = false;
     this.dropdownItems = [
       { viewName: 'leetcode',         label: 'LC',    desc: '150'  },
-      { viewName: 'bilibili-history', label: 'Bili',  desc: '历史' },
+      { viewName: 'sync',             label: 'Sync',  desc: '同步' },
       { viewName: 'note',            label: 'Note', desc: '便签' },
     ];
-    // 模块实例缓存：保留有状态模块（bilibili-history 等）的实例，
+    // 模块实例缓存：保留有状态模块（如 sync 的 host 连接状态）的实例，
     // 避免 view 切换时丢失 state / payload / items 等内存数据
     this.modules = {};
   }
@@ -141,7 +141,7 @@ class AppShell {
   async switchView(viewName, initialData = null) {
     // recording 视图已内嵌到 tabboard shell,无需跳转,直接走 switch 分支即可
 
-    // 缓存命中：复用已构造的模块实例，避免破坏有状态模块（bilibili-history）的内存数据。
+    // 缓存命中：复用已构造的模块实例，避免破坏有状态模块（如 sync 的 host 连接）的内存数据。
     // 各模块的 destroy() 通常只做 container = null / 清理副作用，并不销毁内存中的 state/items/payload，
     // 因此把 cached 实例重新挂回原 <div> 容器并 render() 即可恢复视图。
     if (this.modules[viewName]) {
@@ -181,9 +181,9 @@ class AppShell {
         container = document.getElementById('leetcodePanel');
         ModuleClass = LeetCodeModule;
         break;
-      case 'bilibili-history':
-        container = document.getElementById('bilibiliHistoryPanel');
-        ModuleClass = BilibiliHistoryModule;
+      case 'sync':
+        container = document.getElementById('syncPanel');
+        ModuleClass = SyncModule;
         break;
       case 'recording':
         container = document.getElementById('recordingView');
@@ -222,7 +222,7 @@ class AppShell {
   /**
    * 把缓存中的模块实例重新挂回到对应的 <div> 容器。
    * 不同模块的 setContainer 形态：
-   *   - BilibiliHistoryModule.init() 调用 view.setContainer
+   *   - SyncModule.init() 调用 view.init()（内部 setContainer + 事件委托）
    *   - LeetCodeModule.init()   调用 view.setContainer
    *   - TimelineModule.init()   仅初始化搜索输入（不依赖 container）
    *   - GroupModule.init()      no-op
@@ -233,7 +233,7 @@ class AppShell {
       'timeline': 'timelineView',
       'group': 'groupView',
       'leetcode': 'leetcodePanel',
-      'bilibili-history': 'bilibiliHistoryPanel',
+      'sync': 'syncPanel',
       'recording': 'recordingView',
       'videoProgress': 'videoProgressView',
       'note': 'noteView',
@@ -258,7 +258,7 @@ class AppShell {
     document.getElementById('timelineView').style.display = viewName === 'timeline' ? 'block' : 'none';
     document.getElementById('groupView').style.display = viewName === 'group' ? 'block' : 'none';
     document.getElementById('leetcodeView').style.display = viewName === 'leetcode' ? 'block' : 'none';
-    document.getElementById('bilibiliHistoryView').style.display = viewName === 'bilibili-history' ? 'block' : 'none';
+    document.getElementById('syncView').style.display = viewName === 'sync' ? 'block' : 'none';
     document.getElementById('recordingView').style.display = viewName === 'recording' ? 'block' : 'none';
     document.getElementById('videoProgressView').style.display = viewName === 'videoProgress' ? 'block' : 'none';
     document.getElementById('noteView').style.display = viewName === 'note' ? 'block' : 'none';
