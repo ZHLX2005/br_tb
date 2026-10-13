@@ -238,6 +238,112 @@ function bindUIEvents() {
 
   // 数据备份按钮
   bindBackupEvents();
+
+  // Native Host 状态卡
+  bindHostEvents();
+}
+
+/**
+ * Native Host 状态卡：状态点 + 启动 / 关闭 / 检查
+ * host 双 transport：connectNative 常驻(启动/关闭控制的就是它)；
+ * sendNativeMessage 单发(「同步到本地」用的它,host 未启动也能用,按需自动拉起)
+ */
+function bindHostEvents() {
+  const dot = document.getElementById('hostStatusDot');
+  const text = document.getElementById('hostStatusText');
+  const detail = document.getElementById('hostDetail');
+  const startBtn = document.getElementById('hostStartBtn');
+  const stopBtn = document.getElementById('hostStopBtn');
+  const checkBtn = document.getElementById('hostCheckBtn');
+  if (!dot || !text || !startBtn) return;
+
+  const toastTarget = document.querySelector('.app');
+
+  function renderStatus(st) {
+    if (st.connected) {
+      dot.style.background = '#00b894';
+      text.textContent = `已连接 · host v${st.hostInfo?.version ?? '?'}`;
+    } else if (st.lastError) {
+      dot.style.background = '#e17055';
+      text.textContent = '错误：' + st.lastError;
+    } else {
+      dot.style.background = '#b2bec3';
+      text.textContent = '未启动（同步时按需自动拉起）';
+    }
+    return st;
+  }
+
+  async function refreshStatus() {
+    try {
+      const st = await chrome.runtime.sendMessage({ action: 'hostStatus' });
+      renderStatus(st ?? {});
+      return st ?? {};
+    } catch {
+      return {};
+    }
+  }
+
+  // 启动：connectNative 长连接 + 版本握手
+  startBtn.addEventListener('click', async () => {
+    startBtn.disabled = true;
+    text.textContent = '连接中…';
+    try {
+      const r = await chrome.runtime.sendMessage({ action: 'hostStart' });
+      if (r?.success) {
+        showToast(toastTarget, `host 已连接 v${r.hostInfo?.version ?? '?'}`, 'success');
+      } else {
+        showToast(toastTarget, '启动失败: ' + (r?.error || '未知错误'), 'error');
+      }
+    } catch (e) {
+      showToast(toastTarget, '启动失败: ' + (e?.message || e), 'error');
+    } finally {
+      startBtn.disabled = false;
+      await refreshStatus();
+    }
+  });
+
+  // 关闭：断开端口 → Chrome 终止 host 进程
+  stopBtn.addEventListener('click', async () => {
+    try {
+      await chrome.runtime.sendMessage({ action: 'hostStop' });
+      showToast(toastTarget, 'host 已关闭', 'success');
+    } catch (e) {
+      showToast(toastTarget, '关闭失败: ' + (e?.message || e), 'error');
+    }
+    await refreshStatus();
+  });
+
+  // 检查：调 host 的 doctor 命令(未连接时 relay 自动降级 one-shot)
+  checkBtn.addEventListener('click', async () => {
+    checkBtn.disabled = true;
+    detail.textContent = '检查中…';
+    try {
+      const r = await chrome.runtime.sendMessage({ action: 'hostCall', command: 'doctor' });
+      if (r?.success && r.resp?.status === 'ok') {
+        const d = r.resp.data ?? {};
+        const lines = [
+          `host v${d.version} · ${d.allOk ? '全部检查通过' : d.summary}`,
+          `数据湖: ${d.tabboardDir ?? '?'}`,
+        ];
+        const lake = d.checks?.find((c) => c.name === 'lake-writable');
+        if (lake?.path) lines.push(`lake: ${lake.path}`);
+        const backup = d.checks?.find((c) => c.name === 'last-backup');
+        if (backup?.detail?.present) lines.push(`上次同步: ${backup.detail.ts} (${backup.detail.wrote} 条)`);
+        const bad = (d.checks ?? []).filter((c) => !c.ok);
+        if (bad.length) lines.push('异常项: ' + bad.map((c) => c.name).join(', '));
+        detail.innerHTML = lines.map((l) => l.replace(/</g, '&lt;')).join('<br>');
+      } else {
+        detail.textContent = '检查失败: ' + (r?.error || r?.resp?.message || '未知错误');
+      }
+    } catch (e) {
+      detail.textContent = '检查失败: ' + (e?.message || e);
+    } finally {
+      checkBtn.disabled = false;
+    }
+  });
+
+  // 打开 popup 时刷新一次状态
+  refreshStatus();
 }
 
 /**

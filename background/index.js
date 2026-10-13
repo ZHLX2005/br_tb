@@ -14,6 +14,7 @@ import { setupVideoProgressListeners } from './videoProgress.js';
 import { setupGotoListeners } from './goto.js';
 import { setupBiliHistoryListeners } from './bilibili-history.js';
 import { setupNotesListeners, initNoteTabBroadcast } from './notes.js';
+import { setupHostRelay } from './host-relay.js';
 
 // 初始化各模块
 initializeDefaultData();
@@ -23,6 +24,7 @@ initRecording();
 // 设置各模块的消息监听器
 setupSettingsListeners();
 setupGroupsListeners();
+setupHostRelay();
 setupTimelineListeners();
 setupRecordingListeners();
 setupFocusListeners();
