@@ -67,13 +67,21 @@ async function Init(req) {
   const exeExists = await access(exePath).then(() => true).catch(() => false);
   const hostPath = exeExists ? exePath : nodeExe;
   const hostArgs = exeExists ? [] : [entryPath];
+  // 保留已存在的白名单(支持同台机器多个扩展 / dev 与正式 ID 并存)
+  const existingManifest = manifestPath && !dryRun
+    ? await import('node:fs/promises').then(m => m.readFile(manifestPath, 'utf8').then(t => JSON.parse(t)).catch(() => null))
+    : null;
+  const origins = new Set([
+    `chrome-extension://${EXTENSION_ID}/`,
+    ...(existingManifest?.allowed_origins ?? []),
+  ]);
   const manifest = {
     name: HOST_NAME,
     description: 'TabBoard Native Host',
     path: hostPath,
     arguments: hostArgs,
     type: 'stdio',
-    allowed_origins: [`chrome-extension://${EXTENSION_ID}/`],
+    allowed_origins: [...origins],
   };
   const manifestPath = join(TABBOARD_DIR, 'host.manifest.json');
   if (!dryRun) {
