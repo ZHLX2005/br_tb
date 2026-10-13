@@ -61,12 +61,17 @@ async function Init(req) {
   }
   steps.push({ step: 'skills', ok: true, dryRun, count: skillCopies.length, items: skillCopies });
 
-  // 3) host.manifest.json
+  // 3) host.manifest.json —— 优先用编译出的自包含 exe(bro_chat 模式,
+  // 本机 Chrome 策略会秒杀脚本解释器,exe 不会被拦);没有则回退 node + 脚本。
+  const exePath = join(pkgRoot, 'bin', 'tabboard-host.exe');
+  const exeExists = await access(exePath).then(() => true).catch(() => false);
+  const hostPath = exeExists ? exePath : nodeExe;
+  const hostArgs = exeExists ? [] : [entryPath];
   const manifest = {
     name: HOST_NAME,
     description: 'TabBoard Native Host',
-    path: nodeExe,
-    arguments: [entryPath],
+    path: hostPath,
+    arguments: hostArgs,
     type: 'stdio',
     allowed_origins: [`chrome-extension://${EXTENSION_ID}/`],
   };

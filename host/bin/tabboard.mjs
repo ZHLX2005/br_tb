@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // 单 entry:根据 stdin 是否有数据可读分流到 native host 或 CLI 模式。
-//   - Chrome 启动 → stdin 是 pipe 且会写入 → host 模式(读 1 条 / 写 1 条 / 退)
+//   - Chrome 启动 → stdin 是 pipe 且会写入 → host 模式(消息循环)
 //   - npx / 终端 → stdin 没有数据可读 → CLI 模式(argv 解析)
 //
 // 触发所有 commands 自注册后,再调 transport。

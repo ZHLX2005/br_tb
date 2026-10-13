@@ -9,12 +9,18 @@
   "engines": {
     "node": ">=18"
   },
+  "scripts": {
+    "build:host": "bun build --compile bin/tabboard.mjs --outfile bin/tabboard-host.exe"
+  },
   "files": [
     "bin",
     "lib",
     "skills",
     "README.md"
   ],
+  "devDependencies": {
+    "bun": "^1.4.0"
+  },
   "private": false,
   "license": "UNLICENSED"
 }
