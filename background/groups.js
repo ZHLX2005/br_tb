@@ -248,10 +248,16 @@ function setupGroupsListeners() {
           try {
             const all = await exportAllStorage();
             const records = storageToRecords(all);
-            const resp = await chrome.runtime.sendNativeMessage('com.tabboard.tb', {
-              command: 'backup',
-              records
-            });
+            console.log('[tbSync] records:', records.length, '→ 调用 native host...');
+            const resp = await Promise.race([
+              chrome.runtime.sendNativeMessage('com.tabboard.tb', {
+                command: 'backup',
+                records
+              }),
+              new Promise((_, rej) => setTimeout(
+                () => rej(new Error('host 20 秒无响应 —— 若浏览器右上角有授权弹窗请先点允许,再重试')), 20000))
+            ]);
+            console.log('[tbSync] host resp:', JSON.stringify(resp).slice(0, 200));
             if (resp?.status === 'ok') {
               sendResponse({ success: true, wrote: resp.data?.wrote ?? records.length, kinds: resp.data?.kinds ?? [] });
             } else {
