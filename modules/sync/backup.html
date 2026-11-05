@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>数据备份 - TabBoard</title>
+  <link rel="stylesheet" href="backup.css">
+</head>
+<body>
+  <main class="bp">
+    <header class="bp-header">
+      <h1>数据备份</h1>
+      <p class="bp-sub">把浏览器里的<b>全部数据</b>导出成 JSON，或从备份文件整库还原。这个页面不依赖看板模块，扩展能跑就能用。</p>
+    </header>
+
+    <section class="bp-card" id="metaCard">
+      <h2>当前扩展</h2>
+      <div id="meta" class="bp-meta">读取中…</div>
+      <p class="bp-hint" id="metaHint"></p>
+    </section>
+
+    <section class="bp-card">
+      <h2>当前数据</h2>
+      <div id="stats" class="bp-stats">读取中…</div>
+    </section>
+
+    <section class="bp-card">
+      <h2>导出</h2>
+      <p class="bp-hint">导出的是 <code>chrome.storage.local</code> 的全量键值对，不裹任何信封。</p>
+      <div class="bp-actions">
+        <button id="btnDownload" class="bp-btn bp-btn-primary">下载 JSON</button>
+        <button id="btnCopy" class="bp-btn">复制到剪贴板</button>
+        <button id="btnPreview" class="bp-btn bp-btn-ghost">预览</button>
+      </div>
+      <p class="bp-hint" id="exportHint"></p>
+      <pre id="preview" class="bp-preview" hidden></pre>
+    </section>
+
+    <section class="bp-card bp-card-danger">
+      <h2>导入（覆盖式还原）</h2>
+      <p class="bp-hint">
+        导入会 <b>先清空</b> 当前全部数据再写入备份内容，<b>不可撤销</b>。
+        建议先点上面的「下载 JSON」留一份当前数据。
+      </p>
+      <div class="bp-actions">
+        <input type="file" id="fileInput" accept="application/json,.json" class="bp-file">
+      </div>
+      <div id="importInfo" class="bp-import-info" hidden></div>
+      <label class="bp-check" id="autoBackupRow" hidden>
+        <input type="checkbox" id="autoBackup" checked>
+        导入前先自动下载一份当前数据，作为后悔药
+      </label>
+      <div class="bp-actions" id="confirmRow" hidden>
+        <button id="btnConfirmImport" class="bp-btn bp-btn-danger">确认覆盖导入</button>
+        <button id="btnCancelImport" class="bp-btn bp-btn-ghost">取消</button>
+      </div>
+      <p class="bp-hint" id="importHint"></p>
+    </section>
+  </main>
+
+  <script type="module" src="backup.js"></script>
+</body>
+</html>

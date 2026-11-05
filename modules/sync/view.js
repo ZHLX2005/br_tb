@@ -69,7 +69,9 @@ class SyncView {
           <div class="sync-btn-row">
             <button class="sync-btn" data-act="export">导出全部数据</button>
             <button class="sync-btn sync-btn-ghost" data-act="import">导入备份</button>
+            <button class="sync-btn sync-btn-ghost" data-act="open-backup">独立备份页</button>
           </div>
+          <p class="sync-hint">独立备份页能看到扩展 ID、每个 key 的条目数，并在覆盖导入前自动留一份当前数据。</p>
           <input type="file" id="syncImportInput" accept="application/json,.json" hidden>
         </section>
       </div>
@@ -91,6 +93,7 @@ class SyncView {
       else if (act === 'sync') this._sync();
       else if (act === 'export') this._export();
       else if (act === 'import') this.container.querySelector('#syncImportInput')?.click();
+      else if (act === 'open-backup') this._openBackupPage();
     });
     this.container.addEventListener('change', (e) => {
       if (e.target?.id === 'syncImportInput') this._import(e.target);
@@ -240,6 +243,11 @@ class SyncView {
     } finally {
       input.value = '';
     }
+  }
+
+  /** 独立备份页：不依赖看板模块，直接读 storage，并显示扩展 ID / manifest.key 状态 */
+  _openBackupPage() {
+    chrome.tabs.create({ url: chrome.runtime.getURL('modules/sync/backup.html') });
   }
 
   _timestamp() {

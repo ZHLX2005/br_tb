@@ -1,0 +1,241 @@
+/* ── 独立备份页（modules/sync/backup.html）────────────────────
+   不依赖 tabboard 的通用样式，自成一套 .bp- 前缀。
+   深浅色跟随系统，避免嵌在看板里颜色打架。 */
+
+:root {
+  --bp-bg: #f5f6f8;
+  --bp-card: #ffffff;
+  --bp-fg: #1a1a1a;
+  --bp-muted: #6b7280;
+  --bp-border: #e4e6eb;
+  --bp-code-bg: #f0f1f4;
+  --bp-accent: #2563eb;
+  --bp-danger: #d93025;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bp-bg: #14161a;
+    --bp-card: #1b1e23;
+    --bp-fg: #e8eaed;
+    --bp-muted: #9aa0a6;
+    --bp-border: #2c2f36;
+    --bp-code-bg: #23262c;
+    --bp-accent: #7aa2f7;
+    --bp-danger: #f28b82;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bp-bg);
+  color: var(--bp-fg);
+  font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.bp {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 28px 16px 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.bp-header h1 {
+  margin: 0 0 6px;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.bp-sub {
+  margin: 0;
+  color: var(--bp-muted);
+  font-size: 13px;
+}
+
+.bp-card {
+  background: var(--bp-card);
+  border: 1px solid var(--bp-border);
+  border-radius: 10px;
+  padding: 16px 18px;
+}
+
+.bp-card h2 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.bp-card-danger h2 { color: var(--bp-danger); }
+
+.bp-hint {
+  margin: 8px 0 0;
+  color: var(--bp-muted);
+  font-size: 12px;
+}
+
+.bp-hint b { color: var(--bp-fg); }
+
+code {
+  background: var(--bp-code-bg);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12px;
+}
+
+/* ── 元信息 ── */
+.bp-meta { display: flex; flex-direction: column; gap: 6px; }
+
+.bp-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.bp-row > span {
+  flex: 0 0 96px;
+  color: var(--bp-muted);
+  font-size: 12px;
+}
+
+.bp-row > code { word-break: break-all; }
+
+.bp-warn { color: var(--bp-danger); font-weight: 600; }
+.bp-ok { color: #1a9e5c; font-weight: 600; }
+
+/* ── 统计 ── */
+.bp-stats { display: flex; flex-direction: column; gap: 4px; }
+
+.bp-stat-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 13px;
+  padding: 3px 0;
+  border-bottom: 1px dashed var(--bp-border);
+}
+
+.bp-stat-row:last-child { border-bottom: none; }
+
+.bp-stat-key {
+  flex: 1 1 auto;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12.5px;
+  word-break: break-all;
+}
+
+.bp-stat-meta {
+  flex: 0 0 auto;
+  color: var(--bp-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 按钮 ── */
+.bp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.bp-btn {
+  appearance: none;
+  border: 1px solid var(--bp-border);
+  background: transparent;
+  color: var(--bp-fg);
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.bp-btn:hover { background: var(--bp-code-bg); }
+
+.bp-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.bp-btn-primary {
+  background: var(--bp-fg);
+  color: var(--bp-card);
+  border-color: var(--bp-fg);
+}
+
+.bp-btn-primary:hover { opacity: 0.88; background: var(--bp-fg); }
+
+.bp-btn-danger {
+  background: var(--bp-danger);
+  border-color: var(--bp-danger);
+  color: #fff;
+}
+
+.bp-btn-danger:hover { opacity: 0.9; background: var(--bp-danger); }
+
+.bp-btn-ghost { color: var(--bp-muted); }
+
+/* ── 预览 ── */
+.bp-preview {
+  margin: 10px 0 0;
+  max-height: 320px;
+  overflow: auto;
+  background: var(--bp-code-bg);
+  border: 1px solid var(--bp-border);
+  border-radius: 8px;
+  padding: 12px;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre;
+}
+
+/* ── 导入 ── */
+.bp-file {
+  font-size: 13px;
+  color: var(--bp-muted);
+  max-width: 100%;
+}
+
+.bp-import-info {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--bp-border);
+  border-radius: 8px;
+  background: var(--bp-code-bg);
+  font-size: 12.5px;
+}
+
+.bp-import-info .bp-import-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--bp-fg);
+}
+
+.bp-import-info ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--bp-muted);
+}
+
+.bp-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  font-size: 12.5px;
+  color: var(--bp-muted);
+  cursor: pointer;
+}
+
+.bp-check input { accent-color: var(--bp-accent); }
